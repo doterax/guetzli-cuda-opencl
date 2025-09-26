@@ -29,6 +29,7 @@
 #include "guetzli/processor.h"
 #include "guetzli/quality.h"
 #include "guetzli/stats.h"
+#include "guetzli/version.h"
 #include "clguetzli/clguetzli.h"
 #ifdef __USE_GPERFTOOLS__
 #include <google/profiler.h>
@@ -36,12 +37,11 @@
 
 namespace {
 
-    constexpr char* version = "v2.1.7";
 
     constexpr int kDefaultJPEGQuality = 95;
 
     // An upper estimate of memory usage of Guetzli. The bound is
-    // max(kLowerMemusaeMB * 1<<20, pixel_count * kBytesPerPixel)
+    // max(kLowestMemusageMB * 1<<20, pixel_count * kBytesPerPixel)
     constexpr int kBytesPerPixel = 110;
     constexpr int kLowestMemusageMB = 100; // in MB
 
@@ -55,7 +55,7 @@ namespace {
     enum ProcessResult {
         NotSupported,
         ProcessFailed,
-        Sucess,
+        Success,
     };
 
     class IImageProcessor
@@ -220,7 +220,7 @@ namespace {
                     fprintf(stderr, "Guetzli processing failed\n");
                     return ProcessFailed;
                 }
-                return Sucess;
+                return Success;
             }
             return NotSupported;
         }
@@ -416,7 +416,7 @@ namespace {
                     return ProcessFailed;
                 }
 
-                return Sucess;
+                return Success;
 
             }
             return NotSupported;
@@ -457,7 +457,7 @@ namespace {
                 return ProcessFailed;
             }
 
-            return Sucess;
+            return Success;
         }
     };
 
@@ -475,9 +475,8 @@ std::string ReadFileOrDie(const char* filename) {
   off_t buffer_size = 8192;
 
   if (fseek(f, 0, SEEK_END) == 0) {
-//    buffer_size = std::max<off_t>(ftell(f), 1);
-	  long size = ftell(f);
-	  buffer_size = size > 0 ? size : 1;
+    long size = ftell(f);
+    buffer_size = size > 0 ? size : 1;
     if (fseek(f, 0, SEEK_SET) != 0) {
       perror("fseek");
       exit(1);
@@ -527,27 +526,36 @@ void TerminateHandler() {
 
 void Usage() {
   fprintf(stderr,
-      "Guetzli JPEG compressor (%s). Usage: \n"
-      "guetzli [flags] input_filename output_filename\n"
+      "Guetzli JPEG compressor (%s) - CUDA/OpenCL Optimized\n"
+      "Repository: https://github.com/doterax/guetzli-cuda-opencl\n"
+      "Maintainer: https://github.com/doterax\n"
+      "\n"
+      "Usage: guetzli [flags] input_filename output_filename\n"
       "\n"
       "Flags:\n"
-      "  --verbose         - Print a verbose trace of all attempts to standard output.\n"
-      "  --quality Q       - Visual quality to aim for, expressed as a JPEG quality value.\n"
-      "                      Default value is %d.\n"
+      "  --verbose         - Print a verbose trace of all attempts to standard output\n"
+      "  --quality Q       - Visual quality to aim for, expressed as a JPEG quality value\n"
+      "                      Default value is %d\n"
       "  --memlimit M      - Memory limit in MB. Guetzli will fail if unable to stay under\n"
-      "                      the limit. Default limit is %d MB.\n"
+      "                      the limit. Default limit is %d MB\n"
 #ifdef __USE_OPENCL__
-	  "  --opencl          - Use OpenCL\n"
-      "  --checkcl         - Check OpenCL result\n"
+      "  --opencl          - Use OpenCL acceleration\n"
+      "  --checkcl         - Check OpenCL result accuracy\n"
 #endif
-	  "  --c               - Use c opt version\n"
+      "  --c               - Use optimized CPU implementation\n"
 #ifdef __USE_CUDA__
-	  "  --cuda            - Use CUDA\n"	 
-      "  --checkcuda       - Check CUDA result\n"
+      "  --cuda            - Use CUDA acceleration\n"
+      "  --checkcuda       - Check CUDA result accuracy\n"
 #endif
-      "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt) (enabled from start)\n"
-      "  --blend-on-white  - blend pixels with transparency on white.\n"
-      "  --nomemlimit      - Do not limit memory usage.\n", version, kDefaultJPEGQuality, kDefaultMemlimitMB);
+      "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt) (enabled by default)\n"
+      "  --blend-on-white  - Blend pixels with transparency on white background\n"
+      "  --nomemlimit      - Do not limit memory usage\n"
+      "\n"
+      "Support this project:\n"
+      "  If you find this tool useful, please consider supporting the development\n"
+      "  by buying me a coffee: https://www.buymeacoffee.com/doterax\n"
+      "  Your support helps maintain and improve this project!\n", 
+      guetzli::kVersion, kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
 }
 
@@ -564,7 +572,7 @@ void autoDetectBestMode() {
             return;
         }
         else {
-            fprintf(stdout, "    CUDA is not supporded.\n");
+            fprintf(stdout, "    CUDA is not supported.\n");
         }
     }
     __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
@@ -580,7 +588,7 @@ void autoDetectBestMode() {
             return;
         }
         else {
-            fprintf(stdout, "    OpenCL is not supporded.\n");
+            fprintf(stdout, "    OpenCL is not supported.\n");
         }
     }
     __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
@@ -680,7 +688,7 @@ int main(int argc, char** argv) {
       const ProcessResult result = processor->Process(in_data, &out_data);
       if (result != ProcessResult::NotSupported)
       {
-          processed = result == ProcessResult::Sucess;
+          processed = result == ProcessResult::Success;
           break;
       }
   }

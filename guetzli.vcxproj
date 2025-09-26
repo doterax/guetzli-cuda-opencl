@@ -266,6 +266,7 @@
     <ClInclude Include="guetzli\quantize.h" />
     <ClInclude Include="guetzli\score.h" />
     <ClInclude Include="guetzli\stats.h" />
+    <ClInclude Include="guetzli\version.h" />
     <ClInclude Include="third_party\butteraugli\butteraugli\butteraugli.h" />
   </ItemGroup>
   <ItemGroup>

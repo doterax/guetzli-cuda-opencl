@@ -123,6 +123,7 @@
     <ClInclude Include="clguetzli\cumem_pool.h">
       <Filter>clguetzli</Filter>
     </ClInclude>
+    <ClInclude Include="guetzli\version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="guetzli\butteraugli_comparator.cc">
