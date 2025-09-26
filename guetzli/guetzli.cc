@@ -36,7 +36,7 @@
 
 namespace {
 
-    constexpr char* version = "v2.1.6";
+    constexpr char* version = "v2.1.7";
 
     constexpr int kDefaultJPEGQuality = 95;
 
