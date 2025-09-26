@@ -18,8 +18,14 @@ bool supportsCuda()
 
     CUdevice dev = 0;
     CUcontext ctxt;
+    CUctxCreateParams params;
 
-    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
+    params.cigParams = NULL;
+    params.execAffinityParams = NULL;
+    params.numExecAffinityParams = 0;
+
+    err = cuCtxCreate(&ctxt, &params, CU_CTX_SCHED_AUTO, dev);
+
     if (err != CUDA_SUCCESS)
         return false;
 
@@ -77,8 +83,13 @@ ocu_args_d_t& getOcu(void)
     CUdevice dev = 0;
     CUcontext ctxt;
     CUstream  stream;
+    CUctxCreateParams params;
 
-    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
+    params.cigParams = NULL;
+    params.execAffinityParams = NULL;
+    params.numExecAffinityParams = 0;
+
+    err = cuCtxCreate(&ctxt, &params, CU_CTX_SCHED_AUTO, dev);
     LOG_CU_RESULT(err);
 
     char name[1024];

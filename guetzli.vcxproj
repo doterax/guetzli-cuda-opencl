@@ -74,6 +74,7 @@
     <IntDir>obj\x86_64\Release\guetzli\</IntDir>
     <TargetName>guetzli</TargetName>
     <TargetExt>.exe</TargetExt>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -90,7 +91,7 @@
     <IntDir>obj\x86_64\Debug\guetzli\</IntDir>
     <TargetName>guetzli</TargetName>
     <TargetExt>.exe</TargetExt>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);c:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4\lib\x64\</LibraryPath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
