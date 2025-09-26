@@ -545,7 +545,7 @@ void Usage() {
 	  "  --cuda            - Use CUDA\n"	 
       "  --checkcuda       - Check CUDA result\n"
 #endif
-      "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt)\n"
+      "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt) (enabled from start)\n"
       "  --blend-on-white  - blend pixels with transparency on white.\n"
       "  --nomemlimit      - Do not limit memory usage.\n", version, kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);

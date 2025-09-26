@@ -12,7 +12,7 @@
 #include <vector>
 #include "cl.hpp"
 
-extern MATH_MODE g_mathMode = MODE_CPU;
+extern MATH_MODE g_mathMode = MODE_AUTO;
 
 #ifdef __USE_OPENCL__
 
