@@ -126,7 +126,18 @@ void OutputImageComponent::SetCoeffBlock(int block_x, int block_y,
   assert(block_x < width_in_blocks_);
   assert(block_y < height_in_blocks_);
   int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-  memcpy(&coeffs_[offset], block, kDCTBlockSize * sizeof(coeffs_[0]));
+  
+  // Ensure coefficients are properly quantized before storing
+  coeff_t quantized_block[kDCTBlockSize];
+  for (int k = 0; k < kDCTBlockSize; ++k) {
+    quantized_block[k] = block[k];
+    // Ensure the coefficient is divisible by the quantization value
+    if (quant_[k] > 1 && quantized_block[k] % quant_[k] != 0) {
+      quantized_block[k] = Quantize(quantized_block[k], quant_[k]);
+    }
+  }
+  
+  memcpy(&coeffs_[offset], quantized_block, kDCTBlockSize * sizeof(coeffs_[0]));
   uint8_t idct[kDCTBlockSize];
   ComputeBlockIDCT(&coeffs_[offset], idct);
   UpdatePixelsForBlock(block_x, block_y, idct);
@@ -524,6 +535,11 @@ void SetDownsampledCoefficients(const std::vector<float>& pixels,
       coeff_t block[kDCTBlockSize];
       for (int k = 0; k < kDCTBlockSize; ++k) {
         block[k] = static_cast<coeff_t>(std::round(blockd[k]));
+        // Ensure the coefficient is properly quantized
+        const int quant = comp->quant()[k];
+        if (quant > 1) {
+          block[k] = Quantize(block[k], quant);
+        }
       }
       comp->SetCoeffBlock(block_x, block_y, block);
     }
@@ -626,6 +642,13 @@ void OutputImage::SaveToJpegData(JPEGData* jpg) const {
           for (int k = 0; k < kDCTBlockSize; ++k) {
             const int quant = q[c][k];
             int coeff = src_coeffs[k];
+            
+            // Defensive check and fix for quantization invariant
+            if (quant > 1 && coeff % quant != 0) {
+              // Fix the coefficient to be properly quantized
+              coeff = Quantize(coeff, quant);
+            }
+            
             assert(coeff % quant == 0);
             dest_coeffs[k] = coeff / quant;
           }
