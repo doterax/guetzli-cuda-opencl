@@ -45,6 +45,7 @@ enum KernelName {
 // Macros for OpenCL versions
 #define OPENCL_VERSION_1_2  1.2f
 #define OPENCL_VERSION_2_0  2.0f
+#define OPENCL_VERSION_3_0  3.0f
 
 #define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e)));}
 
@@ -52,11 +53,11 @@ struct ocl_args_d_t;
 
 const char* TranslateOpenCLError(cl_int errorCode);
 
-int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType);
+int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType, const char* preferredPlatform);
 
 bool supportsOpenCl();
 
-ocl_args_d_t& getOcl(void);
+ocl_args_d_t& getOcl();
 
 struct ocl_args_d_t
 {

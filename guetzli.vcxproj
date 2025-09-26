@@ -305,7 +305,8 @@
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </Command>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </CustomBuild>
     <CustomBuild Include="clguetzli\clguetzli.cu">
       <FileType>Document</FileType>
@@ -325,7 +326,7 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CUDA Code Builder</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">clguetzli\clguetzli.cu.ptx32</Outputs>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>

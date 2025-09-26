@@ -2636,7 +2636,7 @@ __device__ void IDCTToPixel16x16(const uchar idct[8 * 8], ushort pixels_out[16 *
 }
 
 // out = [YUVYUV....YUVYUV]
-__device__ void PixelToYUV(ushort pixels_[8 * 8], uchar out[8 * 8], int xsize/* = 8*/, int ysize/* = 8*/)
+__device__ void PixelToYUV(ushort pixels_[8 * 8], __private uchar out[8 * 8], int xsize/* = 8*/, int ysize/* = 8*/)
 {
     const int stride = 3;
 
@@ -3208,7 +3208,7 @@ __device__ void BlockToImage(__private const coeff_t block[8*8*3], float r[8*8],
     }
 }
 
-__device__ void CoeffToYUV16x16(__private const coeff_t block[8 * 8], uchar *yuv, __global const ushort *pixel_orig, int block_x, int block_y, int width_, int height_)
+__device__ void CoeffToYUV16x16(__private const coeff_t block[8 * 8], __private uchar *yuv, __global const ushort *pixel_orig, int block_x, int block_y, int width_, int height_)
 {
     uchar idct[8 * 8];
     CoeffToIDCT(&block[0], &idct[0]);
@@ -3219,17 +3219,7 @@ __device__ void CoeffToYUV16x16(__private const coeff_t block[8 * 8], uchar *yuv
     PixelToYUV(pixels, yuv, 16, 16);
 }
 
-__device__ void CoeffToYUV16x16_g(__global const coeff_t block[8 * 8], uchar *yuv, __global const ushort *pixel_orig, int block_x, int block_y, int width_, int height_)
-{
-    coeff_t b[8 * 8];
-    for (int i = 0; i < 8 * 8; i++)
-    {
-        b[i] = block[i];
-    }
-    CoeffToYUV16x16(b, yuv, pixel_orig, block_x, block_y, width_, height_);
-}
-
-__device__ void CoeffToYUV8x8(__private const coeff_t block[8 * 8], uchar *yuv)
+__device__ void CoeffToYUV8x8(__private const coeff_t block[8 * 8], __private uchar *yuv)
 {
     uchar idct[8 * 8];
     CoeffToIDCT(&block[0], &idct[0]);
@@ -3240,7 +3230,17 @@ __device__ void CoeffToYUV8x8(__private const coeff_t block[8 * 8], uchar *yuv)
     PixelToYUV(pixels, yuv, 8, 8);
 }
 
-__device__ void CoeffToYUV8x8_g(__global const coeff_t block[8 * 8], uchar *yuv)
+__device__ void CoeffToYUV16x16_g(__global const coeff_t block[8 * 8], __private uchar *yuv, __global const ushort *pixel_orig, int block_x, int block_y, int width_, int height_)
+{
+    coeff_t b[8 * 8];
+    for (int i = 0; i < 8 * 8; i++)
+    {
+        b[i] = block[i];
+    }
+    CoeffToYUV16x16(b, yuv, pixel_orig, block_x, block_y, width_, height_);
+}
+
+__device__ void CoeffToYUV8x8_g(__global const coeff_t block[8 * 8], __private uchar *yuv)
 {
     coeff_t b[8 * 8];
     for (int i = 0; i < 8 * 8; i++)
@@ -3251,7 +3251,7 @@ __device__ void CoeffToYUV8x8_g(__global const coeff_t block[8 * 8], uchar *yuv)
     CoeffToYUV8x8(b, yuv);
 }
 
-__device__ void Copy8x8To16x16(const uchar yuv8x8[3 * 8 * 8], uchar yuv16x16[3 * 16 * 16], int off_x, int off_y)
+__device__ void Copy8x8To16x16(const uchar yuv8x8[3 * 8 * 8], __private uchar yuv16x16[3 * 16 * 16], int off_x, int off_y)
 {
     for (int y = 0; y < 8; y++)
     {
@@ -3264,7 +3264,7 @@ __device__ void Copy8x8To16x16(const uchar yuv8x8[3 * 8 * 8], uchar yuv16x16[3 *
     }
 }
 
-__device__ void Copy16x16To8x8(const uchar yuv16x16[3 * 16 * 16], uchar yuv8x8[3 * 8 * 8], int off_x, int off_y)
+__device__ void Copy16x16To8x8(const uchar yuv16x16[3 * 16 * 16], __private uchar yuv8x8[3 * 8 * 8], int off_x, int off_y)
 {
     for (int y = 0; y < 8; y++)
     {

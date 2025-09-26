@@ -9,11 +9,12 @@
 #include <string.h>
 #include <vector>
 #include "clguetzli/clguetzli_cl_src.h"
+#include <stdexcept>
 
 
 #ifdef __USE_OPENCL__
 
-ocl_args_d_t& getOcl(void)
+ocl_args_d_t& getOcl()
 {
     static bool bInit = false;
     static ocl_args_d_t ocl;
@@ -21,16 +22,13 @@ ocl_args_d_t& getOcl(void)
     if (bInit == true) return ocl;
 
     bInit = true;
-    cl_int err = SetupOpenCL(&ocl, CL_DEVICE_TYPE_GPU);
+    cl_int err = SetupOpenCL(&ocl, CL_DEVICE_TYPE_GPU, nullptr);
     LOG_CL_RESULT(err);
 
 	const char* source = (char*)clguetzli_cl_src;
     size_t src_size = sizeof(clguetzli_cl_src);
-    // ReadSourceFromFile("clguetzli/clguetzli.cl", &source, &src_size);
 
     ocl.program = clCreateProgramWithSource(ocl.context, 1, (const char**)&source, &src_size, &err);
-
-    // delete[] source;
 
     err = clBuildProgram(ocl.program, 1, &ocl.device, "", NULL, NULL);
     LOG_CL_RESULT(err);
@@ -43,6 +41,7 @@ ocl_args_d_t& getOcl(void)
         clGetProgramBuildInfo(ocl.program, ocl.device, CL_PROGRAM_BUILD_LOG, log_size, &build_log[0], NULL);
 
         LogError("Error happened during the build of OpenCL program.\nBuild log:%s", &build_log[0]);
+		throw std::runtime_error("Failed to build of OpenCL program ");
     }
 
     ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
@@ -333,6 +332,23 @@ cl_platform_id FindOpenCLPlatform(const char* preferredPlatform, cl_device_type 
 		return NULL;
 	}
 
+	for (cl_uint i = 0; i < numPlatforms; i++)
+	{
+		size_t nameLen = 0;
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &nameLen);
+
+		std::vector<char> platformName(nameLen + 1);
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
+		platformName[nameLen] = 0;
+
+		size_t stringLength = 0;
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_VERSION, 0, NULL, &stringLength);
+		std::vector<char> platformVersion(stringLength);
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_VERSION, stringLength, &platformVersion[0], &stringLength);
+
+		LogError("Platform #%d: '%s' ver '%s' is GPU=%d\n", i, platformName.data(), platformVersion.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
+	}
+
 	// Check if one of the available platform matches the preferred requirements
 	for (cl_uint i = 0; i < numPlatforms; i++)
 	{
@@ -376,7 +392,7 @@ cl_platform_id FindOpenCLPlatform(const char* preferredPlatform, cl_device_type 
 			if (0 != numDevices)
 			{
 				// There is at list one device that answer the requirements
-				LogError("SelectDevice: %s GPU=%d\n", platformName.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
+				LogError("SelectDevice: '%s' GPU=%d\n", platformName.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
 				return platforms[i];
 			}
 		}
@@ -485,6 +501,11 @@ int GetPlatformAndDeviceVersion(cl_platform_id platformId, ocl_args_d_t *ocl)
 		ocl->platformVersion = OPENCL_VERSION_2_0;
 	}
 
+	if (strstr(&platformVersion[0], "OpenCL 3.0") != NULL)
+	{
+		ocl->platformVersion = OPENCL_VERSION_3_0;
+	}
+
 	// Read the device's version string length (param_value is NULL).
 	err = clGetDeviceInfo(ocl->device, CL_DEVICE_VERSION, 0, NULL, &stringLength);
 	if (CL_SUCCESS != err)
@@ -508,6 +529,11 @@ int GetPlatformAndDeviceVersion(cl_platform_id platformId, ocl_args_d_t *ocl)
 	if (strstr(&deviceVersion[0], "OpenCL 2.0") != NULL)
 	{
 		ocl->deviceVersion = OPENCL_VERSION_2_0;
+	}
+
+	if (strstr(&deviceVersion[0], "OpenCL 3.0") != NULL)
+	{
+		ocl->deviceVersion = OPENCL_VERSION_3_0;
 	}
 
 	// Read the device's OpenCL C version string length (param_value is NULL).
@@ -552,18 +578,18 @@ int GetPlatformAndDeviceVersion(cl_platform_id platformId, ocl_args_d_t *ocl)
 * Please, consider reviewing the fields before going further.
 * The structure definition is right in the beginning of this file.
 */
-int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType)
+int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType, const char* preferredPlatform)
 {
 	// The following variable stores return codes for all OpenCL calls.
 	cl_int err = CL_SUCCESS;
 
 	// Query for all available OpenCL platforms on the system
 	// Here you enumerate all platforms and pick one which name has preferredPlatform as a sub-string
-	cl_platform_id platformId = FindOpenCLPlatform(nullptr, deviceType);
+	cl_platform_id platformId = FindOpenCLPlatform(preferredPlatform, deviceType);
 	if (NULL == platformId)
 	{
 		deviceType = CL_DEVICE_TYPE_CPU;
-		platformId = FindOpenCLPlatform(nullptr, deviceType);
+		platformId = FindOpenCLPlatform(preferredPlatform, deviceType);
 	}
 
 	if (NULL == platformId)
