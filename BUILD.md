@@ -277,3 +277,4 @@ When modifying the build system:
 ## License
 
 This build system follows the same license as the main Guetzli project.
+

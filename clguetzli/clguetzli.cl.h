@@ -14,7 +14,7 @@
 #if defined(__cplusplus) && !defined(__CUDACC__)
 
 #ifdef __USE_OPENCL__
-#include "CL/cl.h"
+#include "third_party/OpenCL/include/CL/cl.h"
 #endif
 
 #ifdef __USE_CUDA__

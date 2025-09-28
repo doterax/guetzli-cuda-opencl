@@ -8,11 +8,16 @@
 #include "ocl.h"
 #include <string.h>
 #include <vector>
+#include <string>
 #include "clguetzli/clguetzli_cl_src.h"
+#include "clguetzli/clguetzli_cl_amd_src.h"
 #include <stdexcept>
 
 
 #ifdef __USE_OPENCL__
+
+void PrintDeviceCapabilities(cl_platform_id platform, cl_device_id device);
+bool isAMDDevice(cl_device_id device);
 
 ocl_args_d_t& getOcl()
 {
@@ -25,8 +30,23 @@ ocl_args_d_t& getOcl()
     cl_int err = SetupOpenCL(&ocl, CL_DEVICE_TYPE_GPU, nullptr);
     LOG_CL_RESULT(err);
 
-	const char* source = (char*)clguetzli_cl_src;
-    size_t src_size = sizeof(clguetzli_cl_src);
+    // Check if device is AMD and use appropriate source
+    bool useAMDSource = isAMDDevice(ocl.device);
+    const char* source;
+    size_t src_size;
+    
+    if (useAMDSource)
+    {
+        source = (char*)clguetzli_cl_amd_src;
+        src_size = sizeof(clguetzli_cl_amd_src);
+        LogInfo("Using AMD-optimized OpenCL source\n");
+    }
+    else
+    {
+        source = (char*)clguetzli_cl_src;
+        src_size = sizeof(clguetzli_cl_src);
+        LogInfo("Using standard OpenCL source\n");
+    }
 
     ocl.program = clCreateProgramWithSource(ocl.context, 1, (const char**)&source, &src_size, &err);
 
@@ -40,8 +60,34 @@ ocl_args_d_t& getOcl()
         std::vector<char> build_log(log_size);
         clGetProgramBuildInfo(ocl.program, ocl.device, CL_PROGRAM_BUILD_LOG, log_size, &build_log[0], NULL);
 
-        LogError("Error happened during the build of OpenCL program.\nBuild log:%s", &build_log[0]);
-		throw std::runtime_error("Failed to build of OpenCL program ");
+        // Print detailed device information when compilation fails
+        LogError("=== OpenCL Program Build Failure ===\n");
+        LogError("Error: getOcl:34 returned CL_BUILD_PROGRAM_FAILURE.\n");
+        LogError("Error happened during the build of OpenCL program.\n");
+        LogError("Build log:\n%s\n", &build_log[0]);
+        
+        // Print device capabilities for debugging
+        cl_platform_id platform = NULL;
+        clGetContextInfo(ocl.context, CL_CONTEXT_PLATFORM, sizeof(platform), &platform, NULL);
+        if (platform != NULL)
+        {
+            PrintDeviceCapabilities(platform, ocl.device);
+        }
+        
+        // Additional debugging information
+        cl_bool compilerAvailable = CL_FALSE;
+        clGetDeviceInfo(ocl.device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+        
+        cl_bool linkerAvailable = CL_FALSE;
+        clGetDeviceInfo(ocl.device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+        
+        LogError("=== Compilation Environment ===\n");
+        LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+        LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+        LogError("Source Size: %zu bytes\n", src_size);
+        LogError("=====================================\n\n");
+        
+		throw std::runtime_error("Failed to build OpenCL program - see detailed log above");
     }
 
     ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
@@ -297,6 +343,137 @@ bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredP
 }
 
 /*
+* Print detailed device capabilities and information
+*/
+void PrintDeviceCapabilities(cl_platform_id platform, cl_device_id device)
+{
+	cl_int err = CL_SUCCESS;
+	size_t stringLength = 0;
+	
+	// Platform information
+	size_t nameLen = 0;
+	clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
+	std::vector<char> platformName(nameLen + 1);
+	clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
+	platformName[nameLen] = 0;
+
+	clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &stringLength);
+	std::vector<char> platformVersion(stringLength);
+	clGetPlatformInfo(platform, CL_PLATFORM_VERSION, stringLength, &platformVersion[0], NULL);
+
+	clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &stringLength);
+	std::vector<char> platformVendor(stringLength);
+	clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, stringLength, &platformVendor[0], NULL);
+
+	// Device information
+	clGetDeviceInfo(device, CL_DEVICE_NAME, 0, NULL, &stringLength);
+	std::vector<char> deviceName(stringLength);
+	clGetDeviceInfo(device, CL_DEVICE_NAME, stringLength, &deviceName[0], NULL);
+
+	clGetDeviceInfo(device, CL_DEVICE_VENDOR, 0, NULL, &stringLength);
+	std::vector<char> deviceVendor(stringLength);
+	clGetDeviceInfo(device, CL_DEVICE_VENDOR, stringLength, &deviceVendor[0], NULL);
+
+	clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &stringLength);
+	std::vector<char> deviceVersion(stringLength);
+	clGetDeviceInfo(device, CL_DEVICE_VERSION, stringLength, &deviceVersion[0], NULL);
+
+	clGetDeviceInfo(device, CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &stringLength);
+	std::vector<char> deviceOpenCLCVersion(stringLength);
+	clGetDeviceInfo(device, CL_DEVICE_OPENCL_C_VERSION, stringLength, &deviceOpenCLCVersion[0], NULL);
+
+	clGetDeviceInfo(device, CL_DRIVER_VERSION, 0, NULL, &stringLength);
+	std::vector<char> driverVersion(stringLength);
+	clGetDeviceInfo(device, CL_DRIVER_VERSION, stringLength, &driverVersion[0], NULL);
+
+	// Device capabilities
+	cl_ulong globalMemSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(globalMemSize), &globalMemSize, NULL);
+
+	cl_ulong localMemSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(localMemSize), &localMemSize, NULL);
+
+	cl_ulong maxMemAllocSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxMemAllocSize), &maxMemAllocSize, NULL);
+
+	cl_uint maxComputeUnits = 0;
+	clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
+
+	cl_uint maxWorkGroupSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+
+	size_t maxWorkItemSizes[3] = {0};
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+
+	cl_bool compilerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+
+	cl_bool linkerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+
+	cl_device_fp_config fpConfig = 0;
+	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+
+	cl_device_exec_capabilities execCapabilities = 0;
+	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+
+	// Print comprehensive device report
+	LogError("=== OpenCL Device Capabilities Report ===\n");
+	LogError("Platform: %s\n", platformName.data());
+	LogError("Platform Version: %s\n", platformVersion.data());
+	LogError("Platform Vendor: %s\n", platformVendor.data());
+	LogError("Device: %s\n", deviceName.data());
+	LogError("Device Vendor: %s\n", deviceVendor.data());
+	LogError("Device Version: %s\n", deviceVersion.data());
+	LogError("OpenCL C Version: %s\n", deviceOpenCLCVersion.data());
+	LogError("Driver Version: %s\n", driverVersion.data());
+	LogError("\n=== Memory Information ===\n");
+	LogError("Global Memory Size: %llu MB\n", globalMemSize / (1024 * 1024));
+	LogError("Local Memory Size: %llu KB\n", localMemSize / 1024);
+	LogError("Max Memory Allocation: %llu MB\n", maxMemAllocSize / (1024 * 1024));
+	LogError("\n=== Compute Capabilities ===\n");
+	LogError("Max Compute Units: %u\n", maxComputeUnits);
+	LogError("Max Work Group Size: %u\n", maxWorkGroupSize);
+	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
+	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+	LogError("Double Precision Support: %s\n", (fpConfig & CL_FP_FMA) ? "Yes" : "No");
+	LogError("Execution Capabilities: %s%s%s\n", 
+		(execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+		(execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "",
+		"");
+	LogError("==========================================\n\n");
+}
+
+/*
+* Check if the device is an AMD device
+*/
+bool isAMDDevice(cl_device_id device)
+{
+	cl_int err = CL_SUCCESS;
+	size_t stringLength = 0;
+	
+	// Get device vendor
+	err = clGetDeviceInfo(device, CL_DEVICE_VENDOR, 0, NULL, &stringLength);
+	if (CL_SUCCESS != err)
+	{
+		return false;
+	}
+	
+	std::vector<char> deviceVendor(stringLength);
+	err = clGetDeviceInfo(device, CL_DEVICE_VENDOR, stringLength, &deviceVendor[0], NULL);
+	if (CL_SUCCESS != err)
+	{
+		return false;
+	}
+	
+	// Check if vendor contains "AMD" or "Advanced Micro Devices"
+	std::string vendorStr(deviceVendor.begin(), deviceVendor.end());
+	return (vendorStr.find("AMD") != std::string::npos || 
+			vendorStr.find("Advanced Micro Devices") != std::string::npos);
+}
+
+/*
 * Find and return the preferred OpenCL platform
 * In case that preferredPlatform is NULL, the ID of the first discovered platform will be returned
 */
@@ -391,6 +568,14 @@ cl_platform_id FindOpenCLPlatform(const char* preferredPlatform, cl_device_type 
 
 			if (0 != numDevices)
 			{
+				// Get the first device and print its capabilities
+				std::vector<cl_device_id> devices(numDevices);
+				err = clGetDeviceIDs(platforms[i], deviceType, numDevices, &devices[0], NULL);
+				if (CL_SUCCESS == err && numDevices > 0)
+				{
+					PrintDeviceCapabilities(platforms[i], devices[0]);
+				}
+
 				// There is at list one device that answer the requirements
 				LogError("SelectDevice: '%s' GPU=%d\n", platformName.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
 				return platforms[i];

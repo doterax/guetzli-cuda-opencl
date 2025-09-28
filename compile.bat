@@ -16,3 +16,4 @@ nvcc -Xcompiler "/wd 4819" -I"./" -use_fast_math -ftz=true -prec-div=false -prec
 
 python format_header.py clguetzli/clguetzli.cu.ptx%machine_num% clguetzli/clguetzli_cu_ptx.h clguetzli_cu%machine_num%
 python format_header.py clguetzli/clguetzli.cl clguetzli/clguetzli_cl_src.h clguetzli_cl_src
+python format_header.py clguetzli/clguetzli_amd.cl clguetzli/clguetzli_cl_amd_src.h clguetzli_cl_amd_src
