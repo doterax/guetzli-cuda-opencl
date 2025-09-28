@@ -148,7 +148,8 @@ ocu_args_d_t& getOcu(void)
 	cuModuleGetFunction(&ocu.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB], mod, "clColorTransformYCbCrToRGB");
 
     cuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_SHARED);
-    cuCtxSetSharedMemConfig(CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE);
+    // cuCtxSetSharedMemConfig is deprecated and no longer needed on modern GPUs
+    // as they have a fixed shared memory bank size
 
     cuStreamCreate(&stream, 0);
 

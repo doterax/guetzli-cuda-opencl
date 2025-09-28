@@ -810,25 +810,12 @@ int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType, const char* prefer
 	// OpenCL kernels are enqueued for execution to a particular device through special objects called command queues.
 	// Command queue guarantees some ordering between calls and other OpenCL commands.
 	// Here you create a simple in-order OpenCL command queue that doesn't allow execution of two kernels in parallel on a target device.
-#ifdef CL_VERSION_2_0
-	if (OPENCL_VERSION_2_0 == ocl->deviceVersion)
-	{
-		const cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
-		ocl->commandQueue = clCreateCommandQueueWithProperties(ocl->context, ocl->device, properties, &err);
-	}
-	else {
-		// default behavior: OpenCL 1.2
-		cl_command_queue_properties properties = CL_QUEUE_PROFILING_ENABLE;
-		ocl->commandQueue = clCreateCommandQueue(ocl->context, ocl->device, properties, &err);
-	}
-#else
-	// default behavior: OpenCL 1.2
-	cl_command_queue_properties properties = CL_QUEUE_PROFILING_ENABLE;
-	ocl->commandQueue = clCreateCommandQueue(ocl->context, ocl->device, properties, &err);
-#endif
+	// Use clCreateCommandQueueWithProperties for all OpenCL versions to avoid deprecation warnings
+	const cl_queue_properties properties[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
+	ocl->commandQueue = clCreateCommandQueueWithProperties(ocl->context, ocl->device, properties, &err);
 	if (CL_SUCCESS != err)
 	{
-		LogError("Error: clCreateCommandQueue() returned %s.\n", TranslateOpenCLError(err));
+		LogError("Error: clCreateCommandQueueWithProperties() returned %s.\n", TranslateOpenCLError(err));
 		return err;
 	}
 
