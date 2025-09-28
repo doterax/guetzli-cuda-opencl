@@ -40,7 +40,7 @@ enum KernelName {
 
 #ifdef __USE_OPENCL__
 
-#include "CL/cl.h"
+#include "third_party/OpenCL/include/CL/cl.h"
 
 // Macros for OpenCL versions
 #define OPENCL_VERSION_1_2  1.2f

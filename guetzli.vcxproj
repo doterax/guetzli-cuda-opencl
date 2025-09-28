@@ -74,7 +74,8 @@
     <IntDir>obj\x86_64\Release\guetzli\</IntDir>
     <TargetName>guetzli</TargetName>
     <TargetExt>.exe</TargetExt>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\</LibraryPath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\;.\third_party\OpenCL\lib\</LibraryPath>
+    <ExternalIncludePath>.\third_party\OpenCL\include\;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -91,7 +92,8 @@
     <IntDir>obj\x86_64\Debug\guetzli\</IntDir>
     <TargetName>guetzli</TargetName>
     <TargetExt>.exe</TargetExt>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\</LibraryPath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(VC_LibThirdParty_x64);$(CUDA_PATH)\lib\x64\;.\third_party\OpenCL\lib\</LibraryPath>
+    <ExternalIncludePath>.\third_party\OpenCL\include\;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -112,7 +114,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.;third_party\butteraugli;$(OPENCL_SDK_PATH)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;third_party\butteraugli;$(CUDA_PATH)\include;.\third_party\OpenCL\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -126,9 +128,9 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies);cuda.lib;opencl.lib</AdditionalDependencies>
+      <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies);cuda.lib;third_party\OpenCL\lib\OpenCL.lib</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
-      <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;third_party\libjpeg\x64;$(OPENCL_SDK_PATH)\lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;third_party\libjpeg\x64;.\third_party\OpenCL\lib\</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <DelayLoadDLLs>nvcuda.dll;OpenCL.dll</DelayLoadDLLs>
     </Link>
@@ -191,7 +193,7 @@
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>.;third_party\butteraugli;$(OPENCL_SDK_PATH)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;third_party\butteraugli;.\third_party\OpenCL\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions);__USE_CUDA__;__USE_OPENCL__;__SUPPORT_FULL_JPEG__</PreprocessorDefinitions>
@@ -201,7 +203,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>shlwapi.lib;%(AdditionalDependencies);cuda.lib;OpenCL.lib</AdditionalDependencies>
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
-      <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;third_party\libjpeg\x64;$(OPENCL_SDK_PATH)\lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;third_party\libjpeg\x64;.\third_party\OpenCL\lib\</AdditionalLibraryDirectories>
+      <DelayLoadDLLs>nvcuda.dll;OpenCL.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent />
     <PreBuildEvent>
