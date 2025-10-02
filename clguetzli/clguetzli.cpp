@@ -14,6 +14,46 @@
 
 extern MATH_MODE g_mathMode = MODE_AUTO;
 
+// Helper function to calculate optimal workgroup size for AMD GPUs
+void calculateOptimalWorkgroupSize(size_t globalSize[2], size_t localSize[2], bool isAMD) {
+    if (isAMD) {
+        // For AMD GPUs, prefer multiples of 64 (wavefront size)
+        // But ensure the global size is divisible by local size
+        localSize[0] = 64;
+        localSize[1] = 1;
+        
+        // Adjust local size if global size is not divisible
+        if (globalSize[0] % localSize[0] != 0) {
+            // Find the largest divisor of globalSize[0] that is <= 64
+            for (int i = 64; i >= 1; i--) {
+                if (globalSize[0] % i == 0) {
+                    localSize[0] = i;
+                    break;
+                }
+            }
+        }
+        
+        // Handle edge case where globalSize[0] is very small
+        if (globalSize[0] < localSize[0]) {
+            localSize[0] = globalSize[0];
+        }
+        
+        // Ensure we don't exceed maximum workgroup size
+        if (localSize[0] > 256) localSize[0] = 256;
+        if (localSize[1] > 256) localSize[1] = 256;
+        
+        // If we can't find a good divisor, let OpenCL choose
+        if (localSize[0] == 0) {
+            localSize[0] = 0;
+            localSize[1] = 0;
+        }
+    } else {
+        // For non-AMD GPUs, use NULL (let OpenCL choose)
+        localSize[0] = 0;
+        localSize[1] = 0;
+    }
+}
+
 #ifdef __USE_OPENCL__
 
 #ifdef __USE_DOUBLE_AS_FLOAT__
@@ -24,6 +64,7 @@ void clOpsinDynamicsImage(float *r, float *g, float *b, const size_t xsize, cons
 {
     size_t channel_size = xsize * ysize * sizeof(float);
 
+    LogInfo("clOpsinDynamicsImage\n");
     ocl_args_d_t &ocl = getOcl();
     ocl_channels rgb = ocl.allocMemChannels(channel_size, r, g, b);
 
@@ -46,6 +87,7 @@ void clDiffmapOpsinDynamicsImage(
 {
     size_t channel_size = xsize * ysize * sizeof(float);
 
+    LogInfo("clDiffmapOpsinDynamicsImage\n");
     ocl_args_d_t &ocl = getOcl();
     ocl_channels xyb0 = ocl.allocMemChannels(channel_size, r, g, b);
     ocl_channels xyb1 = ocl.allocMemChannels(channel_size, r2, g2, b2);
@@ -82,6 +124,7 @@ void clComputeBlockZeroingOrder(
 
     using namespace guetzli;
 
+    LogInfo("clComputeBlockZeroingOrder\n");
     ocl_args_d_t &ocl = getOcl();
 
     cl_mem mem_orig_coeff[3];
@@ -117,7 +160,19 @@ void clComputeBlockZeroingOrder(
 						&mem_output_order_batch);
 
     size_t globalWorkSize[2] = { blockf_width, blockf_height };
-    cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+    size_t localWorkSize[2];
+    calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+    
+    cl_int err;
+    if (localWorkSize[0] > 0 && localWorkSize[1] > 0) {
+        LogInfo("Launching kernel with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n", 
+                localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
+        err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+    } else {
+        LogInfo("Launching kernel with auto workgroup size, global size: [%zu, %zu]\n", 
+                globalWorkSize[0], globalWorkSize[1]);
+        err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+    }
     LOG_CL_RESULT(err);
     err = clFinish(ocl.commandQueue);
     LOG_CL_RESULT(err);
@@ -144,6 +199,7 @@ void clMask(
     const float* r,  const float* g,  const float* b,
     const float* r2, const float* g2, const float* b2)
 {
+    LogInfo("clMask\n");
     ocl_args_d_t &ocl = getOcl();
 
     size_t channel_size = xsize * ysize * sizeof(float);
@@ -182,6 +238,7 @@ void clDiffmapOpsinDynamicsImageEx(
     size_t channel_size = xsize * ysize * sizeof(float);
     size_t channel_step_size = res_xsize * res_ysize * sizeof(float);
 
+    LogInfo("clDiffmapOpsinDynamicsImageEx\n");
     ocl_args_d_t &ocl = getOcl();
  
     cl_mem edge_detector_map = ocl.allocMem(3 * channel_step_size);
@@ -215,6 +272,7 @@ void clConvolutionEx(
     const cl_mem multipliers, size_t len,
     int xstep, int offset, float border_ratio)
 {
+	LogInfo("clConvolutionEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	size_t oxsize = (xsize + xstep - 1) / xstep;
@@ -223,7 +281,19 @@ void clConvolutionEx(
     clSetKernelArgEx(kernel, &result, &inp, &xsize, &multipliers, &len, &xstep, &offset, &border_ratio);
 
 	size_t globalWorkSize[2] = { oxsize, ysize };
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	size_t localWorkSize[2];
+	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+	
+	cl_int err;
+	if (localWorkSize[0] > 0 && localWorkSize[1] > 0) {
+		LogInfo("Launching clConvolutionEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n", 
+				localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
+		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+	} else {
+		LogInfo("Launching clConvolutionEx with auto workgroup size, global size: [%zu, %zu]\n", 
+				globalWorkSize[0], globalWorkSize[1]);
+		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	}
     LOG_CL_RESULT(err);
 	err = clFinish(ocl.commandQueue);
     LOG_CL_RESULT(err);
@@ -235,6 +305,7 @@ void clConvolutionXEx(
 	const cl_mem multipliers, size_t len,
 	int xstep, int offset, float border_ratio)
 {
+	LogInfo("clConvolutionXEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTIONX];
@@ -242,7 +313,19 @@ void clConvolutionXEx(
 
 	size_t x_count = (xsize + xstep - 1) / xstep;
 	size_t globalWorkSize[2] = { x_count, ysize };
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	size_t localWorkSize[2];
+	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+	
+	cl_int err;
+	if (localWorkSize[0] > 0 && localWorkSize[1] > 0) {
+		LogInfo("Launching clConvolutionXEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n", 
+				localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
+		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+	} else {
+		LogInfo("Launching clConvolutionXEx with auto workgroup size, global size: [%zu, %zu]\n", 
+				globalWorkSize[0], globalWorkSize[1]);
+		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	}
     LOG_CL_RESULT(err);
 	err = clFinish(ocl.commandQueue);
     LOG_CL_RESULT(err);
@@ -254,6 +337,7 @@ void clConvolutionYEx(
 	const cl_mem multipliers, size_t len,
 	int xstep, int offset, float border_ratio)
 {
+	LogInfo("clConvolutionYEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTIONY];
@@ -273,6 +357,7 @@ void clSquareSampleEx(
     const cl_mem image, size_t xsize, size_t ysize,
 	size_t xstep, size_t ystep)
 {
+	LogInfo("clSquareSampleEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_kernel kernel = ocl.kernel[KERNEL_SQUARESAMPLE];
@@ -301,6 +386,7 @@ void clBlurEx(cl_mem image/*out, opt*/, const size_t xsize, const size_t ysize,
 
 	const int xstep = std::max<int>(1, int(sigma / 3));
 
+	LogInfo("clBlurEx\n");
 	ocl_args_d_t &ocl = getOcl();
 	cl_mem mem_expn = ocl.allocMem(sizeof(cl_float) * expn_size, expn.data());
 
@@ -329,6 +415,7 @@ void clOpsinDynamicsImageEx(ocl_channels &rgb, const size_t xsize, const size_t 
 
 	size_t channel_size = xsize * ysize * sizeof(float);
 
+	LogInfo("clOpsinDynamicsImageEx\n");
 	ocl_args_d_t &ocl = getOcl();
 	ocl_channels rgb_blurred = ocl.allocMemChannels(channel_size);
 
@@ -357,6 +444,7 @@ void clMaskHighIntensityChangeEx(
 {
 	size_t channel_size = xsize * ysize * sizeof(float);
 
+	LogInfo("clMaskHighIntensityChangeEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	ocl_channels c0 = ocl.allocMemChannels(channel_size);
@@ -395,6 +483,7 @@ void clEdgeDetectorMapEx(
 {
 	size_t channel_size = xsize * ysize * sizeof(float);
  
+	LogInfo("clEdgeDetectorMapEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	ocl_channels rgb_blured = ocl.allocMemChannels(channel_size);
@@ -434,6 +523,7 @@ void clBlockDiffMapEx(
     const ocl_channels &rgb, const ocl_channels &rgb2,
 	const size_t xsize, const size_t ysize, const size_t step)
 {
+	LogInfo("clBlockDiffMapEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 
@@ -463,6 +553,7 @@ void clEdgeDetectorLowFreqEx(
 	size_t channel_size = xsize * ysize * sizeof(float);
 
 	static const double kSigma = 14;
+	LogInfo("clEdgeDetectorLowFreqEx\n");
 	ocl_args_d_t &ocl = getOcl();
 	ocl_channels rgb_blured = ocl.allocMemChannels(channel_size);
 	ocl_channels rgb2_blured = ocl.allocMemChannels(channel_size);
@@ -498,6 +589,7 @@ void clDiffPrecomputeEx(
     const ocl_channels &xyb0, const ocl_channels &xyb1, 
     const size_t xsize, const size_t ysize)
 {
+	LogInfo("clDiffPrecomputeEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_kernel kernel = ocl.kernel[KERNEL_DIFFPRECOMPUTE];
@@ -515,6 +607,7 @@ void clDiffPrecomputeEx(
 
 void clScaleImageEx(cl_mem img/*in, out*/, size_t size, double w)
 {
+	LogInfo("clScaleImageEx\n");
 	ocl_args_d_t &ocl = getOcl();
     float fw = w;
 
@@ -535,6 +628,7 @@ void clAverage5x5Ex(cl_mem img/*in,out*/, const size_t xsize, const size_t ysize
 	    return;
     }
 
+    LogInfo("clAverage5x5Ex\n");
     ocl_args_d_t &ocl = getOcl();
 
     size_t len = xsize * ysize * sizeof(float);
@@ -559,6 +653,7 @@ void clMinSquareValEx(
     const size_t xsize, const size_t ysize, 
     const size_t square_size, const size_t offset)
 {
+	LogInfo("clMinSquareValEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_mem result = ocl.allocMem(sizeof(cl_float) * xsize * ysize);
@@ -592,6 +687,7 @@ static const double kGlobalScale = 1.0 / kInternalGoodQualityThreshold;
 
 void clDoMask(ocl_channels mask/*in, out*/, ocl_channels mask_dc/*in, out*/, size_t xsize, size_t ysize)
 {
+	LogInfo("clDoMask\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	double extmul = 0.975741017749;
@@ -733,6 +829,7 @@ void clCombineChannelsEx(
 	const size_t res_xsize,
 	const size_t step)
 {
+	LogInfo("clCombineChannelsEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	const size_t work_xsize = ((xsize - 8 + step) + step - 1) / step;
@@ -757,6 +854,7 @@ void clCombineChannelsEx(
 
 void clUpsampleSquareRootEx(cl_mem diffmap, const size_t xsize, const size_t ysize, const int step)
 {
+	LogInfo("clUpsampleSquareRootEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
     cl_mem diffmap_out = ocl.allocMem(xsize * ysize * sizeof(float));
@@ -780,6 +878,7 @@ void clUpsampleSquareRootEx(cl_mem diffmap, const size_t xsize, const size_t ysi
 
 void clRemoveBorderEx(cl_mem out, const cl_mem in, const size_t xsize, const size_t ysize, const int step)
 {
+	LogInfo("clRemoveBorderEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	cl_int cls = 8 - step;
@@ -800,6 +899,7 @@ void clRemoveBorderEx(cl_mem out, const cl_mem in, const size_t xsize, const siz
 
 void clAddBorderEx(cl_mem out, size_t xsize, size_t ysize, int step, cl_mem in)
 {
+	LogInfo("clAddBorderEx\n");
 	ocl_args_d_t &ocl = getOcl();
 
     cl_int cls = 8 - step;
@@ -825,6 +925,7 @@ void clCalculateDiffmapEx(cl_mem diffmap/*in,out*/, const size_t xsize, const si
 	const int s = 8 - step;
 	int s2 = (8 - step) / 2;
 
+	LogInfo("clCalculateDiffmapEx\n");
 	ocl_args_d_t &ocl = getOcl();
 	cl_mem blurred = ocl.allocMem((xsize - s) * (ysize - s) * sizeof(float));
 	clRemoveBorderEx(blurred, diffmap, xsize, ysize, step);
@@ -852,6 +953,7 @@ void clCopyFromJpegComponent(
 {
 	using namespace guetzli;
 
+	LogInfo("clCopyFromJpegComponent\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	int src_block_count = jpeg_block_width * jpeg_block_height;
@@ -898,6 +1000,7 @@ void clApplyGlobalQuantization(
 {
 	using namespace guetzli;
 
+	LogInfo("clApplyGlobalQuantization\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	int dst_coeff_size = block_width * block_height * sizeof(::coeff_t) * kDCTBlockSize;
@@ -943,6 +1046,7 @@ void clComponentsToPixels(
 {
 	using namespace guetzli;
 
+	LogInfo("clComponentsToPixels\n");
 	ocl_args_d_t &ocl = getOcl();
 
 	const int stride = 3;

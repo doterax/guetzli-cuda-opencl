@@ -77,6 +77,7 @@ struct ocl_args_d_t
 	float            platformVersion;   // hold the OpenCL platform version (default 1.2)
 	float            deviceVersion;     // hold the OpenCL device version (default. 1.2)
 	float            compilerVersion;   // hold the device OpenCL C version (default. 1.2)
+	bool             isAmd;
 };
 
 #endif

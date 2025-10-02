@@ -36,6 +36,8 @@ ocl_args_d_t& getOcl()
 	const uchar* sources = NULL;
 	size_t source_size = 0;
     
+	ocl.isAmd = useAMDSource;
+
     // Try to use compressed sources first, fall back to original if not available
     if (useAMDSource)
     {
@@ -121,6 +123,8 @@ ocl_args_d_t& getOcl()
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
 	ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
+
+	LogInfo("OpenCL created\n");
 
     return ocl;
 }
