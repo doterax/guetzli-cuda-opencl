@@ -241,6 +241,7 @@
     <ClInclude Include="clguetzli\clguetzli_test.h" />
     <ClInclude Include="clguetzli\cuguetzli.h" />
     <ClInclude Include="clguetzli\cumem_pool.h" />
+    <ClInclude Include="clguetzli\lzodec.h" />
     <ClInclude Include="clguetzli\ocl.h" />
     <ClInclude Include="clguetzli\ocu.h" />
     <ClInclude Include="clguetzli\utils.h" />
@@ -279,6 +280,7 @@
     <ClCompile Include="clguetzli\clguetzli_test.cpp" />
     <ClCompile Include="clguetzli\cuguetzli.cpp" />
     <ClCompile Include="clguetzli\cumem_pool.cpp" />
+    <ClCompile Include="clguetzli\lzodec.cpp" />
     <ClCompile Include="clguetzli\ocl.cpp" />
     <ClCompile Include="clguetzli\ocu.cpp" />
     <ClCompile Include="clguetzli\utils.cpp" />
@@ -303,6 +305,7 @@
     <ClCompile Include="guetzli\quantize.cc" />
     <ClCompile Include="guetzli\score.cc" />
     <ClCompile Include="third_party\butteraugli\butteraugli\butteraugli.cc" />
+    <ClCompile Include="third_party\minilzo\minilzo.c" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="clguetzli\clguetzli.cl">

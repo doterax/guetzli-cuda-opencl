@@ -31,3 +31,7 @@ performanceTest.bat
 test.bat
 
 tests/output/
+
+clguetzli/clguetzli_amd.cl.lzo
+
+clguetzli/clguetzli.cl.lzo

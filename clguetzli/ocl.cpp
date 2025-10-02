@@ -11,6 +11,7 @@
 #include <string>
 #include "clguetzli/clguetzli_cl_src.h"
 #include "clguetzli/clguetzli_cl_amd_src.h"
+#include "lzodec.h"
 #include <stdexcept>
 
 
@@ -32,21 +33,26 @@ ocl_args_d_t& getOcl()
 
     // Check if device is AMD and use appropriate source
     bool useAMDSource = isAMDDevice(ocl.device);
-    const char* source;
-    size_t src_size;
+	const uchar* sources = NULL;
+	size_t source_size = 0;
     
+    // Try to use compressed sources first, fall back to original if not available
     if (useAMDSource)
     {
-        source = (char*)clguetzli_cl_amd_src;
-        src_size = sizeof(clguetzli_cl_amd_src);
-        LogInfo("Using AMD-optimized OpenCL source\n");
+		LogInfo("Using OpenCL source for AMD\n");
+		sources = clguetzli_cl_amd_src_lzo;
+		source_size = sizeof(clguetzli_cl_amd_src_lzo);
     }
     else
     {
-        source = (char*)clguetzli_cl_src;
-        src_size = sizeof(clguetzli_cl_src);
-        LogInfo("Using standard OpenCL source\n");
+		LogInfo("Using original OpenCL source\n");
+		sources = clguetzli_cl_src_lzo;
+		source_size = sizeof(clguetzli_cl_src_lzo);
     }
+
+	LzoDec decompressed(sources, source_size);
+	const char* source = (char*)decompressed.getData();
+	size_t src_size = decompressed.getSize();
 
     ocl.program = clCreateProgramWithSource(ocl.context, 1, (const char**)&source, &src_size, &err);
 
