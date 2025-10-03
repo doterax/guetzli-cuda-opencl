@@ -17,7 +17,6 @@
 */
 #if defined(__USE_OPENCL__)
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#pragma OPENCL EXTENSION cl_amd_fp64 : enable
 
 // #include  "clguetzli/clguetzli.cl.h"
 /*
