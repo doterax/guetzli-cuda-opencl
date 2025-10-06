@@ -494,6 +494,9 @@ void OutputImage::CopyFromJpegData(const JPEGData& jpg) {
     const JPEGComponent& comp = jpg.components[i];
     assert(jpg.max_h_samp_factor % comp.h_samp_factor == 0);
     assert(jpg.max_v_samp_factor % comp.v_samp_factor == 0);
+    // Ensure h_samp_factor and v_samp_factor are not zero to prevent division by zero
+    assert(comp.h_samp_factor > 0);
+    assert(comp.v_samp_factor > 0);
     int factor_x = jpg.max_h_samp_factor / comp.h_samp_factor;
     int factor_y = jpg.max_v_samp_factor / comp.v_samp_factor;
     assert(comp.quant_idx < jpg.quant.size());

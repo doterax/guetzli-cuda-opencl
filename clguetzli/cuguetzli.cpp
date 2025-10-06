@@ -91,6 +91,12 @@ void cuComputeBlockZeroingOrder(
     const int comp_mask,
     const float BlockErrorLimit)
 {
+    // Validate factor to prevent division by zero
+    if (factor <= 0) {
+        LogInfo("Error: factor is %d, must be > 0. Skipping cuComputeBlockZeroingOrder.\n", factor);
+        return;
+    }
+    
     const int block8_width = (image_width + 8 - 1) / 8;
     const int block8_height = (image_height + 8 - 1) / 8;
     const int blockf_width = (image_width + 8 * factor - 1) / (8 * factor);
