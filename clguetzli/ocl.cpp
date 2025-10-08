@@ -11,9 +11,9 @@
 #include <vector>
 #include <string>
 #include "clguetzli/clguetzli_cl_src.h"
-#include "clguetzli/clguetzli_cl_amd_src.h"
 #include "lzodec.h"
 #include <stdexcept>
+#define LOG
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
 
 using std::string;
@@ -22,14 +22,7 @@ using std::string;
 
 void PrintDeviceCapabilities(cl_platform_id platform, cl_device_id device);
 
-string opencl_c_container(bool useAmdSource) {
-	if (useAmdSource)
-	{
-		LogInfo("Using OpenCL source for AMD\n");
-		LzoDec decompressed(clguetzli_cl_amd_src_lzo, sizeof(clguetzli_cl_amd_src_lzo));
-		return string((char*)decompressed.getData(), decompressed.getSize());
-	}
-	LogInfo("Using standard OpenCL source\n");
+string opencl_c_container() {
 	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
 	return string((char*)decompressed.getData(), decompressed.getSize());
 }
@@ -57,9 +50,10 @@ ocl_args_d_t& getOcl()
 	bool isAmd = contains(to_lower(best_device.vendor), "amd") ||
 		contains(to_lower(best_device.vendor), "advanced micro devices");
 
-	string opencl_source = opencl_c_container(isAmd);
-
+	string opencl_source = opencl_c_container();
+	LogInfo("OpenCL create device +\n");
 	static Device device(best_device, opencl_source);
+	LogInfo("OpenCL create device -\n");
 
     
 	ocl.isAmd = isAmd;
@@ -67,6 +61,7 @@ ocl_args_d_t& getOcl()
 	ocl.program = device.get_cl_program().get();
 	ocl.commandQueue = device.get_cl_queue().get();
 	ocl.context = device.get_cl_context().get();
+	ocl.device = &device;
 
 	cl_int  err = 0;
 
@@ -104,6 +99,7 @@ ocl_args_d_t& getOcl()
 ocl_args_d_t::ocl_args_d_t() :
 	context(NULL),
 	commandQueue(NULL),
+	device(NULL),
 	program(NULL)
 {
 	for (int i = 0; i < KERNEL_COUNT; i++)

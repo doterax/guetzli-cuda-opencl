@@ -42,9 +42,10 @@ enum KernelName {
 
 #include "third_party/OpenCL/include/CL/cl.h"
 
-#define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e)));}
+#define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e))); std::abort();}
 
 struct ocl_args_d_t;
+class Device;
 
 const char* TranslateOpenCLError(cl_int errorCode);
 
@@ -67,6 +68,7 @@ struct ocl_args_d_t
 	cl_program       program;           // hold the program handler
 	cl_kernel        kernel[KERNEL_COUNT];            // hold the kernel handler
 	bool             isAmd;
+	Device*          device;
 };
 
 #endif

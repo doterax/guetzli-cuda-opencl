@@ -35,3 +35,5 @@ tests/output/
 clguetzli/clguetzli_amd.cl.lzo
 
 clguetzli/clguetzli.cl.lzo
+
+tests/output_/

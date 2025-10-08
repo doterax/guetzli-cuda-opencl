@@ -10,6 +10,8 @@
 #include <vector>
 #include "utils.h"
 
+
+
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
 using namespace std;
@@ -84,15 +86,16 @@ namespace guetzli
 #ifdef __USE_OPENCL__
         else if (MODE_OPENCL == g_mathMode)
         {
-            std::vector<std::vector<float> > rgb1(3, std::vector<float>(width_ * height_));
+            const size_t size = width_ * height_;
+            std::vector<std::vector<float> > rgb1(3, std::vector<float>(size));
             img.ToLinearRGB(&rgb1);
 
             const int xsize = width_;
             const int ysize = height_;
             std::vector<float>().swap(distmap_);
-            distmap_.resize(xsize * ysize);
+            distmap_.resize(size);
 
-            size_t channel_size = xsize * ysize * sizeof(float);
+            size_t channel_size = size * sizeof(float);
             ocl_args_d_t &ocl = getOcl();
             ocl_channels xyb0 = ocl.allocMemChannels(channel_size, rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data());
             ocl_channels xyb1 = ocl.allocMemChannels(channel_size, rgb1[0].data(), rgb1[1].data(), rgb1[2].data());
