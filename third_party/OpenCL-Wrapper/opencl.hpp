@@ -302,18 +302,27 @@ public:
 		this->info = info;
 		this->cl_queue = cl::CommandQueue(info.cl_context, info.cl_device); // queue to push commands for the device
 		cl::Program::Sources cl_source;
-		const string kernel_code = enable_device_capabilities()+"\n"+opencl_c_code;
+		string simulator = "Oclgrind Simulator";
+		bool isOclgrind = info.name.find(simulator) != std::string::npos;
+		const string kernel_code = isOclgrind ? opencl_c_code : enable_device_capabilities() + "\n" + opencl_c_code;
 		cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
 		this->cl_program = cl::Program(info.cl_context, cl_source);
-		const string build_options = "-cl-std=CL"+info.opencl_c_version+" -cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable"+(info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : "");
+		const string build_options = isOclgrind ? "" : ("-cl-std=CL" + info.opencl_c_version + " -cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable" + (info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : ""));
 #ifndef LOG
 		int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
 		if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
+		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
+		if ((uint)log.length() > 2u) {
+			if (isOclgrind) println(log); // more readable
+		}
 #else // LOG, generate logfile for OpenCL code compilation
 		int error = cl_program.build({ info.cl_device }, build_options.c_str()); // compile OpenCL C code
 		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
 		write_file("bin/kernel.log", log); // save build log
-		if((uint)log.length()>2u) print_warning(log); // print build log
+		if ((uint)log.length() > 2u) {
+			print_warning(log); // print build log
+			if (isOclgrind) println(log); // more readable
+		}
 #endif // LOG
 		if(error) print_error("OpenCL C code compilation failed with error code "+to_string(error)+". Make sure there are no errors in kernel.cpp.");
 		else print_info("OpenCL C code successfully compiled.");

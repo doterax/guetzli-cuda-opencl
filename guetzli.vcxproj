@@ -132,7 +132,8 @@
       <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
       <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\x64;third_party\libjpeg\x64;.\third_party\OpenCL\lib\</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <DelayLoadDLLs>nvcuda.dll;OpenCL.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <CustomBuild>
       <Command>"$(INTELOCLSDKROOT)bin\x64\ioc64.exe" -cmd=build -input="%(FullPath)" -output="x64\Release\%(Filename).out" -VS -device=GPU -simd=default -targetos=current            -bo="           "</Command>

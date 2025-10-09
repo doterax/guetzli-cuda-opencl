@@ -13,7 +13,8 @@
 #include "clguetzli/clguetzli_cl_src.h"
 #include "lzodec.h"
 #include <stdexcept>
-#define LOG
+//#define LOG
+//#define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
 
 using std::string;
@@ -26,6 +27,24 @@ string opencl_c_container() {
 	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
 	return string((char*)decompressed.getData(), decompressed.getSize());
 }
+
+//inline Device_Info select_device_oclgrind_or_with_most_flops(const vector<Device_Info>& devices = get_devices()) { // returns device with best floating-point performance
+//	string simulator = "Oclgrind Simulator";
+//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
+//		if (devices[i].name.find(simulator) != std::string::npos) {
+//			return devices[i];
+//		}
+//	}
+//	float best_value = 0.0f;
+//	uint best_i = 0u;
+//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
+//		if (devices[i].tflops > best_value) {
+//			best_value = devices[i].tflops;
+//			best_i = i;
+//		}
+//	}
+//	return devices[best_i];
+//}
 
 ocl_args_d_t& getOcl()
 {
@@ -45,15 +64,17 @@ ocl_args_d_t& getOcl()
 
 	// Select the best device (highest performance)
 	Device_Info best_device = select_device_with_most_flops(devices);
+	
 
 	// Check if device is AMD for optimization
 	bool isAmd = contains(to_lower(best_device.vendor), "amd") ||
 		contains(to_lower(best_device.vendor), "advanced micro devices");
 
 	string opencl_source = opencl_c_container();
-	LogInfo("OpenCL create device +\n");
+	Clock clock;
 	static Device device(best_device, opencl_source);
-	LogInfo("OpenCL create device -\n");
+	std::string info = "OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n";
+	print_info(info);
 
     
 	ocl.isAmd = isAmd;
@@ -66,32 +87,57 @@ ocl_args_d_t& getOcl()
 	cl_int  err = 0;
 
     ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
+	LOG_CL_RESULT(err);
+	
     ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_SQUARESAMPLE] = clCreateKernel(ocl.program, "clSquareSampleEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_OPSINDYNAMICSIMAGE] = clCreateKernel(ocl.program, "clOpsinDynamicsImageEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_MASKHIGHINTENSITYCHANGE] = clCreateKernel(ocl.program, "clMaskHighIntensityChangeEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_EDGEDETECTOR] = clCreateKernel(ocl.program, "clEdgeDetectorMapEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_BLOCKDIFFMAP] = clCreateKernel(ocl.program, "clBlockDiffMapEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_EDGEDETECTORLOWFREQ] = clCreateKernel(ocl.program, "clEdgeDetectorLowFreqEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_DIFFPRECOMPUTE] = clCreateKernel(ocl.program, "clDiffPrecomputeEx", &err);
-    ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
-    ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
-    ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
-    ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
-    ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
-    ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
-    ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
     ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_APPLYGLOBALQUANTIZATION] = clCreateKernel(ocl.program, "clApplyGlobalQuantizationEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS] = clCreateKernel(ocl.program, "clComponentsToPixels", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
+	LOG_CL_RESULT(err);
 
-	LogInfo("OpenCL created\n");
+	print_info("OpenCL created\n");
 
     return ocl;
 }
