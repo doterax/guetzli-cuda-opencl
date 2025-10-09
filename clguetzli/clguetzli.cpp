@@ -12,6 +12,7 @@
 #include <vector>
 #include "cl.hpp"
 #define LOG
+#define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
 
 static size_t next_perf_id = 0;
