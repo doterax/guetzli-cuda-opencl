@@ -277,11 +277,6 @@ __device__ coeff_t Quantize(coeff_t raw_coeff, int quant);
 __device__ bool QuantizeBlock(coeff_t block[kDCTBlockSize], __global const int q[kDCTBlockSize]);
 __device__ void ColorTransformYCbCrToRGB(__global uchar pixel[3]);
 
-__device__ coeff_t _abs_c(coeff_t val)
-{
-	return val >= 0 ? val : -val;
-}
-
 __device__ float _abs_f(float val)
 {
 	return val >= 0 ? val : -val;
@@ -572,10 +567,17 @@ __kernel void clMaskHighIntensityChangeEx(
 
 __kernel void clEdgeDetectorMapEx(
 	__global float *result,
-	const int res_xsize, const int res_ysize,
-	__global const float *r, __global const float *g, __global const float *b,
-	__global const float *r2, __global const float *g2, __global const float *b2,
-	int xsize, int ysize, int step)
+	const int res_xsize, 
+	const int res_ysize,
+	__global const float *r, 
+	__global const float *g, 
+	__global const float *b,
+	__global const float *r2, 
+	__global const float *g2, 
+	__global const float *b2,
+	int xsize, 
+	int ysize, 
+	int step)
 {
 	const int res_x = get_global_id(0);
 	const int res_y = get_global_id(1);
