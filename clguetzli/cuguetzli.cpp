@@ -12,10 +12,6 @@
 
 #ifdef __USE_CUDA__
 
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#define double float
-#endif
-
 #define cuFinish cuStreamSynchronize
 #define BLOCK_SIZE 96
 #define BLOCK_SIZE_X 16
@@ -1161,9 +1157,5 @@ void cuComponentsToPixels(
 	cuMemcpyDtoH(rgb, cl_out, out_size);
 	ocu.releaseMem(cl_out);
 }
-
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#undef double
-#endif
 
 #endif

@@ -40,8 +40,6 @@ typedef CUdeviceptr cu_mem;
 
 #endif /*__cplusplus && !__CUDACC__*/
 
-#define __USE_DOUBLE_AS_FLOAT__
-
 #if defined(__cplusplus) && !defined(__CUDACC__)
 #define __kernel
 #define __private

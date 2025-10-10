@@ -54,11 +54,8 @@ namespace guetzli
             rgb_orig_opsin[1].resize(width * height);
             rgb_orig_opsin[2].resize(width * height);
 
-#ifdef __USE_DOUBLE_AS_FLOAT__
             const float* lut = kSrgb8ToLinearTable;
-#else
-            const double* lut = kSrgb8ToLinearTable;
-#endif
+            
             for (int c = 0; c < 3; ++c) {
                 for (int y = 0, ix = 0; y < height_; ++y) {
                     for (int x = 0; x < width_; ++x, ++ix) {
@@ -173,11 +170,9 @@ namespace guetzli
         const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
         const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
         const int num_blocks = block_width * block_height;
-#ifdef __USE_DOUBLE_AS_FLOAT__
+
         const float* lut = kSrgb8ToLinearTable;
-#else
-        const double* lut = kSrgb8ToLinearTable;
-#endif
+
         imgOpsinDynamicsBlockList.resize(num_blocks * 3 * kDCTBlockSize);
         imgMaskXyzScaleBlockList.resize(num_blocks * 3);
         for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y)

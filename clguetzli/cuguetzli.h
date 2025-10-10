@@ -12,10 +12,6 @@
 
 #ifdef __USE_CUDA__
 
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#define double float
-#endif
-
 void cuOpsinDynamicsImage(
 	float *r, float *g, float *b, 
 	const size_t xsize, const size_t ysize);
@@ -161,9 +157,5 @@ void cuComponentsToPixels(
 	const int xsize,
 	const int ysize,
 	const std::vector<guetzli::OutputImageComponent> &components /*in*/);
-
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#undef double
-#endif
 
 #endif
