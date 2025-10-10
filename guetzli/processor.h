@@ -19,10 +19,21 @@
 
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 #include "guetzli/comparator.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/stats.h"
+
+//https://stackoverflow.com/questions/30113804/how-can-i-check-whether-a-cast-will-result-in-overflow-or-underflow-of-the-targe
+template<class Target, class Source>
+Target narrow_cast(Source v)
+{
+    auto r = static_cast<Target>(v); // convert the value to the target type
+    if (static_cast<Source>(r) != v)
+        throw std::runtime_error("narrow_cast<>() failed");
+    return r;
+}
 
 namespace guetzli {
 

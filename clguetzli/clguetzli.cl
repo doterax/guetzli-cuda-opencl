@@ -990,9 +990,9 @@ __kernel void clUpsampleSquareRootEx(__global float *diffmap_out, __global const
 					 ? kInitialSlope * orig_val
 					 : sqrt(orig_val);
 
-	for (unsigned int off_y = 0; off_y < step; ++off_y)
+	for (int off_y = 0; off_y < step; ++off_y)
 	{
-		for (unsigned int off_x = 0; off_x < step; ++off_x)
+		for (int off_x = 0; off_x < step; ++off_x)
 		{
 			diffmap_out[(pos_y + off_y + s2) * xsize + pos_x + off_x + s2] = val;
 		}
@@ -5194,11 +5194,11 @@ __device__ void Convolution(
 {
 	float weight_no_border = 0;
 
-	for (unsigned int j = 0; j <= 2 * offset; ++j)
+	for (int j = 0; j <= 2 * offset; ++j)
 	{
 		weight_no_border += multipliers[j];
 	}
-	for (unsigned int x = 0, ox = 0; x < xsize; x += xstep, ox++)
+	for (int x = 0, ox = 0; x < xsize; x += xstep, ox++)
 	{
 		int minx = x < offset ? 0 : x - offset;
 		int maxx = _min_i((int)xsize, (int)(x + len - offset)) - 1;
@@ -5250,7 +5250,7 @@ __device__ void OpsinDynamicsImageBlock(__private float *r, __private float *g, 
 										__private const float *r_blurred, __private const float *g_blurred, __private const float *b_blurred,
 										const int size)
 {
-	for (unsigned int i = 0; i < size; ++i)
+	for (int i = 0; i < size; ++i)
 	{
 		float sensitivity[3];
 		{

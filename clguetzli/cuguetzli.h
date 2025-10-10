@@ -14,14 +14,14 @@
 
 void cuOpsinDynamicsImage(
 	float *r, float *g, float *b, 
-	const size_t xsize, const size_t ysize);
+	const unsigned int xsize, const unsigned int ysize);
 
 void cuDiffmapOpsinDynamicsImage(
     float* result,
     const float* r, const float* g, const float* b,
     const float* r2, const float* g2, const float* b2,
-    const size_t xsize, const size_t ysize,
-    const size_t step);
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int step);
 
 void cuComputeBlockZeroingOrder(
     guetzli::CoeffData *output_order_batch,
@@ -38,7 +38,7 @@ void cuComputeBlockZeroingOrder(
 void cuMask(
     float* mask_r, float* mask_g, float* mask_b,
     float* maskdc_r, float* maskdc_g, float* maskdc_b,
-    const size_t xsize, const size_t ysize,
+    const unsigned int xsize, const unsigned int ysize,
     const float* r, const float* g, const float* b,
     const float* r2, const float* g2, const float* b2);
 
@@ -46,90 +46,90 @@ void cuDiffmapOpsinDynamicsImageEx(
     cu_mem result,
     ocu_channels xyb0,
     ocu_channels xyb1,
-    const size_t xsize, const size_t ysize,
-    const size_t step);
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int step);
 
 void cuConvolutionXEx(
     cu_mem result/*out*/,
-    const cu_mem inp, size_t xsize, size_t ysize,
-    const cu_mem multipliers, size_t len,
+    const cu_mem inp, unsigned int xsize, unsigned int ysize,
+    const cu_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio);
 
 void cuConvolutionYEx(
     cu_mem result/*out*/,
-    const cu_mem inp, size_t xsize, size_t ysize,
-    const cu_mem multipliers, size_t len,
+    const cu_mem inp, unsigned int xsize, unsigned int ysize,
+    const cu_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio);
 
 void cuSquareSampleEx(
     cu_mem result/*out*/,
-    const cu_mem image, size_t xsize, size_t ysize,
-    size_t xstep, size_t ystep);
+    const cu_mem image, unsigned int xsize, unsigned int ysize,
+    unsigned int xstep, unsigned int ystep);
 
-void cuBlurEx(cu_mem image/*out, opt*/, const size_t xsize, const size_t ysize,
-    const double sigma, const double border_ratio,
+void cuBlurEx(cu_mem image/*out, opt*/, const unsigned int xsize, const unsigned int ysize,
+    const float sigma, const float border_ratio,
     cu_mem result = NULL/*out, opt*/);
 
-void cuOpsinDynamicsImageEx(ocu_channels &rgb, const size_t xsize, const size_t ysize);
+void cuOpsinDynamicsImageEx(ocu_channels &rgb, const unsigned int xsize, const unsigned int ysize);
 
 void cuMaskHighIntensityChangeEx(
     ocu_channels &xyb0/*in,out*/,
     ocu_channels &xyb1/*in,out*/,
-    const size_t xsize, const size_t ysize);
+    const unsigned int xsize, const unsigned int ysize);
 
 void cuEdgeDetectorMapEx(
     cu_mem result/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step);
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step);
 
 void cuBlockDiffMapEx(
     cu_mem block_diff_dc/*out*/,
     cu_mem block_diff_ac/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step);
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step);
 
 void cuEdgeDetectorLowFreqEx(
     cu_mem block_diff_ac/*in,out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step);
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step);
 
 void cuDiffPrecomputeEx(
     ocu_channels &mask/*out*/,
     const ocu_channels &xyb0, const ocu_channels &xyb1,
-    const size_t xsize, const size_t ysize);
+    const unsigned int xsize, const unsigned int ysize);
 
-void cuScaleImageEx(cu_mem img/*in, out*/, size_t size, double w);
+void cuScaleImageEx(cu_mem img/*in, out*/, unsigned int size, float w);
 
-void cuAverage5x5Ex(cu_mem img/*in,out*/, const size_t xsize, const size_t ysize);
+void cuAverage5x5Ex(cu_mem img/*in,out*/, const unsigned int xsize, const unsigned int ysize);
 
 void cuMinSquareValEx(
     cu_mem img/*in,out*/,
-    const size_t xsize, const size_t ysize,
-    const size_t square_size, const size_t offset);
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int square_size, const unsigned int offset);
 
 void cuMaskEx(
     ocu_channels mask/*out*/, ocu_channels mask_dc/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize);
+    const unsigned int xsize, const unsigned int ysize);
 
 void cuCombineChannelsEx(
     cu_mem result/*out*/,
     const ocu_channels &mask,
     const ocu_channels &mask_dc,
-    const size_t xsize, const size_t ysize,
+    const unsigned int xsize, const unsigned int ysize,
     const cu_mem block_diff_dc,
     const cu_mem block_diff_ac,
     const cu_mem edge_detector_map,
-    const size_t res_xsize,
-    const size_t step);
+    const unsigned int res_xsize,
+    const unsigned int step);
 
-void cuUpsampleSquareRootEx(cu_mem diffmap, const size_t xsize, const size_t ysize, const int step);
+void cuUpsampleSquareRootEx(cu_mem diffmap, const unsigned int xsize, const unsigned int ysize, const int step);
 
-void cuRemoveBorderEx(cu_mem out, const cu_mem in, const size_t xsize, const size_t ysize, const int step);
+void cuRemoveBorderEx(cu_mem out, const cu_mem in, const unsigned int xsize, const unsigned int ysize, const int step);
 
-void cuAddBorderEx(cu_mem out, const size_t xsize, const size_t ysize, const int step, const cu_mem in);
+void cuAddBorderEx(cu_mem out, const unsigned int xsize, const unsigned int ysize, const int step, const cu_mem in);
 
-void cuCalculateDiffmapEx(cu_mem diffmap/*in,out*/, const size_t xsize, const size_t ysize, const int step);
+void cuCalculateDiffmapEx(cu_mem diffmap/*in,out*/, const unsigned int xsize, const unsigned int ysize, const int step);
 
 void cuCopyFromJpegComponent(
 	coeff_t *output_batch/*in,out*/,

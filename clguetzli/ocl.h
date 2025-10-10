@@ -39,7 +39,6 @@ enum KernelName {
 #include "clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
-
 #include "third_party/OpenCL/include/CL/cl.h"
 
 #define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e))); std::abort();}

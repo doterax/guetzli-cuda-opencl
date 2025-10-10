@@ -33,9 +33,9 @@ void calcBlock(int width, int height, int &x, int &y)
 	}
 }
 
-void cuOpsinDynamicsImage(float *r, float *g, float *b, const size_t xsize, const size_t ysize)
+void cuOpsinDynamicsImage(float *r, float *g, float *b, const unsigned int xsize, const unsigned int ysize)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
     ocu_channels rgb = ocu.allocMemChannels(channel_size, r, g, b);
@@ -54,10 +54,10 @@ void cuDiffmapOpsinDynamicsImage(
     float* result,
     const float* r, const float* g, const float* b,
     const float* r2, const float* g2, const float* b2,
-    const size_t xsize, const size_t ysize,
-    const size_t step)
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int step)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
     ocu_channels xyb0 = ocu.allocMemChannels(channel_size, r, g, b);
@@ -163,13 +163,13 @@ void cuComputeBlockZeroingOrder(
 void cuMask(
     float* mask_r, float* mask_g, float* mask_b,
     float* maskdc_r, float* maskdc_g, float* maskdc_b,
-    const size_t xsize, const size_t ysize,
+    const unsigned int xsize, const unsigned int ysize,
     const float* r, const float* g, const float* b,
     const float* r2, const float* g2, const float* b2)
 {
     ocu_args_d_t &ocu = getOcu();
 
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_channels rgb = ocu.allocMemChannels(channel_size, r, g, b);
     ocu_channels rgb2 = ocu.allocMemChannels(channel_size, r2, g2, b2);
@@ -196,14 +196,14 @@ void cuDiffmapOpsinDynamicsImageEx(
     cu_mem result,
     ocu_channels xyb0,
     ocu_channels xyb1,
-    const size_t xsize, const size_t ysize,
-    const size_t step)
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int step)
 {
-    const size_t res_xsize = (xsize + step - 1) / step;
-    const size_t res_ysize = (ysize + step - 1) / step;
+    const unsigned int res_xsize = (xsize + step - 1) / step;
+    const unsigned int res_ysize = (ysize + step - 1) / step;
 
-    size_t channel_size = xsize * ysize * sizeof(float);
-    size_t channel_step_size = res_xsize * res_ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_step_size = res_xsize * res_ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
  
@@ -241,7 +241,7 @@ void cuConvolutionEx(
 {
     ocu_args_d_t &ocu = getOcu();
 
-    size_t oxsize = (xsize + xstep - 1) / xstep;
+    unsigned int oxsize = (xsize + xstep - 1) / xstep;
 
 	CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTION];
     const void *args[] = { &result, &inp, &xsize, &multipliers, &len, &xstep, &offset, &border_ratio };
@@ -259,8 +259,8 @@ void cuConvolutionEx(
 
 void cuConvolutionXEx(
     cu_mem result/*out*/,
-    const cu_mem inp, size_t xsize, size_t ysize,
-    const cu_mem multipliers, size_t len,
+    const cu_mem inp, unsigned int xsize, unsigned int ysize,
+    const cu_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio)
 {
     ocu_args_d_t &ocu = getOcu();
@@ -268,7 +268,7 @@ void cuConvolutionXEx(
 	CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTIONX];
     const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio };
 
-	size_t x_count = (xsize + xstep - 1) / xstep;
+	unsigned int x_count = (xsize + xstep - 1) / xstep;
 	int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
 	calcBlock(x_count, ysize, x, y);
     CUresult err = cuLaunchKernel(kernel,
@@ -283,8 +283,8 @@ void cuConvolutionXEx(
 
 void cuConvolutionYEx(
     cu_mem result/*out*/,
-    const cu_mem inp, size_t xsize, size_t ysize,
-    const cu_mem multipliers, size_t len,
+    const cu_mem inp, unsigned int xsize, unsigned int ysize,
+    const cu_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio)
 {
     ocu_args_d_t &ocu = getOcu();
@@ -292,8 +292,8 @@ void cuConvolutionYEx(
 	CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTIONY];
     const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio };
 
-	size_t x_count = (xsize + xstep - 1) / xstep;
-	size_t y_count = (ysize + xstep - 1) / xstep;
+	unsigned int x_count = (xsize + xstep - 1) / xstep;
+	unsigned int y_count = (ysize + xstep - 1) / xstep;
 	int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
 	calcBlock(x_count, y_count, x, y);
     CUresult err = cuLaunchKernel(kernel,
@@ -308,8 +308,8 @@ void cuConvolutionYEx(
 
 void cuSquareSampleEx(
     cu_mem result/*out*/,
-    const cu_mem image, size_t xsize, size_t ysize,
-    size_t xstep, size_t ystep)
+    const cu_mem image, unsigned int xsize, unsigned int ysize,
+    unsigned int xstep, unsigned int ystep)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -328,12 +328,12 @@ void cuSquareSampleEx(
 	LOG_CU_RESULT(err);
 }
 
-void cuBlurEx(cu_mem image/*out, opt*/, const size_t xsize, const size_t ysize,
-    const double sigma, const double border_ratio,
+void cuBlurEx(cu_mem image/*out, opt*/, const unsigned int xsize, const unsigned int ysize,
+    const float sigma, const float border_ratio,
     cu_mem result/*out, opt*/)
 {
-    double m = 2.25;  // Accuracy increases when m is increased.
-    const double scaler = -1.0 / (2 * sigma * sigma);
+    float m = 2.25;  // Accuracy increases when m is increased.
+    const float scaler = -1.0f / (2 * sigma * sigma);
     // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
     const int diff = std::max<int>(1, m * fabs(sigma));
     const int expn_size = 2 * diff + 1;
@@ -366,11 +366,11 @@ void cuBlurEx(cu_mem image/*out, opt*/, const size_t xsize, const size_t ysize,
     ocu.releaseMem(mem_expn);
 }
 
-void cuOpsinDynamicsImageEx(ocu_channels &rgb, const size_t xsize, const size_t ysize)
+void cuOpsinDynamicsImageEx(ocu_channels &rgb, const unsigned int xsize, const unsigned int ysize)
 {
-    static const double kSigma = 1.1;
+    static const float kSigma = 1.1f;
 
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
     ocu_channels rgb_blurred = ocu.allocMemChannels(channel_size);
@@ -401,9 +401,9 @@ void cuOpsinDynamicsImageEx(ocu_channels &rgb, const size_t xsize, const size_t 
 void cuMaskHighIntensityChangeEx(
     ocu_channels &xyb0/*in,out*/,
     ocu_channels &xyb1/*in,out*/,
-    const size_t xsize, const size_t ysize)
+    const unsigned int xsize, const unsigned int ysize)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
 
@@ -444,16 +444,16 @@ void cuMaskHighIntensityChangeEx(
 void cuEdgeDetectorMapEx(
     cu_mem result/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step)
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
     ocu_args_d_t &ocu = getOcu();
 
     ocu_channels rgb_blured = ocu.allocMemChannels(channel_size);
     ocu_channels rgb2_blured = ocu.allocMemChannels(channel_size);
 
-    static const double kSigma[3] = { 1.5, 0.586, 0.4 };
+    static const float kSigma[3] = { 1.5f, 0.586f, 0.4f };
 
     for (int i = 0; i < 3; i++)
     {
@@ -461,8 +461,8 @@ void cuEdgeDetectorMapEx(
         cuBlurEx(rgb2.ch[i], xsize, ysize, kSigma[i], 0.0, rgb2_blured.ch[i]);
     }
 
-    const size_t res_xsize = (xsize + step - 1) / step;
-    const size_t res_ysize = (ysize + step - 1) / step;
+    const unsigned int res_xsize = (xsize + step - 1) / step;
+    const unsigned int res_ysize = (ysize + step - 1) / step;
 
 	CUfunction kernel = ocu.kernel[KERNEL_EDGEDETECTOR];
     const void *args[] = { &result,
@@ -490,12 +490,12 @@ void cuBlockDiffMapEx(
     cu_mem block_diff_dc/*out*/,
     cu_mem block_diff_ac/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step)
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step)
 {
     ocu_args_d_t &ocu = getOcu();
 
-    const size_t res_xsize = (xsize + step - 1) / step;
-    const size_t res_ysize = (ysize + step - 1) / step;
+    const unsigned int res_xsize = (xsize + step - 1) / step;
+    const unsigned int res_ysize = (ysize + step - 1) / step;
 
 	CUfunction kernel = ocu.kernel[KERNEL_BLOCKDIFFMAP];
     const void *args[] = { &block_diff_dc, &block_diff_ac,
@@ -519,11 +519,11 @@ void cuBlockDiffMapEx(
 void cuEdgeDetectorLowFreqEx(
     cu_mem block_diff_ac/*in,out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize, const size_t step)
+    const unsigned int xsize, const unsigned int ysize, const unsigned int step)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
 
-    static const double kSigma = 14;
+    static const float kSigma = 14;
 
     ocu_args_d_t &ocu = getOcu();
     ocu_channels rgb_blured = ocu.allocMemChannels(channel_size);
@@ -535,8 +535,8 @@ void cuEdgeDetectorLowFreqEx(
         cuBlurEx(rgb2.ch[i], xsize, ysize, kSigma, 0.0, rgb2_blured.ch[i]);
     }
 
-    const size_t res_xsize = (xsize + step - 1) / step;
-    const size_t res_ysize = (ysize + step - 1) / step;
+    const unsigned int res_xsize = (xsize + step - 1) / step;
+    const unsigned int res_ysize = (ysize + step - 1) / step;
 
 	CUfunction kernel = ocu.kernel[KERNEL_EDGEDETECTORLOWFREQ];
     const void *args[] = { &block_diff_ac,
@@ -563,7 +563,7 @@ void cuEdgeDetectorLowFreqEx(
 void cuDiffPrecomputeEx(
     ocu_channels &mask/*out*/,
     const ocu_channels &xyb0, const ocu_channels &xyb1,
-    const size_t xsize, const size_t ysize)
+    const unsigned int xsize, const unsigned int ysize)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -585,7 +585,7 @@ void cuDiffPrecomputeEx(
 	LOG_CU_RESULT(err);
 }
 
-void cuScaleImageEx(cu_mem img/*in, out*/, size_t size, double w)
+void cuScaleImageEx(cu_mem img/*in, out*/, unsigned int size, float w)
 {
     ocu_args_d_t &ocu = getOcu();
     float fw = w;
@@ -605,7 +605,7 @@ void cuScaleImageEx(cu_mem img/*in, out*/, size_t size, double w)
 	LOG_CU_RESULT(err);
 }
 
-void cuAverage5x5Ex(cu_mem img/*in,out*/, const size_t xsize, const size_t ysize)
+void cuAverage5x5Ex(cu_mem img/*in,out*/, const unsigned int xsize, const unsigned int ysize)
 {
     if (xsize < 4 || ysize < 4) {
         // TODO: Make this work for small dimensions as well.
@@ -614,7 +614,7 @@ void cuAverage5x5Ex(cu_mem img/*in,out*/, const size_t xsize, const size_t ysize
 
     ocu_args_d_t &ocu = getOcu();
 
-    size_t len = xsize * ysize * sizeof(float);
+    unsigned int len = xsize * ysize * sizeof(float);
     cu_mem img_org = ocu.allocMem(len);
 
     cuMemcpyDtoD(img_org, img, len);
@@ -638,8 +638,8 @@ void cuAverage5x5Ex(cu_mem img/*in,out*/, const size_t xsize, const size_t ysize
 
 void cuMinSquareValEx(
     cu_mem img/*in,out*/,
-    const size_t xsize, const size_t ysize,
-    const size_t square_size, const size_t offset)
+    const unsigned int xsize, const unsigned int ysize,
+    const unsigned int square_size, const unsigned int offset)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -662,30 +662,30 @@ void cuMinSquareValEx(
     ocu.releaseMem(result);
 }
 
-static void MakeMask(double extmul, double extoff,
-    double mul, double offset,
-    double scaler, double *result)
+static void MakeMask(float extmul, float extoff,
+    float mul, float offset,
+    float scaler, float *result)
 {
-    for (size_t i = 0; i < 512; ++i) {
-        const double c = mul / ((0.01 * scaler * i) + offset);
-        result[i] = 1.0 + extmul * (c + extoff);
+    for (unsigned int i = 0; i < 512; ++i) {
+        const float c = mul / ((0.01f * scaler * i) + offset);
+        result[i] = 1.0f + extmul * (c + extoff);
         result[i] *= result[i];
     }
 }
 
-static const double kInternalGoodQualityThreshold = 14.921561160295326;
-static const double kGlobalScale = 1.0 / kInternalGoodQualityThreshold;
+static const float kInternalGoodQualityThreshold = 14.921561160295326f;
+static const float kGlobalScale = 1.0f / kInternalGoodQualityThreshold;
 
-void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, size_t xsize, size_t ysize)
+void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, unsigned int xsize, unsigned int ysize)
 {
     ocu_args_d_t &ocu = getOcu();
 
-    double extmul = 0.975741017749;
-    double extoff = -4.25328244168;
-    double offset = 0.454909521427;
-    double scaler = 0.0738288224836;
-    double mul = 20.8029176447;
-    static double lut_x[512];
+    float extmul = 0.975741017749f;
+    float extoff = -4.25328244168f;
+    float offset = 0.454909521427f;
+    float scaler = 0.0738288224836f;
+    float mul = 20.8029176447f;
+    static float lut_x[512];
     static bool lutx_init = false;
     if (!lutx_init)
     {
@@ -693,12 +693,12 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_x);
     }
 
-    extmul = 0.373995618954;
-    extoff = 1.5307267433;
-    offset = 0.911952641929;
-    scaler = 1.1731667845;
-    mul = 16.2447033988;
-    static double lut_y[512];
+    extmul = 0.373995618954f;
+    extoff = 1.5307267433f;
+    offset = 0.911952641929f;
+    scaler = 1.1731667845f;
+    mul = 16.2447033988f;
+    static float lut_y[512];
     static bool luty_init = false;
     if (!luty_init)
     {
@@ -706,12 +706,12 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_y);
     }
 
-    extmul = 0.61582234137;
-    extoff = -4.25376118646;
-    offset = 1.05105070921;
-    scaler = 0.47434643535;
-    mul = 31.1444967089;
-    static double lut_b[512];
+    extmul = 0.61582234137f;
+    extoff = -4.25376118646f;
+    offset = 1.05105070921f;
+    scaler = 0.47434643535f;
+    mul = 31.1444967089f;
+    static float lut_b[512];
     static bool lutb_init = false;
     if (!lutb_init)
     {
@@ -719,12 +719,12 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_b);
     }
 
-    extmul = 1.79116943438;
-    extoff = -3.86797479189;
-    offset = 0.670960225853;
-    scaler = 0.486575865525;
-    mul = 20.4563479139;
-    static double lut_dcx[512];
+    extmul = 1.79116943438f;
+    extoff = -3.86797479189f;
+    offset = 0.670960225853f;
+    scaler = 0.486575865525f;
+    mul = 20.4563479139f;
+    static float lut_dcx[512];
     static bool lutdcx_init = false;
     if (!lutdcx_init)
     {
@@ -732,12 +732,12 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_dcx);
     }
 
-    extmul = 0.212223514236;
-    extoff = -3.65647120524;
-    offset = 1.73396799447;
-    scaler = 0.170392660501;
-    mul = 21.6566724788;
-    static double lut_dcy[512];
+    extmul = 0.212223514236f;
+    extoff = -3.65647120524f;
+    offset = 1.73396799447f;
+    scaler = 0.170392660501f;
+    mul = 21.6566724788f;
+    static float lut_dcy[512];
     static bool lutdcy_init = false;
     if (!lutdcy_init)
     {
@@ -745,12 +745,12 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_dcy);
     }
 
-    extmul = 0.349376011816;
-    extoff = -0.894711072781;
-    offset = 0.901647926679;
-    scaler = 0.380086095024;
-    mul = 18.0373825149;
-    static double lut_dcb[512];
+    extmul = 0.349376011816f;
+    extoff = -0.894711072781f;
+    offset = 0.901647926679f;
+    scaler = 0.380086095024f;
+    mul = 18.0373825149f;
+    static float lut_dcb[512];
     static bool lutdcb_init = false;
     if (!lutdcb_init)
     {
@@ -758,7 +758,7 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
         MakeMask(extmul, extoff, mul, offset, scaler, lut_dcb);
     }
 
-    size_t channel_size = 512 * sizeof(double);
+    unsigned int channel_size = 512 * sizeof(float);
     ocu_channels xyb = ocu.allocMemChannels(channel_size, lut_x, lut_y, lut_b);
     ocu_channels xyb_dc = ocu.allocMemChannels(channel_size, lut_dcx, lut_dcy, lut_dcb);
 
@@ -787,7 +787,7 @@ void cuDoMask(ocu_channels mask/*in, out*/, ocu_channels mask_dc/*in, out*/, siz
 void cuMaskEx(
     ocu_channels mask/*out*/, ocu_channels mask_dc/*out*/,
     const ocu_channels &rgb, const ocu_channels &rgb2,
-    const size_t xsize, const size_t ysize)
+    const unsigned int xsize, const unsigned int ysize)
 {
     cuDiffPrecomputeEx(mask, rgb, rgb2, xsize, ysize);
     for (int i = 0; i < 3; i++)
@@ -795,10 +795,10 @@ void cuMaskEx(
         cuAverage5x5Ex(mask.ch[i], xsize, ysize);
         cuMinSquareValEx(mask.ch[i], xsize, ysize, 4, 0);
 
-        static const double sigma[3] = {
-            9.65781083553,
-            14.2644604355,
-            4.53358927369,
+        static const float sigma[3] = {
+            9.65781083553f,
+            14.2644604355f,
+            4.53358927369f,
         };
 
         cuBlurEx(mask.ch[i], xsize, ysize, sigma[i], 0.0);
@@ -817,17 +817,17 @@ void cuCombineChannelsEx(
     cu_mem result/*out*/,
     const ocu_channels &mask,
     const ocu_channels &mask_dc,
-    const size_t xsize, const size_t ysize,
+    const unsigned int xsize, const unsigned int ysize,
     const cu_mem block_diff_dc,
     const cu_mem block_diff_ac,
     const cu_mem edge_detector_map,
-    const size_t res_xsize,
-    const size_t step)
+    const unsigned int res_xsize,
+    const unsigned int step)
 {
     ocu_args_d_t &ocu = getOcu();
 
-    const size_t work_xsize = ((xsize - 8 + step) + step - 1) / step;
-    const size_t work_ysize = ((ysize - 8 + step) + step - 1) / step;
+    const unsigned int work_xsize = ((xsize - 8 + step) + step - 1) / step;
+    const unsigned int work_ysize = ((ysize - 8 + step) + step - 1) / step;
 
 	CUfunction kernel = ocu.kernel[KERNEL_COMBINECHANNELS];
     const void *args[] = { &result,
@@ -849,7 +849,7 @@ void cuCombineChannelsEx(
 	LOG_CU_RESULT(err);
 }
 
-void cuUpsampleSquareRootEx(cu_mem diffmap, const size_t xsize, const size_t ysize, const int step)
+void cuUpsampleSquareRootEx(cu_mem diffmap, const unsigned int xsize, const unsigned int ysize, const int step)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -858,8 +858,8 @@ void cuUpsampleSquareRootEx(cu_mem diffmap, const size_t xsize, const size_t ysi
 	CUfunction kernel = ocu.kernel[KERNEL_UPSAMPLESQUAREROOT];
     const void *args[] = { &diffmap_out, &diffmap, &xsize, &ysize, &step };
 
-    const size_t res_xsize = (xsize + step - 1) / step;
-    const size_t res_ysize = (ysize + step - 1) / step;
+    const unsigned int res_xsize = (xsize + step - 1) / step;
+    const unsigned int res_ysize = (ysize + step - 1) / step;
 
     CUresult err = cuLaunchKernel(kernel,
 		(res_xsize), (res_ysize), 1,
@@ -874,7 +874,7 @@ void cuUpsampleSquareRootEx(cu_mem diffmap, const size_t xsize, const size_t ysi
     ocu.releaseMem(diffmap_out);
 }
 
-void cuRemoveBorderEx(cu_mem out, const cu_mem in, const size_t xsize, const size_t ysize, const int step)
+void cuRemoveBorderEx(cu_mem out, const cu_mem in, const unsigned int xsize, const unsigned int ysize, const int step)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -899,7 +899,7 @@ void cuRemoveBorderEx(cu_mem out, const cu_mem in, const size_t xsize, const siz
 	LOG_CU_RESULT(err);
 }
 
-void cuAddBorderEx(cu_mem out, size_t xsize, size_t ysize, int step, cu_mem in)
+void cuAddBorderEx(cu_mem out, unsigned int xsize, unsigned int ysize, int step, cu_mem in)
 {
     ocu_args_d_t &ocu = getOcu();
 
@@ -920,13 +920,13 @@ void cuAddBorderEx(cu_mem out, size_t xsize, size_t ysize, int step, cu_mem in)
 	LOG_CU_RESULT(err);
 }
 
-void cuCalculateDiffmapEx(cu_mem diffmap/*in,out*/, const size_t xsize, const size_t ysize, const int step)
+void cuCalculateDiffmapEx(cu_mem diffmap/*in,out*/, const unsigned int xsize, const unsigned int ysize, const int step)
 {
     cuUpsampleSquareRootEx(diffmap, xsize, ysize, step);
 
-    static const double kSigma = 8.8510880283;
-    static const double mul1 = 24.8235314874;
-    static const double scale = 1.0 / (1.0 + mul1);
+    static const float kSigma = 8.8510880283;
+    static const float mul1 = 24.8235314874;
+    static const float scale = 1.0 / (1.0 + mul1);
 
     const int s = 8 - step;
     int s2 = (8 - step) / 2;
@@ -935,7 +935,7 @@ void cuCalculateDiffmapEx(cu_mem diffmap/*in,out*/, const size_t xsize, const si
     cu_mem blurred = ocu.allocMem((xsize - s) * (ysize - s) * sizeof(float));
     cuRemoveBorderEx(blurred, diffmap, xsize, ysize, step);
 
-    static const double border_ratio = 0.03027655136;
+    static const float border_ratio = 0.03027655136f;
     cuBlurEx(blurred, xsize - s, ysize - s, kSigma, border_ratio);
 
     cuAddBorderEx(diffmap, xsize, ysize, step, blurred);

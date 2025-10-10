@@ -466,7 +466,8 @@ void Processor::ComputeBlockZeroingOrder(
   }
   // Make the block error values monotonic.
   float min_err = 1e10;
-  for (int i = output_order->size() - 1; i >= 0; --i) {
+  const int size = narrow_cast<int>(output_order->size());
+  for (int i = size - 1; i >= 0; --i) {
     min_err = std::min(min_err, (*output_order)[i].block_err);
     (*output_order)[i].block_err = min_err;
   }
@@ -561,7 +562,7 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 {
     const int width = img->width();
     const int height = img->height();
-    const int ncomp = jpg.components.size();
+    const int ncomp = narrow_cast<int>(jpg.components.size());
     const int last_c = Log2FloorNonZero(comp_mask);
     if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
     const int factor_x = img->component(last_c).factor_x();
@@ -699,7 +700,7 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
         for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
             CoeffData * p = &output_order[block_ix * kBlockSize];
    
-            candidate_coeff_offsets[block_ix] = candidate_coeffs.size();
+            candidate_coeff_offsets[block_ix] = narrow_cast<int>(candidate_coeffs.size());
             for (int i = 0; i < kBlockSize; i++)
             {
                 if (p[i].block_err > 0 && p[i].block_err <= comparator_->BlockErrorLimit())

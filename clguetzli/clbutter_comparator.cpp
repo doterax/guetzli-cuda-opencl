@@ -14,8 +14,8 @@
 
 namespace butteraugli {
 
-static const float kInternalGoodQualityThreshold = 14.921561160295326;
-static const float kGlobalScale = 1.0 / kInternalGoodQualityThreshold;
+static const float kInternalGoodQualityThreshold = 14.921561160295326f;
+static const float kGlobalScale = 1.0f / kInternalGoodQualityThreshold;
 
 inline float DotProductOpt(const float u[3], const float v[3]) {
 	return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
@@ -42,10 +42,10 @@ void ConvolutionOpt(size_t xsize, size_t ysize,
 			weight += multipliers[j - x + offset];
 		}
 		// Interpolate linearly between the no-border scaling and border scaling.
-		weight = (1.0 - border_ratio) * weight + border_ratio * weight_no_border;
-		float scale = 1.0 / weight;
+		weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
+		float scale = 1.0f / weight;
 		for (size_t y = 0; y < ysize; ++y) {
-			float sum = 0.0;
+			float sum = 0.0f;
 			for (int j = minx; j <= maxx; ++j) {
 				sum += inp[y * xsize + j] * multipliers[j - x + offset];
 			}
@@ -58,7 +58,7 @@ void BlurOpt(size_t xsize, size_t ysize, float* channel, float sigma,
 	float border_ratio) {
 	PROFILER_FUNC;
 	float m = 2.25;  // Accuracy increases when m is increased.
-	const float scaler = -1.0 / (2 * sigma * sigma);
+	const float scaler = -1.0f / (2.0f * sigma * sigma);
 	// For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
 	const int diff = std::max<int>(1, m * fabs(sigma));
 	const int expn_size = 2 * diff + 1;
@@ -993,11 +993,11 @@ static std::array<float, 512> MakeMaskOpt(
 
 float MaskXOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 0.975741017749;
-	static const float extoff = -4.25328244168;
-	static const float offset = 0.454909521427;
-	static const float scaler = 0.0738288224836;
-	static const float mul = 20.8029176447;
+	static const float extmul = 0.975741017749f;
+	static const float extoff = -4.25328244168f;
+	static const float offset = 0.454909521427f;
+	static const float scaler = 0.0738288224836f;
+	static const float mul = 20.8029176447f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
@@ -1005,11 +1005,11 @@ float MaskXOpt(float delta) {
 
 float MaskYOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 0.373995618954;
-	static const float extoff = 1.5307267433;
-	static const float offset = 0.911952641929;
-	static const float scaler = 1.1731667845;
-	static const float mul = 16.2447033988;
+	static const float extmul = 0.373995618954f;
+	static const float extoff = 1.5307267433f;
+	static const float offset = 0.911952641929f;
+	static const float scaler = 1.1731667845f;
+	static const float mul = 16.2447033988f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
@@ -1017,11 +1017,11 @@ float MaskYOpt(float delta) {
 
 float MaskBOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 0.61582234137;
-	static const float extoff = -4.25376118646;
-	static const float offset = 1.05105070921;
-	static const float scaler = 0.47434643535;
-	static const float mul = 31.1444967089;
+	static const float extmul = 0.61582234137f;
+	static const float extoff = -4.25376118646f;
+	static const float offset = 1.05105070921f;
+	static const float scaler = 0.47434643535f;
+	static const float mul = 31.1444967089f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
@@ -1029,11 +1029,11 @@ float MaskBOpt(float delta) {
 
 float MaskDcXOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 1.79116943438;
-	static const float extoff = -3.86797479189;
-	static const float offset = 0.670960225853;
-	static const float scaler = 0.486575865525;
-	static const float mul = 20.4563479139;
+	static const float extmul = 1.79116943438f;
+	static const float extoff = -3.86797479189f;
+	static const float offset = 0.670960225853f;
+	static const float scaler = 0.486575865525f;
+	static const float mul = 20.4563479139f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
@@ -1041,11 +1041,11 @@ float MaskDcXOpt(float delta) {
 
 float MaskDcYOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 0.212223514236;
-	static const float extoff = -3.65647120524;
-	static const float offset = 1.73396799447;
-	static const float scaler = 0.170392660501;
-	static const float mul = 21.6566724788;
+	static const float extmul = 0.212223514236f;
+	static const float extoff = -3.65647120524f;
+	static const float offset = 1.73396799447f;
+	static const float scaler = 0.170392660501f;
+	static const float mul = 21.6566724788f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
@@ -1053,11 +1053,11 @@ float MaskDcYOpt(float delta) {
 
 float MaskDcBOpt(float delta) {
 	PROFILER_FUNC;
-	static const float extmul = 0.349376011816;
-	static const float extoff = -0.894711072781;
-	static const float offset = 0.901647926679;
-	static const float scaler = 0.380086095024;
-	static const float mul = 18.0373825149;
+	static const float extmul = 0.349376011816f;
+	static const float extoff = -0.894711072781f;
+	static const float offset = 0.901647926679f;
+	static const float scaler = 0.380086095024f;
+	static const float mul = 18.0373825149f;
 	static const std::array<float, 512> lut =
 		MakeMaskOpt(extmul, extoff, mul, offset, scaler);
 	return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);

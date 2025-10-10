@@ -50,7 +50,6 @@ bool supportsCuda()
     cuMemFree(new_mem);
 
     const char* ptx;
-    size_t src_size;
 
     LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
     ptx = (char*)decompressed.getData();

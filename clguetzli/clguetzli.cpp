@@ -556,12 +556,12 @@ void clSquareSampleEx(
 }
 
 void clBlurEx(cl_mem image/*out, opt*/, const unsigned int xsize, const unsigned int ysize,
-	const double sigma, const double border_ratio,
+	const float sigma, const float border_ratio,
 	cl_mem result/*out, opt*/)
 {
 	Perf clk("clBlurEx");
-	double m = 2.25; // Accuracy increases when m is increased.
-	const double scaler = -1.0 / (2 * sigma * sigma);
+	float m = 2.25; // Accuracy increases when m is increased.
+	const float scaler = -1.0 / (2 * sigma * sigma);
 	// For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
 	const int diff = std::max<int>(1, m * fabs(sigma));
 	const int expn_size = 2 * diff + 1;
@@ -602,7 +602,7 @@ void clBlurEx(cl_mem image/*out, opt*/, const unsigned int xsize, const unsigned
 
 void clOpsinDynamicsImageEx(ocl_channels& rgb, const unsigned int xsize, const unsigned int ysize)
 {
-	static const double kSigma = 1.1;
+	static const float kSigma = 1.1;
 	const size_t size = xsize * ysize;
 	size_t channel_size = size * sizeof(float);
 
@@ -707,7 +707,7 @@ void clEdgeDetectorMapEx(
 	TrackMemory rgb2_blured_m(channel_size * 3, "clEdgeDetectorMapEx:rgb2_blured");
 	ocl_channels rgb2_blured = ocl.allocMemChannels(channel_size);
 
-	static const double kSigma[3] = {1.5, 0.586, 0.4};
+	static const float kSigma[3] = {1.5, 0.586, 0.4};
 
 	for (int i = 0; i < 3; i++)
 	{
@@ -768,7 +768,7 @@ void clEdgeDetectorLowFreqEx(
 {
 	size_t channel_size = xsize * ysize * sizeof(float);
 
-	static const double kSigma = 14;
+	static const float kSigma = 14;
 	Perf clk("clEdgeDetectorLowFreqEx");
 	ocl_args_d_t &ocl = getOcl();
 	TrackMemory rgb_blured_m(channel_size * 3, "clEdgeDetectorLowFreqEx:rgb_blured");
@@ -892,32 +892,32 @@ void clMinSquareValEx(
 	clReleaseMemObject(result);
 }
 
-static void MakeMask(double extmul, double extoff,
-					 double mul, double offset,
-					 double scaler, double *result)
+static void MakeMask(float extmul, float extoff,
+					 float mul, float offset,
+					 float scaler, float *result)
 {
 	for (size_t i = 0; i < 512; ++i)
 	{
-		const double c = mul / ((0.01 * scaler * i) + offset);
+		const float c = mul / ((0.01 * scaler * i) + offset);
 		result[i] = 1.0 + extmul * (c + extoff);
 		result[i] *= result[i];
 	}
 }
 
-static const double kInternalGoodQualityThreshold = 14.921561160295326;
-static const double kGlobalScale = 1.0 / kInternalGoodQualityThreshold;
+static const float kInternalGoodQualityThreshold = 14.921561160295326;
+static const float kGlobalScale = 1.0 / kInternalGoodQualityThreshold;
 
 void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, size_t xsize, size_t ysize)
 {
 	Perf clk("clDoMask");
 	ocl_args_d_t &ocl = getOcl();
 
-	double extmul = 0.975741017749;
-	double extoff = -4.25328244168;
-	double offset = 0.454909521427;
-	double scaler = 0.0738288224836;
-	double mul = 20.8029176447;
-	static double lut_x[512];
+	float extmul = 0.975741017749;
+	float extoff = -4.25328244168;
+	float offset = 0.454909521427;
+	float scaler = 0.0738288224836;
+	float mul = 20.8029176447;
+	static float lut_x[512];
 	static bool lutx_init = false;
 	if (!lutx_init)
 	{
@@ -930,7 +930,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 	offset = 0.911952641929;
 	scaler = 1.1731667845;
 	mul = 16.2447033988;
-	static double lut_y[512];
+	static float lut_y[512];
 	static bool luty_init = false;
 	if (!luty_init)
 	{
@@ -943,7 +943,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 	offset = 1.05105070921;
 	scaler = 0.47434643535;
 	mul = 31.1444967089;
-	static double lut_b[512];
+	static float lut_b[512];
 	static bool lutb_init = false;
 	if (!lutb_init)
 	{
@@ -956,7 +956,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 	offset = 0.670960225853;
 	scaler = 0.486575865525;
 	mul = 20.4563479139;
-	static double lut_dcx[512];
+	static float lut_dcx[512];
 	static bool lutdcx_init = false;
 	if (!lutdcx_init)
 	{
@@ -969,7 +969,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 	offset = 1.73396799447;
 	scaler = 0.170392660501;
 	mul = 21.6566724788;
-	static double lut_dcy[512];
+	static float lut_dcy[512];
 	static bool lutdcy_init = false;
 	if (!lutdcy_init)
 	{
@@ -982,7 +982,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 	offset = 0.901647926679;
 	scaler = 0.380086095024;
 	mul = 18.0373825149;
-	static double lut_dcb[512];
+	static float lut_dcb[512];
 	static bool lutdcb_init = false;
 	if (!lutdcb_init)
 	{
@@ -990,7 +990,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 		MakeMask(extmul, extoff, mul, offset, scaler, lut_dcb);
 	}
 
-	size_t channel_size = 512 * sizeof(double);
+	size_t channel_size = 512 * sizeof(float);
 	TrackMemory xyb_m(channel_size * 3, "clDoMask:xyb");
 	ocl_channels xyb = ocl.allocMemChannels(channel_size, lut_x, lut_y, lut_b);
 	TrackMemory xyb_dc_m(channel_size * 3, "clDoMask:xyb_dc");
@@ -1024,7 +1024,7 @@ void clMaskEx(
 		clAverage5x5Ex(mask.ch[i], xsize, ysize);
 		clMinSquareValEx(mask.ch[i], xsize, ysize, 4, 0);
 
-		static const double sigma[3] = {
+		static const float sigma[3] = {
 			9.65781083553,
 			14.2644604355,
 			4.53358927369,
@@ -1145,9 +1145,9 @@ void clCalculateDiffmapEx(cl_mem diffmap/*in,out*/, const unsigned int xsize, co
 	Perf clk("clCalculateDiffmapEx");
 	clUpsampleSquareRootEx(diffmap, xsize, ysize, step);
 
-	static const double kSigma = 8.8510880283;
-	static const double mul1 = 24.8235314874;
-	static const double scale = 1.0 / (1.0 + mul1);
+	static const float kSigma = 8.8510880283;
+	static const float mul1 = 24.8235314874;
+	static const float scale = 1.0 / (1.0 + mul1);
 
 	const int s = 8 - step;
 	int s2 = (8 - step) / 2;
@@ -1158,7 +1158,7 @@ void clCalculateDiffmapEx(cl_mem diffmap/*in,out*/, const unsigned int xsize, co
 	cl_mem blurred = ocl.allocMem(blurred_size);
 	clRemoveBorderEx(blurred, diffmap, xsize, ysize, step);
 
-	static const double border_ratio = 0.03027655136;
+	static const float border_ratio = 0.03027655136;
 	clBlurEx(blurred, xsize - s, ysize - s, kSigma, border_ratio);
 
 	clAddBorderEx(diffmap, xsize, ysize, step, blurred);
