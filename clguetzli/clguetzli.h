@@ -73,8 +73,8 @@ void clDiffmapOpsinDynamicsImageEx(
 
 void clConvolutionEx(
     cl_mem result/*out*/,
-    const cl_mem inp, size_t xsize, size_t ysize,
-    const cl_mem multipliers, size_t len,
+    const cl_mem inp, unsigned int xsize, unsigned int ysize,
+    const cl_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio);
 
 void clConvolutionXEx(

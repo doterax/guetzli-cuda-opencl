@@ -239,8 +239,8 @@ void cuDiffmapOpsinDynamicsImageEx(
 
 void cuConvolutionEx(
     cu_mem result/*out*/,
-    const cu_mem inp, size_t xsize, size_t ysize,
-    const cu_mem multipliers, size_t len,
+    const cu_mem inp, unsigned int xsize, unsigned int ysize,
+    const cu_mem multipliers, unsigned int len,
     int xstep, int offset, float border_ratio)
 {
     ocu_args_d_t &ocu = getOcu();

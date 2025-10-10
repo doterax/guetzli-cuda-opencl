@@ -628,8 +628,8 @@ __kernel void clBlockDiffMapEx(
 	if ((pos_y + kBlockEdge - step - 1) >= ysize)
 		return;
 
-	size_t res_ix = res_y * res_xsize + res_x;
-	size_t offset = _min_i(pos_y, ysize - 8) * xsize + _min_i(pos_x, xsize - 8);
+	unsigned int res_ix = res_y * res_xsize + res_x;
+	unsigned int offset = _min_i(pos_y, ysize - 8) * xsize + _min_i(pos_x, xsize - 8);
 
 	__private float block0[3 * kBlockEdge * kBlockEdge];
 	__private float block1[3 * kBlockEdge * kBlockEdge];
@@ -914,7 +914,7 @@ __kernel void clDoMaskEx(
 	const float w11 = 22.9455222245f;
 	const float w22 = 503.962310606f;
 
-	const size_t idx = y * xsize + x;
+	const unsigned int idx = y * xsize + x;
 	const float s0 = mask_x[idx];
 	const float s1 = mask_y[idx];
 	const float s2 = mask_b[idx];
@@ -958,7 +958,7 @@ __kernel void clCombineChannelsEx(
 	mask[2] = mask_b[(res_y + 3) * xsize + (res_x + 3)];
 	dc_mask[2] = mask_dc_b[(res_y + 3) * xsize + (res_x + 3)];
 
-	size_t res_ix = (res_y * res_xsize + res_x) / step;
+	unsigned int res_ix = (res_y * res_xsize + res_x) / step;
 	result[res_ix] = (float)(DotProduct(&block_diff_dc[3 * res_ix], dc_mask) +
 							 DotProduct(&block_diff_ac[3 * res_ix], mask) +
 							 DotProduct(&edge_detector_map[3 * res_ix], mask));
@@ -992,9 +992,9 @@ __kernel void clUpsampleSquareRootEx(__global float *diffmap_out, __global const
 					 ? kInitialSlope * orig_val
 					 : sqrt(orig_val);
 
-	for (size_t off_y = 0; off_y < step; ++off_y)
+	for (unsigned int off_y = 0; off_y < step; ++off_y)
 	{
-		for (size_t off_x = 0; off_x < step; ++off_x)
+		for (unsigned int off_x = 0; off_x < step; ++off_x)
 		{
 			diffmap_out[(pos_y + off_y + s2) * xsize + pos_x + off_x + s2] = val;
 		}
@@ -1398,8 +1398,8 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 
 		if (x >= edgeSize && x + edgeSize < xsize)
 		{
-			size_t ix = y * xsize + (x - edgeSize);
-			size_t ix2 = ix + 2 * edgeSize;
+			unsigned int ix = y * xsize + (x - edgeSize);
+			unsigned int ix2 = ix + 2 * edgeSize;
 			XybDiffLowFreqSquaredAccumulate(
 				w * (r[ix] - r[ix2]),
 				w * (g[ix] - g[ix2]),
@@ -1412,8 +1412,8 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 		}
 		if (y >= edgeSize && y + edgeSize < ysize)
 		{
-			size_t ix = (y - edgeSize) * xsize + x;
-			size_t ix2 = ix + 2 * edgeSize * xsize;
+			unsigned int ix = (y - edgeSize) * xsize + x;
+			unsigned int ix2 = ix + 2 * edgeSize * xsize;
 			XybDiffLowFreqSquaredAccumulate(
 				w * (r[ix] - r[ix2]),
 				w * (g[ix] - g[ix2]),
@@ -2025,7 +2025,7 @@ __device__ void ButteraugliBlockDiff(__private float xyb0[3 * kBlockSize],
 	const float ymul2 = 1.51983458269f;
 	const float zmul = 2.4f;
 
-	for (size_t i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i)
+	for (unsigned int i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i)
 	{
 		float d = csf8x8[i];
 		diff_xyb_ac[0] += d * xmul * x_halfdiff_squared[i];
@@ -5187,7 +5187,7 @@ __device__ void Copy16x16ToChannel(const float rgb16x16[3][16 * 16], float r[8 *
 }
 
 __device__ void Convolution(
-	const size_t xsize, const size_t ysize,
+	const unsigned int xsize, const unsigned int ysize,
 	const int xstep, const int len, const int offset,
 	__private const float *multipliers,
 	__private const float *inp,
@@ -5196,11 +5196,11 @@ __device__ void Convolution(
 {
 	float weight_no_border = 0;
 
-	for (size_t j = 0; j <= 2 * offset; ++j)
+	for (unsigned int j = 0; j <= 2 * offset; ++j)
 	{
 		weight_no_border += multipliers[j];
 	}
-	for (size_t x = 0, ox = 0; x < xsize; x += xstep, ox++)
+	for (unsigned int x = 0, ox = 0; x < xsize; x += xstep, ox++)
 	{
 		int minx = x < offset ? 0 : x - offset;
 		int maxx = _min_i((int)xsize, (int)(x + len - offset)) - 1;
@@ -5212,7 +5212,7 @@ __device__ void Convolution(
 		// Interpolate linearly between the no-border scaling and border scaling.
 		weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
 		float scale = 1.0f / weight;
-		for (size_t y = 0; y < ysize; ++y)
+		for (unsigned int y = 0; y < ysize; ++y)
 		{
 			float sum = 0.0f;
 			for (int j = minx; j <= maxx; ++j)
@@ -5252,7 +5252,7 @@ __device__ void OpsinDynamicsImageBlock(__private float *r, __private float *g, 
 										__private const float *r_blurred, __private const float *g_blurred, __private const float *b_blurred,
 										const int size)
 {
-	for (size_t i = 0; i < size; ++i)
+	for (unsigned int i = 0; i < size; ++i)
 	{
 		float sensitivity[3];
 		{
@@ -5288,7 +5288,7 @@ __device__ void MaskHighIntensityChangeBlock(__private float *xyb0_x, __private 
 	{
 		for (int y = 0; y < ysize; ++y)
 		{
-			size_t ix = y * xsize + x;
+			unsigned int ix = y * xsize + x;
 			const float ave[3] = {
 				(c0_x[ix] + c1_x[ix]) * 0.5f,
 				(c0_y[ix] + c1_y[ix]) * 0.5f,
