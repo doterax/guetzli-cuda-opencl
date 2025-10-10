@@ -115,58 +115,51 @@ public:
 	}
 };
 
+
+
+class NDRangeConfig {
+public:
+	cl::NDRange global;
+	cl::NDRange local;
+
+	NDRangeConfig(const cl::NDRange& requestedGlobal, size_t workgroupSize = 64)
+	{
+		switch (requestedGlobal.dimensions()) {
+		case 1:
+			local = cl::NDRange(workgroupSize);
+			global = cl::NDRange(
+				pad(requestedGlobal[0], local[0]));
+			break;
+		case 2:
+			local = cl::NDRange(workgroupSize, 1);
+			global = cl::NDRange(
+				pad(requestedGlobal[0], local[0]),
+				pad(requestedGlobal[1], local[1]));
+			break;
+		case 3:
+			local = cl::NDRange(workgroupSize, 1, 1);
+			global = cl::NDRange(
+				pad(requestedGlobal[0], local[0]),
+				pad(requestedGlobal[1], local[1]),
+				pad(requestedGlobal[2], local[2]));
+			break;
+		default:
+			throw std::runtime_error("Unsupported NDRange dimensionality");
+		}
+
+	}
+
+private:
+	size_t pad(size_t value, size_t multiple)
+	{
+		return ((value + multiple - 1) / multiple) * multiple;
+	}
+};
+
+
+
 extern MATH_MODE g_mathMode = MODE_AUTO;
 
-// Helper function to calculate optimal workgroup size for AMD GPUs
-void calculateOptimalWorkgroupSize(size_t globalSize[2], size_t localSize[2], bool isAMD)
-{
-	if (isAMD)
-	{
-		// For AMD GPUs, prefer multiples of 64 (wavefront size)
-		// But ensure the global size is divisible by local size
-		localSize[0] = 64;
-		localSize[1] = 1;
-
-		// Adjust local size if global size is not divisible
-		if (globalSize[0] % localSize[0] != 0)
-		{
-			// Find the largest divisor of globalSize[0] that is <= 64
-			for (int i = 64; i >= 1; i--)
-			{
-				if (globalSize[0] % i == 0)
-				{
-					localSize[0] = i;
-					break;
-				}
-			}
-		}
-
-		// Handle edge case where globalSize[0] is very small
-		if (globalSize[0] < localSize[0])
-		{
-			localSize[0] = globalSize[0];
-		}
-
-		// Ensure we don't exceed maximum workgroup size
-		if (localSize[0] > 256)
-			localSize[0] = 256;
-		if (localSize[1] > 256)
-			localSize[1] = 256;
-
-		// If we can't find a good divisor, let OpenCL choose
-		if (localSize[0] == 0)
-		{
-			localSize[0] = 0;
-			localSize[1] = 0;
-		}
-	}
-	else
-	{
-		// For non-AMD GPUs, use NULL (let OpenCL choose)
-		localSize[0] = 0;
-		localSize[1] = 0;
-	}
-}
 #ifdef __USE_OPENCL__
 
 void clOpsinDynamicsImage(
@@ -313,25 +306,16 @@ void clComputeBlockZeroingOrder(
 					 &BlockErrorLimit,
 					 &mem_output_order_batch);
 
-	size_t globalWorkSize[2] = {blockf_width, blockf_height};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+
+	NDRangeConfig ndConfig(cl::NDRange(blockf_width, blockf_height));
+
 
 	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching kernel with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching kernel with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-	}
+	if (verbose_cl)
+		LogInfo("Launching kernel with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
+			ndConfig.local[0], ndConfig.local[1], ndConfig.global[0], ndConfig.global[1]);
+	err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, ndConfig.global, ndConfig.local, 0, NULL, NULL);
+	
 	LOG_CL_RESULT(err);
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
@@ -453,25 +437,16 @@ void clConvolutionEx(
 	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTION];
 	clSetKernelArgEx(kernel, &result, &inp, &xsize, &multipliers, &len, &xstep, &offset, &border_ratio);
 
-	size_t globalWorkSize[2] = {oxsize, ysize};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+	NDRangeConfig ndConfig(cl::NDRange(oxsize, ysize));
 
+	if (verbose_cl)
+		LogInfo("Launching clConvolutionEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
+			ndConfig.local[0], ndConfig.local[1], ndConfig.global[0], ndConfig.global[1]);
 	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionEx with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-	}
+
+	err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, ndConfig.global, ndConfig.local, 0, NULL, NULL);
+
+
 	LOG_CL_RESULT(err);
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
@@ -490,27 +465,15 @@ void clConvolutionXEx(
 	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio);
 
 	size_t x_count = (xsize + xstep - 1) / xstep;
-	size_t globalWorkSize[2] = {x_count, ysize};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
+	NDRangeConfig ndConfig(cl::NDRange(x_count, ysize));
 
 	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionXEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-		LOG_CL_RESULT(err);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionXEx with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-		LOG_CL_RESULT(err);
-	}
+	if (verbose_cl)
+		LogInfo("Launching clConvolutionXEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
+			ndConfig.local[0], ndConfig.local[1], ndConfig.global[0], ndConfig.global[1]);
+	err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, ndConfig.global, ndConfig.local, 0, NULL, NULL);
+	LOG_CL_RESULT(err);
+
 
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
