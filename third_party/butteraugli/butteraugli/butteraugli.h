@@ -81,7 +81,7 @@ protected:
   const size_t res_ysize_;
 };
 
-double ButteraugliScoreFromDiffmap(const std::vector<float>& distmap);
+float ButteraugliScoreFromDiffmap(const std::vector<float>& distmap);
 
 // Compute values of local frequency and dc masking based on the activity
 // in the two images.

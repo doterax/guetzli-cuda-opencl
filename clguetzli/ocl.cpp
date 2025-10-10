@@ -21,7 +21,7 @@ using std::string;
 
 #ifdef __USE_OPENCL__
 
-void PrintDeviceCapabilities(cl_platform_id platform, cl_device_id device);
+void PrintDeviceCapabilities(const Device_Info& deviceInfo);
 
 string opencl_c_container() {
 	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
@@ -139,7 +139,97 @@ ocl_args_d_t& getOcl()
 
 	print_info("OpenCL created\n");
 
+	PrintDeviceCapabilities(device.info);
+
     return ocl;
+}
+
+/*
+* Print detailed device capabilities and information
+*/
+void PrintDeviceCapabilities(const Device_Info& deviceInfo)
+{
+	// Get platform information from the device's context
+	cl_platform_id platform = nullptr;
+	cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
+	
+	std::string platformName = "Unknown";
+	std::string platformVersion = "Unknown";
+	std::string platformVendor = "Unknown";
+	
+	if (err == CL_SUCCESS && platform) {
+		size_t nameLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
+		std::vector<char> platformNameVec(nameLen + 1);
+		clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformNameVec[0], NULL);
+		platformName = std::string(platformNameVec.data());
+
+		size_t versionLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionLen);
+		std::vector<char> platformVersionVec(versionLen);
+		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionLen, &platformVersionVec[0], NULL);
+		platformVersion = std::string(platformVersionVec.data());
+
+		size_t vendorLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendorLen);
+		std::vector<char> platformVendorVec(vendorLen);
+		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendorLen, &platformVendorVec[0], NULL);
+		platformVendor = std::string(platformVendorVec.data());
+	}
+
+	// Get additional device information not available in Device_Info
+	cl_device_id device = deviceInfo.cl_device();
+	
+	cl_uint maxWorkGroupSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+
+	size_t maxWorkItemSizes[3] = { 0 };
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+
+	cl_bool compilerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+
+	cl_bool linkerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+
+	cl_device_fp_config fpConfig = 0;
+	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+
+	cl_device_exec_capabilities execCapabilities = 0;
+	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+
+	// Print comprehensive device report
+	LogError("=== OpenCL Device Capabilities Report ===\n");
+	LogError("Platform: %s\n", platformName.c_str());
+	LogError("Platform Version: %s\n", platformVersion.c_str());
+	LogError("Platform Vendor: %s\n", platformVendor.c_str());
+	LogError("Device: %s\n", deviceInfo.name.c_str());
+	LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
+	LogError("Device Version: %s\n", deviceInfo.opencl_c_version.c_str());
+	LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
+	LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
+	LogError("\n=== Memory Information ===\n");
+	LogError("Global Memory Size: %u MB\n", deviceInfo.memory);
+	LogError("Local Memory Size: %u KB\n", deviceInfo.local_cache);
+	LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
+	LogError("\n=== Compute Capabilities ===\n");
+	LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
+	LogError("Max Work Group Size: %u\n", maxWorkGroupSize);
+	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
+	LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
+	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+	LogError("Double Precision Support: %s\n", (fpConfig & CL_FP_FMA) ? "Yes" : "No");
+	LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
+	LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
+	LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
+	LogError("Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
+	LogError("Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
+	LogError("Execution Capabilities: %s%s%s\n",
+		(execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+		(execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "",
+		"");
+	LogError("==========================================\n\n");
 }
 
 ocl_args_d_t::ocl_args_d_t() :
@@ -188,6 +278,9 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
 {
 	cl_int err = 0;
 	cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
+	}
     LOG_CL_RESULT(err);
     if (!mem) return NULL;
     
@@ -195,6 +288,9 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
     if (init)
     {
         err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_FALSE, 0, s, init, 0, NULL, NULL);
+		if (CL_SUCCESS != (err)) {
+			LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
+		}
         LOG_CL_RESULT(err);
         err = clFinish(this->commandQueue);
         LOG_CL_RESULT(err);
@@ -203,6 +299,9 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
     {
         cl_char cc = 0;
         err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
+		if (CL_SUCCESS != (err)) {
+			LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
+		}
         LOG_CL_RESULT(err);
         err = clFinish(this->commandQueue);
         LOG_CL_RESULT(err);
@@ -346,108 +445,6 @@ bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredP
 	return match;
 }
 
-/*
-* Print detailed device capabilities and information
-*/
-void PrintDeviceCapabilities(cl_platform_id platform, cl_device_id device)
-{
-	cl_int err = CL_SUCCESS;
-	size_t stringLength = 0;
-	
-	// Platform information
-	size_t nameLen = 0;
-	clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
-	std::vector<char> platformName(nameLen + 1);
-	clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
-	platformName[nameLen] = 0;
-
-	clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &stringLength);
-	std::vector<char> platformVersion(stringLength);
-	clGetPlatformInfo(platform, CL_PLATFORM_VERSION, stringLength, &platformVersion[0], NULL);
-
-	clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &stringLength);
-	std::vector<char> platformVendor(stringLength);
-	clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, stringLength, &platformVendor[0], NULL);
-
-	// Device information
-	clGetDeviceInfo(device, CL_DEVICE_NAME, 0, NULL, &stringLength);
-	std::vector<char> deviceName(stringLength);
-	clGetDeviceInfo(device, CL_DEVICE_NAME, stringLength, &deviceName[0], NULL);
-
-	clGetDeviceInfo(device, CL_DEVICE_VENDOR, 0, NULL, &stringLength);
-	std::vector<char> deviceVendor(stringLength);
-	clGetDeviceInfo(device, CL_DEVICE_VENDOR, stringLength, &deviceVendor[0], NULL);
-
-	clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &stringLength);
-	std::vector<char> deviceVersion(stringLength);
-	clGetDeviceInfo(device, CL_DEVICE_VERSION, stringLength, &deviceVersion[0], NULL);
-
-	clGetDeviceInfo(device, CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &stringLength);
-	std::vector<char> deviceOpenCLCVersion(stringLength);
-	clGetDeviceInfo(device, CL_DEVICE_OPENCL_C_VERSION, stringLength, &deviceOpenCLCVersion[0], NULL);
-
-	clGetDeviceInfo(device, CL_DRIVER_VERSION, 0, NULL, &stringLength);
-	std::vector<char> driverVersion(stringLength);
-	clGetDeviceInfo(device, CL_DRIVER_VERSION, stringLength, &driverVersion[0], NULL);
-
-	// Device capabilities
-	cl_ulong globalMemSize = 0;
-	clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(globalMemSize), &globalMemSize, NULL);
-
-	cl_ulong localMemSize = 0;
-	clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(localMemSize), &localMemSize, NULL);
-
-	cl_ulong maxMemAllocSize = 0;
-	clGetDeviceInfo(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxMemAllocSize), &maxMemAllocSize, NULL);
-
-	cl_uint maxComputeUnits = 0;
-	clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
-
-	cl_uint maxWorkGroupSize = 0;
-	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
-
-	size_t maxWorkItemSizes[3] = {0};
-	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
-
-	cl_bool compilerAvailable = CL_FALSE;
-	clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
-
-	cl_bool linkerAvailable = CL_FALSE;
-	clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
-
-	cl_device_fp_config fpConfig = 0;
-	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
-
-	cl_device_exec_capabilities execCapabilities = 0;
-	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
-
-	// Print comprehensive device report
-	LogError("=== OpenCL Device Capabilities Report ===\n");
-	LogError("Platform: %s\n", platformName.data());
-	LogError("Platform Version: %s\n", platformVersion.data());
-	LogError("Platform Vendor: %s\n", platformVendor.data());
-	LogError("Device: %s\n", deviceName.data());
-	LogError("Device Vendor: %s\n", deviceVendor.data());
-	LogError("Device Version: %s\n", deviceVersion.data());
-	LogError("OpenCL C Version: %s\n", deviceOpenCLCVersion.data());
-	LogError("Driver Version: %s\n", driverVersion.data());
-	LogError("\n=== Memory Information ===\n");
-	LogError("Global Memory Size: %llu MB\n", globalMemSize / (1024 * 1024));
-	LogError("Local Memory Size: %llu KB\n", localMemSize / 1024);
-	LogError("Max Memory Allocation: %llu MB\n", maxMemAllocSize / (1024 * 1024));
-	LogError("\n=== Compute Capabilities ===\n");
-	LogError("Max Compute Units: %u\n", maxComputeUnits);
-	LogError("Max Work Group Size: %u\n", maxWorkGroupSize);
-	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
-	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
-	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
-	LogError("Double Precision Support: %s\n", (fpConfig & CL_FP_FMA) ? "Yes" : "No");
-	LogError("Execution Capabilities: %s%s%s\n", 
-		(execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
-		(execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "",
-		"");
-	LogError("==========================================\n\n");
-}
 
 bool supportsOpenCl()
 {

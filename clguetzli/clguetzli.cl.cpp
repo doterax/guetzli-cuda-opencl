@@ -221,7 +221,9 @@ namespace guetzli
     
     double ButteraugliComparatorEx::CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block, const int comp_mask) const
     {
+        LogInfo("CompareBlock+\n");
         double err = ButteraugliComparator::CompareBlock(img, off_x, off_y, candidate_block, comp_mask);
+        LogInfo("CompareBlock-\n");
         return err;
     }
 }

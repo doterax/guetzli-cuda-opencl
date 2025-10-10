@@ -3,8 +3,8 @@ call vcvars64.bat
 
 @echo Execute NVCC...
 
-@echo nvcc -Xcompiler "/wd 4819" -I"./" -use_fast_math -arch=compute_75 -O3 --machine 64 -G -ptx -o clguetzli/clguetzli.cu.ptx  clguetzli\clguetzli.cu
-nvcc -Xcompiler "/wd 4819" -I"./" -use_fast_math -arch=compute_75 -O3 --machine 64 -G -ptx -o clguetzli/clguetzli.cu.ptx clguetzli\clguetzli.cu
+@echo nvcc -Xcompiler "/wd 4819" -I"./"  -use_fast_math -arch=compute_75 -O3 --machine 64 -G -ptx -o clguetzli/clguetzli.cu.ptx  clguetzli\clguetzli.cu
+nvcc -Xcompiler "/wd 4819" -I"./" --Werror all-warnings --Wreorder --Wdefault-stream-launch --Wext-lambda-captures-this --Wno-deprecated-gpu-targets --Wno-deprecated-declarations -use_fast_math -arch=compute_75 -O3 --machine 64 -G -ptx -o clguetzli/clguetzli.cu.ptx clguetzli\clguetzli.cu
 
 minilzoc\bin\minilzoc clguetzli/clguetzli.cu.ptx clguetzli/clguetzli.cu.ptx.lzo
 minilzoc\bin\minilzoc clguetzli/clguetzli.cl clguetzli/clguetzli.cl.lzo

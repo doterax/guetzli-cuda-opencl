@@ -1,5 +1,7 @@
 #ifndef __CL_GUETZLI_CU__
+#ifndef __USE_OPENCL__
 #define __USE_OPENCL__
+#endif
 #endif
 /*
  * OpenCL Kernels
@@ -188,9 +190,6 @@ typedef struct __channel_info_t
 
 #endif // __USE_OPENCL__
 
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#define double float
-#endif
 
 #define kBlockEdge 8
 #define kBlockSize (kBlockEdge * kBlockEdge)
@@ -213,21 +212,21 @@ typedef struct __IntFloatPairList
 } IntFloatPairList;
 
 __device__ void XybToVals(
-	__private const double x, __private const double y, __private const double z,
-	__private double *valx, __private double *valy, __private double *valz);
-__device__ double InterpolateClampNegative(__global const double *array, int size, double sx);
-__device__ void XybDiffLowFreqSquaredAccumulate(double r0, double g0, double b0,
-												double r1, double g1, double b1,
-												double factor, double res[3]);
-__device__ double DotProduct(__global const float u[3], const double v[3]);
-__device__ void OpsinAbsorbance(__private const double in[3], __private double out[3]);
-__device__ void RgbToXyb(const double r, const double g, const double b, __private double *valx, __private double *valy, __private double *valz);
-__device__ double Gamma(double v);
-__device__ void ButteraugliBlockDiff(__private double xyb0[3 * kBlockSize],
-									 __private double xyb1[3 * kBlockSize],
-									 double diff_xyb_dc[3],
-									 double diff_xyb_ac[3],
-									 double diff_xyb_edge_dc[3]);
+	__private const float x, __private const float y, __private const float z,
+	__private float *valx, __private float *valy, __private float *valz);
+__device__ float InterpolateClampNegative(__global const float *array, int size, float sx);
+__device__ void XybDiffLowFreqSquaredAccumulate(float r0, float g0, float b0,
+												float r1, float g1, float b1,
+												float factor, float res[3]);
+__device__ float DotProduct(__global const float u[3], const float v[3]);
+__device__ void OpsinAbsorbance(__private const float in[3], __private float out[3]);
+__device__ void RgbToXyb(const float r, const float g, const float b, __private float *valx, __private float *valy, __private float *valz);
+__device__ float Gamma(float v);
+__device__ void ButteraugliBlockDiff(__private float xyb0[3 * kBlockSize],
+									 __private float xyb1[3 * kBlockSize],
+									 float diff_xyb_dc[3],
+									 float diff_xyb_ac[3],
+									 float diff_xyb_edge_dc[3]);
 __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 	int pos_x,
 	int pos_y,
@@ -235,11 +234,11 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 	int ysize,
 	__global const float *r, __global const float *g, __global const float *b,
 	__global const float *r2, __global const float *g2, __global const float *b2,
-	__private double *diff_xyb);
+	__private float *diff_xyb);
 
 __device__ int MakeInputOrderEx(const coeff_t block[3 * 8 * 8], const coeff_t orig_block[3 * 8 * 8], __private IntFloatPairList *input_order);
 
-__device__ double Factor2(const channel_info mayout_channel[3],
+__device__ float Factor2(const channel_info mayout_channel[3],
 						  __private const coeff_t *candidate_block,
 						  const int block_x,
 						  const int block_y,
@@ -248,7 +247,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
 						  const int image_width,
 						  const int image_height);
 
-__device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
+__device__ float CompareBlockFactor1(const channel_info mayout_channel[3],
 									  __private const coeff_t *candidate_block,
 									  const int block_x,
 									  const int block_y,
@@ -257,7 +256,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
 									  const int image_width,
 									  const int image_height);
 
-__device__ double CompareBlockFactor(const channel_info mayout_channel[3],
+__device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 									 __private const coeff_t *candidate_block,
 									 const int block_x,
 									 const int block_y,
@@ -282,7 +281,7 @@ __device__ float _abs_f(float val)
 	return val >= 0 ? val : -val;
 }
 
-__device__ double _abs_d(double val)
+__device__ float _abs_d(float val)
 {
 	return val >= 0 ? val : -val;
 }
@@ -297,12 +296,12 @@ __device__ float _max_f(float a, float b)
 	return a > b ? a : b;
 }
 
-__device__ double _min_d(double a, double b)
+__device__ float _min_d(float a, float b)
 {
 	return a < b ? a : b;
 }
 
-__device__ double _max_d(double a, double b)
+__device__ float _max_d(float a, float b)
 {
 	return a > b ? a : b;
 }
@@ -350,8 +349,8 @@ __kernel void clConvolutionEx(
 		weight += multipliers[j - x + offset];
 	}
 
-	weight = (1.0 - border_ratio) * weight + border_ratio * weight_no_border;
-	float scale = 1.0 / weight;
+	weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
+	float scale = 1.0f / weight;
 
 	float sum = 0.0f;
 	for (int j = minx; j < maxx; j++)
@@ -393,8 +392,8 @@ __kernel void clConvolutionXEx(
 		weight += multipliers[j - x + offset];
 	}
 
-	weight = (1.0 - border_ratio) * weight + border_ratio * weight_no_border;
-	float scale = 1.0 / weight;
+	weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
+	float scale = 1.0f / weight;
 
 	float sum = 0.0f;
 	for (int j = minx; j < maxx; j++)
@@ -437,8 +436,8 @@ __kernel void clConvolutionYEx(
 		weight += multipliers[j - y + offset];
 	}
 
-	weight = (1.0 - border_ratio) * weight + border_ratio * weight_no_border;
-	float scale = 1.0 / weight;
+	weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
+	float scale = 1.0f / weight;
 
 	float sum = 0.0f;
 	for (int j = miny; j < maxy; j++)
@@ -482,23 +481,23 @@ __kernel void clOpsinDynamicsImageEx(
 	if (i >= size)
 		return;
 
-	double pre[3] = {r_blurred[i], g_blurred[i], b_blurred[i]};
-	double pre_mixed[3];
+	float pre[3] = {r_blurred[i], g_blurred[i], b_blurred[i]};
+	float pre_mixed[3];
 	OpsinAbsorbance(pre, pre_mixed);
 
-	double sensitivity[3];
+	float sensitivity[3];
 	sensitivity[0] = Gamma(pre_mixed[0]) / pre_mixed[0];
 	sensitivity[1] = Gamma(pre_mixed[1]) / pre_mixed[1];
 	sensitivity[2] = Gamma(pre_mixed[2]) / pre_mixed[2];
 
-	double cur_rgb[3] = {r[i], g[i], b[i]};
-	double cur_mixed[3];
+	float cur_rgb[3] = {r[i], g[i], b[i]};
+	float cur_mixed[3];
 	OpsinAbsorbance(cur_rgb, cur_mixed);
 	cur_mixed[0] *= sensitivity[0];
 	cur_mixed[1] *= sensitivity[1];
 	cur_mixed[2] *= sensitivity[2];
 
-	double x, y, z;
+	float x, y, z;
 	RgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
 	r[i] = x;
 	g[i] = y;
@@ -517,13 +516,13 @@ __kernel void clMaskHighIntensityChangeEx(
 	if (x >= xsize || y >= ysize)
 		return;
 
-	size_t ix = y * xsize + x;
-	const double ave[3] = {
+	const int ix = y * xsize + x;
+	const float ave[3] = {
 		(c0_x[ix] + c1_x[ix]) * 0.5f,
 		(c0_y[ix] + c1_y[ix]) * 0.5f,
 		(c0_b[ix] + c1_b[ix]) * 0.5f,
 	};
-	double sqr_max_diff = -1;
+	float sqr_max_diff = -1;
 	{
 		int offset[4] = {-1, 1, -(int)(xsize), (int)(xsize)};
 		int border[4] = {x == 0, x + 1 == xsize, y == 0, y + 1 == ysize};
@@ -534,7 +533,7 @@ __kernel void clMaskHighIntensityChangeEx(
 				continue;
 			}
 			const int ix2 = ix + offset[dir];
-			double diff = 0.5 * (c0_y[ix2] + c1_y[ix2]) - ave[1];
+			float diff = 0.5f * (c0_y[ix2] + c1_y[ix2]) - ave[1];
 			diff *= diff;
 			if (sqr_max_diff < diff)
 			{
@@ -542,13 +541,13 @@ __kernel void clMaskHighIntensityChangeEx(
 			}
 		}
 	}
-	const double kReductionX = 275.19165240059317;
-	const double kReductionY = 18599.41286306991;
-	const double kReductionZ = 410.8995306951065;
-	const double kChromaBalance = 106.95800948271017;
-	double chroma_scale = kChromaBalance / (ave[1] + kChromaBalance);
+	const float kReductionX = 275.19165240059317f;
+	const float kReductionY = 18599.41286306991f;
+	const float kReductionZ = 410.8995306951065f;
+	const float kChromaBalance = 106.95800948271017f;
+	float chroma_scale = kChromaBalance / (ave[1] + kChromaBalance);
 
-	const double mix[3] = {
+	const float mix[3] = {
 		chroma_scale * kReductionX / (sqr_max_diff + kReductionX),
 		kReductionY / (sqr_max_diff + kReductionY),
 		chroma_scale * kReductionZ / (sqr_max_diff + kReductionZ),
@@ -596,7 +595,7 @@ __kernel void clEdgeDetectorMapEx(
 	pos_x = _min_i(pos_x, xsize - 8);
 	pos_y = _min_i(pos_y, ysize - 8);
 
-	double diff_xyb[3] = {0.0};
+	float diff_xyb[3] = {0.0};
 	Butteraugli8x8CornerEdgeDetectorDiff(pos_x, pos_y, xsize, ysize,
 										 r, g, b,
 										 r2, g2, b2,
@@ -632,16 +631,16 @@ __kernel void clBlockDiffMapEx(
 	size_t res_ix = res_y * res_xsize + res_x;
 	size_t offset = _min_i(pos_y, ysize - 8) * xsize + _min_i(pos_x, xsize - 8);
 
-	__private double block0[3 * kBlockEdge * kBlockEdge];
-	__private double block1[3 * kBlockEdge * kBlockEdge];
+	__private float block0[3 * kBlockEdge * kBlockEdge];
+	__private float block1[3 * kBlockEdge * kBlockEdge];
 
-	__private double *block0_r = &block0[0];
-	__private double *block0_g = &block0[kBlockEdge * kBlockEdge];
-	__private double *block0_b = &block0[2 * kBlockEdge * kBlockEdge];
+	__private float *block0_r = &block0[0];
+	__private float *block0_g = &block0[kBlockEdge * kBlockEdge];
+	__private float *block0_b = &block0[2 * kBlockEdge * kBlockEdge];
 
-	__private double *block1_r = &block1[0];
-	__private double *block1_g = &block1[kBlockEdge * kBlockEdge];
-	__private double *block1_b = &block1[2 * kBlockEdge * kBlockEdge];
+	__private float *block1_r = &block1[0];
+	__private float *block1_g = &block1[kBlockEdge * kBlockEdge];
+	__private float *block1_b = &block1[2 * kBlockEdge * kBlockEdge];
 
 	for (int y = 0; y < kBlockEdge; y++)
 	{
@@ -656,9 +655,9 @@ __kernel void clBlockDiffMapEx(
 		}
 	}
 
-	__private double diff_xyb_dc[3] = {0.0};
-	__private double diff_xyb_ac[3] = {0.0};
-	__private double diff_xyb_edge_dc[3] = {0.0};
+	__private float diff_xyb_dc[3] = {0.0};
+	__private float diff_xyb_ac[3] = {0.0};
+	__private float diff_xyb_edge_dc[3] = {0.0};
 
 	ButteraugliBlockDiff(block0, block1, diff_xyb_dc, diff_xyb_ac, diff_xyb_edge_dc);
 
@@ -696,7 +695,7 @@ __kernel void clEdgeDetectorLowFreqEx(
 
 	int ix = y * xsize + x;
 
-	double diff[4][3];
+	float diff[4][3];
 	__global const float *blurred0[3] = {r, g, b};
 	__global const float *blurred1[3] = {r2, g2, b2};
 
@@ -717,10 +716,10 @@ __kernel void clEdgeDetectorLowFreqEx(
 		ix2 = ix + 6 * xsize - 6;
 		diff[3][i] = x < step ? 0 : ((blurred1[i][ix] - blurred0[i][ix]) + (blurred0[i][ix2] - blurred1[i][ix2]));
 	}
-	double max_diff_xyb[3] = {0};
+	float max_diff_xyb[3] = {0};
 	for (int k = 0; k < 4; ++k)
 	{
-		double diff_xyb[3] = {0};
+		float diff_xyb[3] = {0};
 		XybDiffLowFreqSquaredAccumulate(diff[k][0], diff[k][1], diff[k][2],
 										0, 0, 0, 1.0,
 										diff_xyb);
@@ -732,7 +731,7 @@ __kernel void clEdgeDetectorLowFreqEx(
 
 	int res_ix = res_y * res_xsize + res_x;
 
-	const double kMul = 10;
+	const float kMul = 10;
 
 	block_diff_ac[res_ix * 3] += max_diff_xyb[0] * kMul;
 	block_diff_ac[res_ix * 3 + 1] += max_diff_xyb[1] * kMul;
@@ -750,10 +749,10 @@ __kernel void clDiffPrecomputeEx(
 	if (x >= xsize || y >= ysize)
 		return;
 
-	__private double valsh0[3] = {0.0};
-	__private double valsv0[3] = {0.0};
-	__private double valsh1[3] = {0.0};
-	__private double valsv1[3] = {0.0};
+	__private float valsh0[3] = {0.0};
+	__private float valsv0[3] = {0.0};
+	__private float valsh1[3] = {0.0};
+	__private float valsv1[3] = {0.0};
 	int ix2;
 
 	int ix = x + xsize * y;
@@ -766,13 +765,13 @@ __kernel void clDiffPrecomputeEx(
 		ix2 = ix - 1;
 	}
 	{
-		__private double x0 = (xyb0_x[ix] - xyb0_x[ix2]);
-		__private double y0 = (xyb0_y[ix] - xyb0_y[ix2]);
-		__private double z0 = (xyb0_b[ix] - xyb0_b[ix2]);
+		__private float x0 = (xyb0_x[ix] - xyb0_x[ix2]);
+		__private float y0 = (xyb0_y[ix] - xyb0_y[ix2]);
+		__private float z0 = (xyb0_b[ix] - xyb0_b[ix2]);
 		XybToVals(x0, y0, z0, &valsh0[0], &valsh0[1], &valsh0[2]);
-		__private double x1 = (xyb1_x[ix] - xyb1_x[ix2]);
-		__private double y1 = (xyb1_y[ix] - xyb1_y[ix2]);
-		__private double z1 = (xyb1_b[ix] - xyb1_b[ix2]);
+		__private float x1 = (xyb1_x[ix] - xyb1_x[ix2]);
+		__private float y1 = (xyb1_y[ix] - xyb1_y[ix2]);
+		__private float z1 = (xyb1_b[ix] - xyb1_b[ix2]);
 		XybToVals(x1, y1, z1, &valsh1[0], &valsh1[1], &valsh1[2]);
 	}
 	if (y + 1 < ysize)
@@ -784,19 +783,19 @@ __kernel void clDiffPrecomputeEx(
 		ix2 = ix - xsize;
 	}
 	{
-		__private double x0 = (xyb0_x[ix] - xyb0_x[ix2]);
-		__private double y0 = (xyb0_y[ix] - xyb0_y[ix2]);
-		__private double z0 = (xyb0_b[ix] - xyb0_b[ix2]);
+		__private float x0 = (xyb0_x[ix] - xyb0_x[ix2]);
+		__private float y0 = (xyb0_y[ix] - xyb0_y[ix2]);
+		__private float z0 = (xyb0_b[ix] - xyb0_b[ix2]);
 		XybToVals(x0, y0, z0, &valsv0[0], &valsv0[1], &valsv0[2]);
-		__private double x1 = (xyb1_x[ix] - xyb1_x[ix2]);
-		__private double y1 = (xyb1_y[ix] - xyb1_y[ix2]);
-		__private double z1 = (xyb1_b[ix] - xyb1_b[ix2]);
+		__private float x1 = (xyb1_x[ix] - xyb1_x[ix2]);
+		__private float y1 = (xyb1_y[ix] - xyb1_y[ix2]);
+		__private float z1 = (xyb1_b[ix] - xyb1_b[ix2]);
 		XybToVals(x1, y1, z1, &valsv1[0], &valsv1[1], &valsv1[2]);
 	}
 
-	__private double sup0 = _abs_d(valsh0[0]) + _abs_d(valsv0[0]);
-	__private double sup1 = _abs_d(valsh1[0]) + _abs_d(valsv1[0]);
-	__private double m = _min_d(sup0, sup1);
+	__private float sup0 = _abs_d(valsh0[0]) + _abs_d(valsv0[0]);
+	__private float sup1 = _abs_d(valsh1[0]) + _abs_d(valsv1[0]);
+	__private float m = _min_d(sup0, sup1);
 	mask_x[ix] = (float)(m);
 
 	sup0 = _abs_d(valsh0[1]) + _abs_d(valsv0[1]);
@@ -902,8 +901,8 @@ __kernel void clDoMaskEx(
 	__global float *mask_x, __global float *mask_y, __global float *mask_b,
 	const int xsize, const int ysize,
 	__global float *mask_dc_x, __global float *mask_dc_y, __global float *mask_dc_b,
-	__global const double *lut_x, __global const double *lut_y, __global const double *lut_b,
-	__global const double *lut_dc_x, __global const double *lut_dc_y, __global const double *lut_dc_b)
+	__global const float *lut_x, __global const float *lut_y, __global const float *lut_b,
+	__global const float *lut_dc_x, __global const float *lut_dc_y, __global const float *lut_dc_b)
 {
 	const int x = get_global_id(0);
 	const int y = get_global_id(1);
@@ -911,17 +910,17 @@ __kernel void clDoMaskEx(
 	if (x >= xsize || y >= ysize)
 		return;
 
-	const double w00 = 232.206464018;
-	const double w11 = 22.9455222245;
-	const double w22 = 503.962310606;
+	const float w00 = 232.206464018f;
+	const float w11 = 22.9455222245f;
+	const float w22 = 503.962310606f;
 
 	const size_t idx = y * xsize + x;
-	const double s0 = mask_x[idx];
-	const double s1 = mask_y[idx];
-	const double s2 = mask_b[idx];
-	const double p0 = w00 * s0;
-	const double p1 = w11 * s1;
-	const double p2 = w22 * s2;
+	const float s0 = mask_x[idx];
+	const float s1 = mask_y[idx];
+	const float s2 = mask_b[idx];
+	const float p0 = w00 * s0;
+	const float p1 = w11 * s1;
+	const float p2 = w22 * s2;
 
 	mask_x[idx] = (float)(InterpolateClampNegative(lut_x, 512, p0));
 	mask_y[idx] = (float)(InterpolateClampNegative(lut_y, 512, p1));
@@ -948,8 +947,8 @@ __kernel void clCombineChannelsEx(
 	if (res_x + (8 - step) >= xsize || res_y + (8 - step) >= ysize)
 		return;
 
-	double mask[3];
-	double dc_mask[3];
+	float mask[3];
+	float dc_mask[3];
 	mask[0] = mask_x[(res_y + 3) * xsize + (res_x + 3)];
 	dc_mask[0] = mask_dc_x[(res_y + 3) * xsize + (res_x + 3)];
 
@@ -989,7 +988,7 @@ __kernel void clUpsampleSquareRootEx(__global float *diffmap_out, __global const
 	const float kInitialSlope = 100;
 	// TODO(b/29974893): Until that is fixed do not call sqrt on very small
 	// numbers.
-	double val = orig_val < (1.0 / (kInitialSlope * kInitialSlope))
+	float val = orig_val < (1.0 / (kInitialSlope * kInitialSlope))
 					 ? kInitialSlope * orig_val
 					 : sqrt(orig_val);
 
@@ -1024,7 +1023,7 @@ __kernel void clAddBorderEx(__global float *out, const int xsize, const int ysiz
 		return;
 	}
 
-	const double mul1 = 24.8235314874;
+	const float mul1 = 24.8235314874f;
 	out[(y + s2) * xsize + x + s2] += (float)(mul1)*in[y * (xsize - s) + x];
 }
 
@@ -1383,11 +1382,11 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 	int ysize,
 	__global const float *r, __global const float *g, __global const float *b,
 	__global const float *r2, __global const float *g2, __global const float *b2,
-	__private double *diff_xyb)
+	__private float *diff_xyb)
 {
 	int local_count = 0;
-	double local_xyb[3] = {0};
-	const double w = 0.711100840192;
+	float local_xyb[3] = {0};
+	const float w = 0.711100840192f;
 
 	int offset[4][2] = {{0, 0}, {0, 7}, {7, 0}, {7, 7}};
 	int edgeSize = 3;
@@ -1427,32 +1426,32 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 		}
 	}
 
-	const double weight = 0.01617112696;
-	const double mul = weight * 8.0 / local_count;
+	const float weight = 0.01617112696f;
+	const float mul = weight * 8.0f / local_count;
 	for (int i = 0; i < 3; ++i)
 	{
 		diff_xyb[i] += mul * local_xyb[i];
 	}
 }
 
-__device__ double DotProduct(__global const float u[3], const double v[3])
+__device__ float DotProduct(__global const float u[3], const float v[3])
 {
 	return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
-__device__ double Interpolate(__constant_ex const double *array, const int size, const double sx)
+__device__ float Interpolate(__constant_ex const float *array, const int size, const float sx)
 {
-	double ix = _abs_d(sx);
+	float ix = _abs_d(sx);
 
 	int baseix = (int)(ix);
-	double res;
+	float res;
 	if (baseix >= size - 1)
 	{
 		res = array[size - 1];
 	}
 	else
 	{
-		double mix = ix - baseix;
+		float mix = ix - baseix;
 		int nextix = baseix + 1;
 		res = array[baseix] + mix * (array[nextix] - array[baseix]);
 	}
@@ -1461,9 +1460,9 @@ __device__ double Interpolate(__constant_ex const double *array, const int size,
 	return res;
 }
 
-#define XybToVals_off_x 11.38708334481672
-#define XybToVals_inc_x 14.550189611520716
-__constant double XybToVals_lut_x[21] = {
+#define XybToVals_off_x 11.38708334481672f
+#define XybToVals_inc_x 14.550189611520716f
+__constant float XybToVals_lut_x[21] = {
 	0,
 	XybToVals_off_x,
 	XybToVals_off_x + 1 * XybToVals_inc_x,
@@ -1487,9 +1486,9 @@ __constant double XybToVals_lut_x[21] = {
 	XybToVals_off_x + 19 * XybToVals_inc_x,
 };
 
-#define XybToVals_off_y 1.4103373714040413
-#define XybToVals_inc_y 0.7084088867024
-__constant double XybToVals_lut_y[21] = {
+#define XybToVals_off_y 1.4103373714040413f
+#define XybToVals_inc_y 0.7084088867024f
+__constant float XybToVals_lut_y[21] = {
 	0,
 	XybToVals_off_y,
 	XybToVals_off_y + 1 * XybToVals_inc_y,
@@ -1514,20 +1513,20 @@ __constant double XybToVals_lut_y[21] = {
 };
 
 __device__ void XybToVals(
-	__private const double x, __private const double y, __private const double z,
-	__private double *valx, __private double *valy, __private double *valz)
+	__private const float x, __private const float y, __private const float z,
+	__private float *valx, __private float *valy, __private float *valz)
 {
-	const double xmul = 0.758304045695;
-	const double ymul = 2.28148649801;
-	const double zmul = 1.87816926918;
+	const float xmul = 0.758304045695f;
+	const float ymul = 2.28148649801f;
+	const float zmul = 1.87816926918f;
 
 	*valx = Interpolate(&XybToVals_lut_x[0], 21, x * xmul);
 	*valy = Interpolate(&XybToVals_lut_y[0], 21, y * ymul);
 	*valz = zmul * z;
 }
 
-#define XybLowFreqToVals_inc 5.2511644570349185
-__constant double XybLowFreqToVals_lut[21] = {
+#define XybLowFreqToVals_inc 5.2511644570349185f
+__constant float XybLowFreqToVals_lut[21] = {
 	0,
 	1 * XybLowFreqToVals_inc,
 	2 * XybLowFreqToVals_inc,
@@ -1551,49 +1550,49 @@ __constant double XybLowFreqToVals_lut[21] = {
 	20 * XybLowFreqToVals_inc,
 };
 
-__device__ void XybLowFreqToVals(__private const double x, __private const double y, __private const double z,
-								 __private double *valx, __private double *valy, __private double *valz)
+__device__ void XybLowFreqToVals(__private const float x, __private const float y, __private const float z,
+								 __private float *valx, __private float *valy, __private float *valz)
 {
-	const double xmul = 6.64482198135;
-	const double ymul = 0.837846224276;
-	const double zmul = 7.34905756986;
-	const double y_to_z_mul = 0.0812519812628;
+	const float xmul = 6.64482198135f;
+	const float ymul = 0.837846224276f;
+	const float zmul = 7.34905756986f;
+	const float y_to_z_mul = 0.0812519812628f;
 
-	double zz = z + y_to_z_mul * y;
+	float zz = z + y_to_z_mul * y;
 	*valz = zz * zmul;
 	*valx = x * xmul;
 	*valy = Interpolate(&XybLowFreqToVals_lut[0], 21, y * ymul);
 }
 
-__device__ double InterpolateClampNegative(__global const double *array,
-										   int size, double sx)
+__device__ float InterpolateClampNegative(__global const float *array,
+										   int size, float sx)
 {
 	if (sx < 0)
 	{
 		sx = 0;
 	}
-	double ix = _abs_d(sx);
+	float ix = _abs_d(sx);
 	int baseix = (int)(ix);
-	double res;
+	float res;
 	if (baseix >= size - 1)
 	{
 		res = array[size - 1];
 	}
 	else
 	{
-		double mix = ix - baseix;
+		float mix = ix - baseix;
 		int nextix = baseix + 1;
 		res = array[baseix] + mix * (array[nextix] - array[baseix]);
 	}
 	return res;
 }
 
-__device__ void XybDiffLowFreqSquaredAccumulate(__private const double r0, __private const double g0, __private const double b0,
-												__private const double r1, __private const double g1, __private const double b1,
-												__private const double factor, __private double res[3])
+__device__ void XybDiffLowFreqSquaredAccumulate(__private const float r0, __private const float g0, __private const float b0,
+												__private const float r1, __private const float g1, __private const float b1,
+												__private const float factor, __private float res[3])
 {
-	double valx0, valy0, valz0;
-	double valx1, valy1, valz1;
+	float valx0, valy0, valz0;
+	float valx1, valy1, valz1;
 	XybLowFreqToVals(r0, g0, b0, &valx0, &valy0, &valz0);
 	if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0)
 	{
@@ -1606,9 +1605,9 @@ __device__ void XybDiffLowFreqSquaredAccumulate(__private const double r0, __pri
 	XybLowFreqToVals(r1, g1, b1, &valx1, &valy1, &valz1);
 	// Approximate the distance of the colors by their respective distances
 	// to gray.
-	double valx = valx0 - valx1;
-	double valy = valy0 - valy1;
-	double valz = valz0 - valz1;
+	float valx = valx0 - valx1;
+	float valy = valy0 - valy1;
+	float valz = valz0 - valz1;
 	res[0] += factor * valx * valx;
 	res[1] += factor * valy * valy;
 	res[2] += factor * valz * valz;
@@ -1616,14 +1615,14 @@ __device__ void XybDiffLowFreqSquaredAccumulate(__private const double r0, __pri
 
 typedef struct __Complex
 {
-	double real;
-	double imag;
+	float real;
+	float imag;
 } Complex;
 
-__constant double kSqrtHalf = 0.70710678118654752440084436210484903;
-__device__ void RealFFT8(__private const double *in, __private Complex *out)
+__constant float kSqrtHalf = 0.70710678118654752440084436210484903f;
+__device__ void RealFFT8(__private const float *in, __private Complex *out)
 {
-	double t1, t2, t3, t5, t6, t7, t8;
+	float t1, t2, t3, t5, t6, t7, t8;
 	t8 = in[6];
 	t5 = in[2] - t8;
 	t8 += in[2];
@@ -1711,7 +1710,7 @@ __device__ void TransposeBlock(Complex data[kBlockSize])
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
 __device__ void FFT4(__private Complex *a)
 {
-	double t1, t2, t3, t4, t5, t6, t7, t8;
+	float t1, t2, t3, t4, t5, t6, t7, t8;
 	t5 = a[2].real;
 	t1 = a[0].real - t5;
 	t7 = a[3].real;
@@ -1742,8 +1741,8 @@ __device__ void FFT4(__private Complex *a)
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
 __device__ void FFT8(__private Complex *a)
 {
-	const double kSqrtHalf = 0.70710678118654752440084436210484903;
-	double t1, t2, t3, t4, t5, t6, t7, t8;
+	const float kSqrtHalf = 0.70710678118654752440084436210484903f;
+	float t1, t2, t3, t4, t5, t6, t7, t8;
 
 	t7 = a[4].imag;
 	t4 = a[0].imag - t7;
@@ -1835,25 +1834,25 @@ __device__ void FFT8(__private Complex *a)
 	a[6] = tmp;
 }
 
-__device__ double abssq(const Complex c)
+__device__ float abssq(const Complex c)
 {
 	return c.real * c.real + c.imag * c.imag;
 }
 
-__device__ void ButteraugliFFTSquared(__private double block[kBlockSize])
+__device__ void ButteraugliFFTSquared(__private float block[kBlockSize])
 {
-	const double global_mul = 0.000064;
+	const float global_mul = 0.000064f;
 	__private Complex block_c[kBlockSize];
 
 	for (int y = 0; y < kBlockEdge; ++y)
 	{
-		__private const double *input_ptr = block + y * kBlockEdge;
+		__private const float *input_ptr = block + y * kBlockEdge;
 		__private Complex *output_ptr = block_c + y * kBlockEdge;
 		RealFFT8(input_ptr, output_ptr);
 	}
 	TransposeBlock(block_c);
-	__private double r0[kBlockEdge];
-	__private double r1[kBlockEdge];
+	__private float r0[kBlockEdge];
+	__private float r1[kBlockEdge];
 	for (int x = 0; x < kBlockEdge; ++x)
 	{
 		r0[x] = block_c[x].real;
@@ -1873,7 +1872,7 @@ __device__ void ButteraugliFFTSquared(__private double block[kBlockSize])
 	}
 }
 
-__device__ double RemoveRangeAroundZero(double v, double range)
+__device__ float RemoveRangeAroundZero(float v, float range)
 {
 	if (v >= -range && v < range)
 	{
@@ -1889,9 +1888,9 @@ __device__ double RemoveRangeAroundZero(double v, double range)
 	}
 }
 
-#define MakeHighFreqColorDiffDy_off 1.4103373714040413
-#define MakeHighFreqColorDiffDy_inc 0.7084088867024
-__constant double MakeHighFreqColorDiffDy_lut[21] = {
+#define MakeHighFreqColorDiffDy_off 1.4103373714040413f
+#define MakeHighFreqColorDiffDy_inc 0.7084088867024f
+__constant float MakeHighFreqColorDiffDy_lut[21] = {
 	0.0,
 	MakeHighFreqColorDiffDy_off,
 	MakeHighFreqColorDiffDy_off + 1 * MakeHighFreqColorDiffDy_inc,
@@ -1915,62 +1914,62 @@ __constant double MakeHighFreqColorDiffDy_lut[21] = {
 	MakeHighFreqColorDiffDy_off + 19 * MakeHighFreqColorDiffDy_inc,
 };
 
-__constant double csf8x8[kBlockHalf + kBlockEdgeHalf + 1] = {
-	5.28270670524,
-	0.0,
-	0.0,
-	0.0,
-	0.3831134973,
-	0.676303603859,
-	3.58927792424,
-	18.6104367002,
-	18.6104367002,
-	3.09093131948,
-	1.0,
-	0.498250875965,
-	0.36198671102,
-	0.308982169883,
-	0.1312701920435,
-	2.37370549629,
-	3.58927792424,
-	1.0,
-	2.37370549629,
-	0.991205724152,
-	1.05178802919,
-	0.627264168628,
-	0.4,
-	0.1312701920435,
-	0.676303603859,
-	0.498250875965,
-	0.991205724152,
-	0.5,
-	0.3831134973,
-	0.349686450518,
-	0.627264168628,
-	0.308982169883,
-	0.3831134973,
-	0.36198671102,
-	1.05178802919,
-	0.3831134973,
-	0.12,
+__constant float csf8x8[kBlockHalf + kBlockEdgeHalf + 1] = {
+	5.28270670524f,
+	0.0f,
+	0.0f,
+	0.0f,
+	0.3831134973f,
+	0.676303603859f,
+	3.58927792424f,
+	18.6104367002f,
+	18.6104367002f,
+	3.09093131948f,
+	1.0f,
+	0.498250875965f,
+	0.36198671102f,
+	0.308982169883f,
+	0.1312701920435f,
+	2.37370549629f,
+	3.58927792424f,
+	1.0f,
+	2.37370549629f,
+	0.991205724152f,
+	1.05178802919f,
+	0.627264168628f,
+	0.4f,
+	0.1312701920435f,
+	0.676303603859f,
+	0.498250875965f,
+	0.991205724152f,
+	0.5f,
+	0.3831134973f,
+	0.349686450518f,
+	0.627264168628f,
+	0.308982169883f,
+	0.3831134973f,
+	0.36198671102f,
+	1.05178802919f,
+	0.3831134973f,
+	0.12f,
 };
 
 // Computes 8x8 FFT of each channel of xyb0 and xyb1 and adds the total squared
 // 3-dimensional xybdiff of the two blocks to diff_xyb_{dc,ac} and the average
 // diff on the edges to diff_xyb_edge_dc.
-__device__ void ButteraugliBlockDiff(__private double xyb0[3 * kBlockSize],
-									 __private double xyb1[3 * kBlockSize],
-									 __private double diff_xyb_dc[3],
-									 __private double diff_xyb_ac[3],
-									 __private double diff_xyb_edge_dc[3])
+__device__ void ButteraugliBlockDiff(__private float xyb0[3 * kBlockSize],
+									 __private float xyb1[3 * kBlockSize],
+									 __private float diff_xyb_dc[3],
+									 __private float diff_xyb_ac[3],
+									 __private float diff_xyb_edge_dc[3])
 {
 
-	__private double avgdiff_xyb[3] = {0.0};
-	__private double avgdiff_edge[3][4] = {{0.0}};
+	__private float avgdiff_xyb[3] = {0.0};
+	__private float avgdiff_edge[3][4] = {{0.0}};
 
 	for (int i = 0; i < 3 * kBlockSize; ++i)
 	{
-		const double diff_xyb = xyb0[i] - xyb1[i];
+		const float diff_xyb = xyb0[i] - xyb1[i];
 		const int c = i / kBlockSize;
 		avgdiff_xyb[c] += diff_xyb / kBlockSize;
 		const int k = i % kBlockSize;
@@ -2003,91 +2002,91 @@ __device__ void ButteraugliBlockDiff(__private double xyb0[3 * kBlockSize],
 										diff_xyb_edge_dc);
 	}
 
-	__private double *xyb_avg = xyb0;
-	__private double *xyb_halfdiff = xyb1;
+	__private float *xyb_avg = xyb0;
+	__private float *xyb_halfdiff = xyb1;
 	for (int i = 0; i < 3 * kBlockSize; ++i)
 	{
-		double avg = (xyb0[i] + xyb1[i]) / 2;
-		double halfdiff = (xyb0[i] - xyb1[i]) / 2;
+		float avg = (xyb0[i] + xyb1[i]) / 2;
+		float halfdiff = (xyb0[i] - xyb1[i]) / 2;
 		xyb_avg[i] = avg;
 		xyb_halfdiff[i] = halfdiff;
 	}
-	__private double *y_avg = &xyb_avg[kBlockSize];
-	__private double *x_halfdiff_squared = &xyb_halfdiff[0];
-	__private double *y_halfdiff = &xyb_halfdiff[kBlockSize];
-	__private double *z_halfdiff_squared = &xyb_halfdiff[2 * kBlockSize];
+	__private float *y_avg = &xyb_avg[kBlockSize];
+	__private float *x_halfdiff_squared = &xyb_halfdiff[0];
+	__private float *y_halfdiff = &xyb_halfdiff[kBlockSize];
+	__private float *z_halfdiff_squared = &xyb_halfdiff[2 * kBlockSize];
 	ButteraugliFFTSquared(y_avg);
 	ButteraugliFFTSquared(x_halfdiff_squared);
 	ButteraugliFFTSquared(y_halfdiff);
 	ButteraugliFFTSquared(z_halfdiff_squared);
 
-	const double xmul = 64.8;
-	const double ymul = 1.753123908348329;
-	const double ymul2 = 1.51983458269;
-	const double zmul = 2.4;
+	const float xmul = 64.8f;
+	const float ymul = 1.753123908348329f;
+	const float ymul2 = 1.51983458269f;
+	const float zmul = 2.4f;
 
 	for (size_t i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i)
 	{
-		double d = csf8x8[i];
+		float d = csf8x8[i];
 		diff_xyb_ac[0] += d * xmul * x_halfdiff_squared[i];
 		diff_xyb_ac[2] += d * zmul * z_halfdiff_squared[i];
 
 		y_avg[i] = sqrt(y_avg[i]);
 		y_halfdiff[i] = sqrt(y_halfdiff[i]);
-		double y0 = y_avg[i] - y_halfdiff[i];
-		double y1 = y_avg[i] + y_halfdiff[i];
+		float y0 = y_avg[i] - y_halfdiff[i];
+		float y1 = y_avg[i] + y_halfdiff[i];
 		// Remove the impact of small absolute values.
 		// This improves the behavior with flat noise.
-		const double ylimit = 0.04;
+		const float ylimit = 0.04f;
 		y0 = RemoveRangeAroundZero(y0, ylimit);
 		y1 = RemoveRangeAroundZero(y1, ylimit);
 		if (y0 != y1)
 		{
-			double valy0 = Interpolate(&MakeHighFreqColorDiffDy_lut[0], 21, y0 * ymul2);
-			double valy1 = Interpolate(&MakeHighFreqColorDiffDy_lut[0], 21, y1 * ymul2);
-			double valy = ymul * (valy0 - valy1);
+			float valy0 = Interpolate(&MakeHighFreqColorDiffDy_lut[0], 21, y0 * ymul2);
+			float valy1 = Interpolate(&MakeHighFreqColorDiffDy_lut[0], 21, y1 * ymul2);
+			float valy = ymul * (valy0 - valy1);
 			diff_xyb_ac[1] += d * valy * valy;
 		}
 	}
 }
 
 __constant static float g_mix[12] = {
-	0.348036746003,
-	0.577814843137,
-	0.0544556093735,
-	0.774145581713,
-	0.26922717275,
-	0.767247733938,
-	0.0366922708552,
-	0.920130265014,
-	0.0882062883536,
-	0.158581714673,
-	0.712857943858,
-	10.6524069248,
+	0.348036746003f,
+	0.577814843137f,
+	0.0544556093735f,
+	0.774145581713f,
+	0.26922717275f,
+	0.767247733938f,
+	0.0366922708552f,
+	0.920130265014f,
+	0.0882062883536f,
+	0.158581714673f,
+	0.712857943858f,
+	10.6524069248f,
 };
 
-__device__ void OpsinAbsorbance(__private const double in[3], __private double out[3])
+__device__ void OpsinAbsorbance(__private const float in[3], __private float out[3])
 {
 	out[0] = g_mix[0] * in[0] + g_mix[1] * in[1] + g_mix[2] * in[2] + g_mix[3];
 	out[1] = g_mix[4] * in[0] + g_mix[5] * in[1] + g_mix[6] * in[2] + g_mix[7];
 	out[2] = g_mix[8] * in[0] + g_mix[9] * in[1] + g_mix[10] * in[2] + g_mix[11];
 }
 
-__device__ double EvaluatePolynomial(const double x, __constant_ex const double *coefficients, int n)
+__device__ float EvaluatePolynomial(const float x, __constant_ex const float *coefficients, int n)
 {
-	double b1 = 0.0f;
-	double b2 = 0.0f;
+	float b1 = 0.0f;
+	float b2 = 0.0f;
 
 	for (int i = n - 1; i >= 0; i--)
 	{
 		if (i == 0)
 		{
-			const double x_b1 = x * b1;
+			const float x_b1 = x * b1;
 			b1 = x_b1 - b2 + coefficients[0];
 			break;
 		}
-		const double x_b1 = x * b1;
-		const double t = (x_b1 + x_b1) - b2 + coefficients[i];
+		const float x_b1 = x * b1;
+		const float t = (x_b1 + x_b1) - b2 + coefficients[i];
 		b2 = b1;
 		b1 = t;
 	}
@@ -2095,44 +2094,44 @@ __device__ double EvaluatePolynomial(const double x, __constant_ex const double 
 	return b1;
 }
 
-static __constant double g_gamma_p[5 + 1] = {
-	881.979476556478289,
-	1496.058452015812463,
-	908.662212739659481,
-	373.566100223287378,
-	85.840860336314364,
-	6.683258861509244,
+static __constant float g_gamma_p[5 + 1] = {
+	881.979476556478289f,
+	1496.058452015812463f,
+	908.662212739659481f,
+	373.566100223287378f,
+	85.840860336314364f,
+	6.683258861509244f,
 };
 
-static __constant double g_gamma_q[5 + 1] = {
-	12.262350348616792,
-	20.557285797683576,
-	12.161463238367844,
-	4.711532733641639,
-	0.899112889751053,
-	0.035662329617191,
+static __constant float g_gamma_q[5 + 1] = {
+	12.262350348616792f,
+	20.557285797683576f,
+	12.161463238367844f,
+	4.711532733641639f,
+	0.899112889751053f,
+	0.035662329617191f,
 };
 
-__device__ double Gamma(double v)
+__device__ float Gamma(float v)
 {
-	const double min_value = 0.770000000000000;
-	const double max_value = 274.579999999999984;
-	const double x01 = (v - min_value) / (max_value - min_value);
-	const double xc = 2.0 * x01 - 1.0f;
+	const float min_value = 0.770000000000000f;
+	const float max_value = 274.579999999999984f;
+	const float x01 = (v - min_value) / (max_value - min_value);
+	const float xc = 2.0f * x01 - 1.0f;
 
-	const double yp = EvaluatePolynomial(xc, g_gamma_p, 6);
-	const double yq = EvaluatePolynomial(xc, g_gamma_q, 6);
+	const float yp = EvaluatePolynomial(xc, g_gamma_p, 6);
+	const float yq = EvaluatePolynomial(xc, g_gamma_q, 6);
 	if (yq == 0.0)
 		return 0.0f;
 	return (float)(yp / yq);
 }
 
-__device__ void RgbToXyb(__private const double r, __private const double g, __private const double b, __private double *valx, __private double *valy, __private double *valz)
+__device__ void RgbToXyb(__private const float r, __private const float g, __private const float b, __private float *valx, __private float *valy, __private float *valz)
 {
-	const double a0 = 1.01611726948;
-	const double a1 = 0.982482243696;
-	const double a2 = 1.43571362627;
-	const double a3 = 0.896039849412;
+	const float a0 = 1.01611726948f;
+	const float a1 = 0.982482243696f;
+	const float a2 = 1.43571362627f;
+	const float a3 = 0.896039849412f;
 	*valx = a0 * r - a1 * g;
 	*valy = a2 * r + a3 * g;
 	*valz = b;
@@ -4753,263 +4752,263 @@ __device__ void YUVToRGB(__private uchar pixelBlock[3 * 8 * 8], const int size /
 	}
 }
 
-__constant static double kSrgb8ToLinearTable[256] = {
-	0.000000,
-	0.077399,
-	0.154799,
-	0.232198,
-	0.309598,
-	0.386997,
-	0.464396,
-	0.541796,
-	0.619195,
-	0.696594,
-	0.773994,
-	0.853367,
-	0.937509,
-	1.026303,
-	1.119818,
-	1.218123,
-	1.321287,
-	1.429375,
-	1.542452,
-	1.660583,
-	1.783830,
-	1.912253,
-	2.045914,
-	2.184872,
-	2.329185,
-	2.478910,
-	2.634105,
-	2.794824,
-	2.961123,
-	3.133055,
-	3.310673,
-	3.494031,
-	3.683180,
-	3.878171,
-	4.079055,
-	4.285881,
-	4.498698,
-	4.717556,
-	4.942502,
-	5.173584,
-	5.410848,
-	5.654341,
-	5.904108,
-	6.160196,
-	6.422649,
-	6.691512,
-	6.966827,
-	7.248640,
-	7.536993,
-	7.831928,
-	8.133488,
-	8.441715,
-	8.756651,
-	9.078335,
-	9.406810,
-	9.742115,
-	10.084290,
-	10.433375,
-	10.789410,
-	11.152432,
-	11.522482,
-	11.899597,
-	12.283815,
-	12.675174,
-	13.073712,
-	13.479465,
-	13.892470,
-	14.312765,
-	14.740385,
-	15.175366,
-	15.617744,
-	16.067555,
-	16.524833,
-	16.989614,
-	17.461933,
-	17.941824,
-	18.429322,
-	18.924460,
-	19.427272,
-	19.937793,
-	20.456054,
-	20.982090,
-	21.515934,
-	22.057618,
-	22.607175,
-	23.164636,
-	23.730036,
-	24.303404,
-	24.884774,
-	25.474176,
-	26.071642,
-	26.677203,
-	27.290891,
-	27.912736,
-	28.542769,
-	29.181020,
-	29.827520,
-	30.482299,
-	31.145387,
-	31.816813,
-	32.496609,
-	33.184802,
-	33.881422,
-	34.586499,
-	35.300062,
-	36.022139,
-	36.752760,
-	37.491953,
-	38.239746,
-	38.996169,
-	39.761248,
-	40.535013,
-	41.317491,
-	42.108710,
-	42.908697,
-	43.717481,
-	44.535088,
-	45.361546,
-	46.196882,
-	47.041124,
-	47.894297,
-	48.756429,
-	49.627547,
-	50.507676,
-	51.396845,
-	52.295078,
-	53.202402,
-	54.118843,
-	55.044428,
-	55.979181,
-	56.923129,
-	57.876298,
-	58.838712,
-	59.810398,
-	60.791381,
-	61.781686,
-	62.781338,
-	63.790363,
-	64.808784,
-	65.836627,
-	66.873918,
-	67.920679,
-	68.976937,
-	70.042715,
-	71.118037,
-	72.202929,
-	73.297414,
-	74.401516,
-	75.515259,
-	76.638668,
-	77.771765,
-	78.914575,
-	80.067122,
-	81.229428,
-	82.401518,
-	83.583415,
-	84.775142,
-	85.976722,
-	87.188178,
-	88.409534,
-	89.640813,
-	90.882037,
-	92.133229,
-	93.394412,
-	94.665609,
-	95.946841,
-	97.238133,
-	98.539506,
-	99.850982,
-	101.172584,
-	102.504334,
-	103.846254,
-	105.198366,
-	106.560693,
-	107.933256,
-	109.316077,
-	110.709177,
-	112.112579,
-	113.526305,
-	114.950375,
-	116.384811,
-	117.829635,
-	119.284868,
-	120.750532,
-	122.226647,
-	123.713235,
-	125.210317,
-	126.717914,
-	128.236047,
-	129.764737,
-	131.304005,
-	132.853871,
-	134.414357,
-	135.985483,
-	137.567270,
-	139.159738,
-	140.762907,
-	142.376799,
-	144.001434,
-	145.636832,
-	147.283012,
-	148.939997,
-	150.607804,
-	152.286456,
-	153.975971,
-	155.676371,
-	157.387673,
-	159.109900,
-	160.843070,
-	162.587203,
-	164.342319,
-	166.108438,
-	167.885578,
-	169.673761,
-	171.473005,
-	173.283330,
-	175.104755,
-	176.937299,
-	178.780982,
-	180.635824,
-	182.501843,
-	184.379058,
-	186.267489,
-	188.167154,
-	190.078073,
-	192.000265,
-	193.933749,
-	195.878543,
-	197.834666,
-	199.802137,
-	201.780975,
-	203.771198,
-	205.772826,
-	207.785876,
-	209.810367,
-	211.846319,
-	213.893748,
-	215.952674,
-	218.023115,
-	220.105089,
-	222.198615,
-	224.303711,
-	226.420395,
-	228.548685,
-	230.688599,
-	232.840156,
-	235.003373,
-	237.178269,
-	239.364861,
-	241.563167,
-	243.773205,
-	245.994993,
-	248.228549,
-	250.473890,
-	252.731035,
-	255.000000,
+__constant static float kSrgb8ToLinearTable[256] = {
+	0.000000f,
+	0.077399f,
+	0.154799f,
+	0.232198f,
+	0.309598f,
+	0.386997f,
+	0.464396f,
+	0.541796f,
+	0.619195f,
+	0.696594f,
+	0.773994f,
+	0.853367f,
+	0.937509f,
+	1.026303f,
+	1.119818f,
+	1.218123f,
+	1.321287f,
+	1.429375f,
+	1.542452f,
+	1.660583f,
+	1.783830f,
+	1.912253f,
+	2.045914f,
+	2.184872f,
+	2.329185f,
+	2.478910f,
+	2.634105f,
+	2.794824f,
+	2.961123f,
+	3.133055f,
+	3.310673f,
+	3.494031f,
+	3.683180f,
+	3.878171f,
+	4.079055f,
+	4.285881f,
+	4.498698f,
+	4.717556f,
+	4.942502f,
+	5.173584f,
+	5.410848f,
+	5.654341f,
+	5.904108f,
+	6.160196f,
+	6.422649f,
+	6.691512f,
+	6.966827f,
+	7.248640f,
+	7.536993f,
+	7.831928f,
+	8.133488f,
+	8.441715f,
+	8.756651f,
+	9.078335f,
+	9.406810f,
+	9.742115f,
+	10.084290f,
+	10.433375f,
+	10.789410f,
+	11.152432f,
+	11.522482f,
+	11.899597f,
+	12.283815f,
+	12.675174f,
+	13.073712f,
+	13.479465f,
+	13.892470f,
+	14.312765f,
+	14.740385f,
+	15.175366f,
+	15.617744f,
+	16.067555f,
+	16.524833f,
+	16.989614f,
+	17.461933f,
+	17.941824f,
+	18.429322f,
+	18.924460f,
+	19.427272f,
+	19.937793f,
+	20.456054f,
+	20.982090f,
+	21.515934f,
+	22.057618f,
+	22.607175f,
+	23.164636f,
+	23.730036f,
+	24.303404f,
+	24.884774f,
+	25.474176f,
+	26.071642f,
+	26.677203f,
+	27.290891f,
+	27.912736f,
+	28.542769f,
+	29.181020f,
+	29.827520f,
+	30.482299f,
+	31.145387f,
+	31.816813f,
+	32.496609f,
+	33.184802f,
+	33.881422f,
+	34.586499f,
+	35.300062f,
+	36.022139f,
+	36.752760f,
+	37.491953f,
+	38.239746f,
+	38.996169f,
+	39.761248f,
+	40.535013f,
+	41.317491f,
+	42.108710f,
+	42.908697f,
+	43.717481f,
+	44.535088f,
+	45.361546f,
+	46.196882f,
+	47.041124f,
+	47.894297f,
+	48.756429f,
+	49.627547f,
+	50.507676f,
+	51.396845f,
+	52.295078f,
+	53.202402f,
+	54.118843f,
+	55.044428f,
+	55.979181f,
+	56.923129f,
+	57.876298f,
+	58.838712f,
+	59.810398f,
+	60.791381f,
+	61.781686f,
+	62.781338f,
+	63.790363f,
+	64.808784f,
+	65.836627f,
+	66.873918f,
+	67.920679f,
+	68.976937f,
+	70.042715f,
+	71.118037f,
+	72.202929f,
+	73.297414f,
+	74.401516f,
+	75.515259f,
+	76.638668f,
+	77.771765f,
+	78.914575f,
+	80.067122f,
+	81.229428f,
+	82.401518f,
+	83.583415f,
+	84.775142f,
+	85.976722f,
+	87.188178f,
+	88.409534f,
+	89.640813f,
+	90.882037f,
+	92.133229f,
+	93.394412f,
+	94.665609f,
+	95.946841f,
+	97.238133f,
+	98.539506f,
+	99.850982f,
+	101.172584f,
+	102.504334f,
+	103.846254f,
+	105.198366f,
+	106.560693f,
+	107.933256f,
+	109.316077f,
+	110.709177f,
+	112.112579f,
+	113.526305f,
+	114.950375f,
+	116.384811f,
+	117.829635f,
+	119.284868f,
+	120.750532f,
+	122.226647f,
+	123.713235f,
+	125.210317f,
+	126.717914f,
+	128.236047f,
+	129.764737f,
+	131.304005f,
+	132.853871f,
+	134.414357f,
+	135.985483f,
+	137.567270f,
+	139.159738f,
+	140.762907f,
+	142.376799f,
+	144.001434f,
+	145.636832f,
+	147.283012f,
+	148.939997f,
+	150.607804f,
+	152.286456f,
+	153.975971f,
+	155.676371f,
+	157.387673f,
+	159.109900f,
+	160.843070f,
+	162.587203f,
+	164.342319f,
+	166.108438f,
+	167.885578f,
+	169.673761f,
+	171.473005f,
+	173.283330f,
+	175.104755f,
+	176.937299f,
+	178.780982f,
+	180.635824f,
+	182.501843f,
+	184.379058f,
+	186.267489f,
+	188.167154f,
+	190.078073f,
+	192.000265f,
+	193.933749f,
+	195.878543f,
+	197.834666f,
+	199.802137f,
+	201.780975f,
+	203.771198f,
+	205.772826f,
+	207.785876f,
+	209.810367f,
+	211.846319f,
+	213.893748f,
+	215.952674f,
+	218.023115f,
+	220.105089f,
+	222.198615f,
+	224.303711f,
+	226.420395f,
+	228.548685f,
+	230.688599f,
+	232.840156f,
+	235.003373f,
+	237.178269f,
+	239.364861f,
+	241.563167f,
+	243.773205f,
+	245.994993f,
+	248.228549f,
+	250.473890f,
+	252.731035f,
+	255.000000f,
 };
 
 __device__ void YUVToImage(
@@ -5025,7 +5024,7 @@ __device__ void YUVToImage(
 	YUVToRGB(yuv, xsize * ysize);
 
 #define lut kSrgb8ToLinearTable
-	//    const __constant double* lut = kSrgb8ToLinearTable;
+	//    const __constant float* lut = kSrgb8ToLinearTable;
 
 	for (int i = 0; i < xsize * ysize; i++)
 	{
@@ -5211,8 +5210,8 @@ __device__ void Convolution(
 			weight += multipliers[j - x + offset];
 		}
 		// Interpolate linearly between the no-border scaling and border scaling.
-		weight = (1.0 - border_ratio) * weight + border_ratio * weight_no_border;
-		float scale = 1.0 / weight;
+		weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
+		float scale = 1.0f / weight;
 		for (size_t y = 0; y < ysize; ++y)
 		{
 			float sum = 0.0f;
@@ -5225,11 +5224,11 @@ __device__ void Convolution(
 	}
 }
 
-__device__ void BlurEx(__private const float *r, const int xsize, const int ysize, const double kSigma, const double border_ratio, __private float *output)
+__device__ void BlurEx(__private const float *r, const int xsize, const int ysize, const float kSigma, const float border_ratio, __private float *output)
 {
-	// const double sigma = 1.1;
-	// double m = 2.25;  // Accuracy increases when m is increased.
-	const double scaler = -0.41322314049586772; // when sigma=1.1, scaler is -0.41322314049586772
+	// const float sigma = 1.1;
+	// float m = 2.25;  // Accuracy increases when m is increased.
+	const float scaler = -0.41322314049586772f; // when sigma=1.1, scaler is -0.41322314049586772
 	const int diff = 2;							// when sigma=1.1, diff's value is 2.
 	const int expn_size = 5;					// when sigma=1.1, scaler is  5
 	__private float expn[5] = {
@@ -5255,23 +5254,23 @@ __device__ void OpsinDynamicsImageBlock(__private float *r, __private float *g, 
 {
 	for (size_t i = 0; i < size; ++i)
 	{
-		double sensitivity[3];
+		float sensitivity[3];
 		{
 			// Calculate sensitivity[3] based on the smoothed image gamma derivative.
-			__private double pre_rgb[3] = {r_blurred[i], g_blurred[i], b_blurred[i]};
-			__private double pre_mixed[3];
+			__private float pre_rgb[3] = {r_blurred[i], g_blurred[i], b_blurred[i]};
+			__private float pre_mixed[3];
 			OpsinAbsorbance(pre_rgb, pre_mixed);
 			sensitivity[0] = Gamma(pre_mixed[0]) / pre_mixed[0];
 			sensitivity[1] = Gamma(pre_mixed[1]) / pre_mixed[1];
 			sensitivity[2] = Gamma(pre_mixed[2]) / pre_mixed[2];
 		}
-		__private double cur_rgb[3] = {r[i], g[i], b[i]};
-		__private double cur_mixed[3];
+		__private float cur_rgb[3] = {r[i], g[i], b[i]};
+		__private float cur_mixed[3];
 		OpsinAbsorbance(cur_rgb, cur_mixed);
 		cur_mixed[0] *= sensitivity[0];
 		cur_mixed[1] *= sensitivity[1];
 		cur_mixed[2] *= sensitivity[2];
-		double x, y, z;
+		float x, y, z;
 		RgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
 		r[i] = (float)(x);
 		g[i] = (float)(y);
@@ -5290,12 +5289,12 @@ __device__ void MaskHighIntensityChangeBlock(__private float *xyb0_x, __private 
 		for (int y = 0; y < ysize; ++y)
 		{
 			size_t ix = y * xsize + x;
-			const double ave[3] = {
+			const float ave[3] = {
 				(c0_x[ix] + c1_x[ix]) * 0.5f,
 				(c0_y[ix] + c1_y[ix]) * 0.5f,
 				(c0_b[ix] + c1_b[ix]) * 0.5f,
 			};
-			double sqr_max_diff = -1;
+			float sqr_max_diff = -1;
 			{
 				int offset[4] = {-1, 1, -(int)(xsize), (int)(xsize)};
 				int border[4] = {x == 0, x + 1 == xsize, y == 0, y + 1 == ysize};
@@ -5306,7 +5305,7 @@ __device__ void MaskHighIntensityChangeBlock(__private float *xyb0_x, __private 
 						continue;
 					}
 					const int ix2 = ix + offset[dir];
-					double diff = 0.5 * (c0_y[ix2] + c1_y[ix2]) - ave[1];
+					float diff = 0.5f * (c0_y[ix2] + c1_y[ix2]) - ave[1];
 					diff *= diff;
 					if (sqr_max_diff < diff)
 					{
@@ -5314,13 +5313,13 @@ __device__ void MaskHighIntensityChangeBlock(__private float *xyb0_x, __private 
 					}
 				}
 			}
-			const double kReductionX = 275.19165240059317;
-			const double kReductionY = 18599.41286306991;
-			const double kReductionZ = 410.8995306951065;
-			const double kChromaBalance = 106.95800948271017;
-			double chroma_scale = kChromaBalance / (ave[1] + kChromaBalance);
+			const float kReductionX = 275.19165240059317f;
+			const float kReductionY = 18599.41286306991f;
+			const float kReductionZ = 410.8995306951065f;
+			const float kChromaBalance = 106.95800948271017f;
+			float chroma_scale = kChromaBalance / (ave[1] + kChromaBalance);
 
-			const double mix[3] = {
+			const float mix[3] = {
 				chroma_scale * kReductionX / (sqr_max_diff + kReductionX),
 				kReductionY / (sqr_max_diff + kReductionY),
 				chroma_scale * kReductionZ / (sqr_max_diff + kReductionZ),
@@ -5368,12 +5367,12 @@ __device__ void CalcOpsinDynamicsImage(__private float rgb[3][kDCTBlockSize])
 	__private float rgb_blurred[3][kDCTBlockSize];
 	for (int i = 0; i < 3; ++i)
 	{
-		BlurEx(rgb[i], 8, 8, 1.1, 0, rgb_blurred[i]);
+		BlurEx(rgb[i], 8, 8, 1.1f, 0, rgb_blurred[i]);
 	}
 	OpsinDynamicsImageBlock(rgb[0], rgb[1], rgb[2], rgb_blurred[0], rgb_blurred[1], rgb_blurred[2], kDCTBlockSize);
 }
 
-__device__ double ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize], __private float rgb1_c[3][kDCTBlockSize], const __global float *mask_scale_block)
+__device__ float ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize], __private float rgb1_c[3][kDCTBlockSize], const __global float *mask_scale_block)
 {
 	CalcOpsinDynamicsImage(rgb1_c);
 
@@ -5389,8 +5388,8 @@ __device__ double ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize],
 								 rgb1_c[0], rgb1_c[1], rgb1_c[2],
 								 8, 8);
 
-	double b0[3 * kDCTBlockSize];
-	double b1[3 * kDCTBlockSize];
+	float b0[3 * kDCTBlockSize];
+	float b1[3 * kDCTBlockSize];
 	for (int c = 0; c < 3; ++c)
 	{
 		for (int ix = 0; ix < kDCTBlockSize; ++ix)
@@ -5400,13 +5399,13 @@ __device__ double ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize],
 		}
 	}
 
-	__private double diff_xyz_dc[3] = {0.0};
-	__private double diff_xyz_ac[3] = {0.0};
-	__private double diff_xyz_edge_dc[3] = {0.0};
+	__private float diff_xyz_dc[3] = {0.0};
+	__private float diff_xyz_ac[3] = {0.0};
+	__private float diff_xyz_edge_dc[3] = {0.0};
 	ButteraugliBlockDiff(b0, b1, diff_xyz_dc, diff_xyz_ac, diff_xyz_edge_dc);
 
-	double diff = 0.0f;
-	double diff_edge = 0.0f;
+	float diff = 0.0f;
+	float diff_edge = 0.0f;
 
 	for (int c = 0; c < 3; ++c)
 	{
@@ -5414,7 +5413,7 @@ __device__ double ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize],
 		diff += diff_xyz_ac[c] * mask_scale_block[c];
 		diff_edge += diff_xyz_edge_dc[c] * mask_scale_block[c];
 	}
-	const double kEdgeWeight = 0.05;
+	const float kEdgeWeight = 0.05f;
 	return sqrt((1 - kEdgeWeight) * diff + kEdgeWeight * diff_edge);
 }
 
@@ -5467,7 +5466,7 @@ __device__ int GetOrigBlock(float rgb0_c[3][kDCTBlockSize],
 	return block_ix;
 }
 
-__device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
+__device__ float CompareBlockFactor1(const channel_info mayout_channel[3],
 									  __private const coeff_t *candidate_block,
 									  const int block_x,
 									  const int block_y,
@@ -5527,7 +5526,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
 	}
 }
 
-__device__ double Factor2(const channel_info mayout_channel[3],
+__device__ float Factor2(const channel_info mayout_channel[3],
 						  __private const coeff_t *candidate_block,
 						  const int block_x,
 						  const int block_y,
@@ -5588,7 +5587,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
 	float rgb16x16[3][16 * 16];
 	YUVToImage(yuv16x16, rgb16x16[0], rgb16x16[1], rgb16x16[2], 16, 16, inside_x, inside_y);
 
-	double max_err = 0;
+	float max_err = 0;
 	for (int iy = 0; iy < factor; ++iy)
 	{
 		for (int ix = 0; ix < factor; ++ix)
@@ -5607,14 +5606,14 @@ __device__ double Factor2(const channel_info mayout_channel[3],
 
 			float rgb1_c[3][kDCTBlockSize];
 			Copy16x16ToChannel(rgb16x16, rgb1_c[0], rgb1_c[1], rgb1_c[2], ix, iy);
-			double err = ComputeImage8x8Block(rgb0_c, rgb1_c, mask_scale + block_8x8idx * 3);
+			float err = ComputeImage8x8Block(rgb0_c, rgb1_c, mask_scale + block_8x8idx * 3);
 			max_err = _max_f(max_err, err);
 		}
 	}
 	return max_err;
 }
 
-__device__ double CompareBlockFactor(const channel_info mayout_channel[3],
+__device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 									 __private const coeff_t *candidate_block,
 									 const int block_x,
 									 const int block_y,
@@ -5720,7 +5719,7 @@ __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
 		float rgb16x16[3][16 * 16];
 		YUVToImage(yuv16x16, rgb16x16[0], rgb16x16[1], rgb16x16[2], 16, 16, inside_x, inside_y);
 
-		double max_err = 0;
+		float max_err = 0;
 		for (int iy = 0; iy < factor; ++iy)
 		{
 			for (int ix = 0; ix < factor; ++ix)
@@ -5739,7 +5738,7 @@ __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
 
 				float rgb1_c[3][kDCTBlockSize];
 				Copy16x16ToChannel(rgb16x16, rgb1_c[0], rgb1_c[1], rgb1_c[2], ix, iy);
-				double err = ComputeImage8x8Block(rgb0_c, rgb1_c, mask_scale + block_8x8idx * 3);
+				float err = ComputeImage8x8Block(rgb0_c, rgb1_c, mask_scale + block_8x8idx * 3);
 				max_err = _max_f(max_err, err);
 			}
 		}
@@ -5767,9 +5766,5 @@ __device__ bool QuantizeBlock(coeff_t block[kDCTBlockSize], __global const int q
 	}
 	return changed;
 }
-
-#ifdef __USE_DOUBLE_AS_FLOAT__
-#undef double
-#endif
 
 #endif //__USE_OPENCL__

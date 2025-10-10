@@ -1230,7 +1230,7 @@ void ButteraugliComparator::CombineChannels(
   }
 }
 
-double ButteraugliScoreFromDiffmap(const std::vector<float>& diffmap) {
+float ButteraugliScoreFromDiffmap(const std::vector<float>& diffmap) {
   PROFILER_FUNC;
   float retval = 0.0f;
   for (size_t ix = 0; ix < diffmap.size(); ++ix) {
