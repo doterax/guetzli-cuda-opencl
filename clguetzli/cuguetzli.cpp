@@ -814,9 +814,9 @@ void cuMaskEx(
 }
 
 void cuCombineChannelsEx(
-    cu_mem result/*out*/,
-    const ocu_channels &mask,
-    const ocu_channels &mask_dc,
+    cu_mem result /*out*/,
+    const ocu_channels& mask,
+    const ocu_channels& mask_dc,
     const unsigned int xsize, const unsigned int ysize,
     const cu_mem block_diff_dc,
     const cu_mem block_diff_ac,
@@ -824,29 +824,41 @@ void cuCombineChannelsEx(
     const unsigned int res_xsize,
     const unsigned int step)
 {
-    ocu_args_d_t &ocu = getOcu();
+    ocu_args_d_t& ocu = getOcu();
 
+    // Work area: how many output pixels we need to compute
     const unsigned int work_xsize = ((xsize - 8 + step) + step - 1) / step;
     const unsigned int work_ysize = ((ysize - 8 + step) + step - 1) / step;
 
-	CUfunction kernel = ocu.kernel[KERNEL_COMBINECHANNELS];
-    const void *args[] = { &result,
+    // Block size: 128 threads per block (16x8)
+    const int block_x = 16;
+    const int block_y = 8;
+
+    // Grid size: enough blocks to cover the work area
+    const int grid_x = (work_xsize + block_x - 1) / block_x;
+    const int grid_y = (work_ysize + block_y - 1) / block_y;
+
+    CUfunction kernel = ocu.kernel[KERNEL_COMBINECHANNELS];
+    const void* args[] = {
+        &result,
         &mask.r, &mask.g, &mask.b,
         &mask_dc.r, &mask_dc.g, &mask_dc.b,
         &xsize, &ysize,
         &block_diff_dc, &block_diff_ac,
-		&edge_detector_map,
+        &edge_detector_map,
         &res_xsize,
-        &step };
+        &step
+    };
 
     CUresult err = cuLaunchKernel(kernel,
-		(work_xsize), (work_ysize), 1,
-		1, 1, 1,
-        0,
-        ocu.commandQueue, (void**)args, NULL);
-	LOG_CU_RESULT(err);
+        grid_x, grid_y, 1,         // gridDim
+        block_x, block_y, 1,       // blockDim
+        0,                         // sharedMemBytes
+        ocu.commandQueue, (void**)args, nullptr);
+    LOG_CU_RESULT(err);
+
     err = cuFinish(ocu.commandQueue);
-	LOG_CU_RESULT(err);
+    LOG_CU_RESULT(err);
 }
 
 void cuUpsampleSquareRootEx(cu_mem diffmap, const unsigned int xsize, const unsigned int ysize, const int step)
@@ -861,9 +873,16 @@ void cuUpsampleSquareRootEx(cu_mem diffmap, const unsigned int xsize, const unsi
     const unsigned int res_xsize = (xsize + step - 1) / step;
     const unsigned int res_ysize = (ysize + step - 1) / step;
 
+    const int block_x = 16;
+    const int block_y = 8;
+
+    const int grid_x = (res_xsize + block_x - 1) / block_x;
+    const int grid_y = (res_ysize + block_y - 1) / block_y;
+
+
     CUresult err = cuLaunchKernel(kernel,
-		(res_xsize), (res_ysize), 1,
-		1, 1, 1,
+		(grid_x), (grid_y), 1,
+        block_x, block_y, 1,
         0,
         ocu.commandQueue, (void**)args, NULL);
 	LOG_CU_RESULT(err);

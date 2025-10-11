@@ -1006,7 +1006,7 @@ void clMaskEx(
 }
 
 void clCombineChannelsEx(
-	cl_mem result/*out*/,
+	cl_mem result /*out*/,
 	const ocl_channels& mask,
 	const ocl_channels& mask_dc,
 	const unsigned int xsize, const unsigned int ysize,
@@ -1017,27 +1017,38 @@ void clCombineChannelsEx(
 	const unsigned int step)
 {
 	Perf clk("clCombineChannelsEx");
-	ocl_args_d_t &ocl = getOcl();
+	ocl_args_d_t& ocl = getOcl();
 
+	// Work area: how many output pixels we need to compute
 	const size_t work_xsize = ((xsize - 8 + step) + step - 1) / step;
 	const size_t work_ysize = ((ysize - 8 + step) + step - 1) / step;
 
+	// Local work size: 128 threads per block (16x8)
+	const size_t localWorkSize[2] = { 16, 8 };
+
+	// Global work size: padded to be multiple of local size
+	const size_t globalWorkSize[2] = {
+		((work_xsize + localWorkSize[0] - 1) / localWorkSize[0]) * localWorkSize[0],
+		((work_ysize + localWorkSize[1] - 1) / localWorkSize[1]) * localWorkSize[1]
+	};
+
 	cl_kernel kernel = ocl.kernel[KERNEL_COMBINECHANNELS];
 	clSetKernelArgEx(kernel, &result,
-					 &mask.r, &mask.g, &mask.b,
-					 &mask_dc.r, &mask_dc.g, &mask_dc.b,
-					 &xsize, &ysize,
-					 &block_diff_dc, &block_diff_ac,
-					 &edge_detector_map,
-					 &res_xsize,
-					 &step);
+		&mask.r, &mask.g, &mask.b,
+		&mask_dc.r, &mask_dc.g, &mask_dc.b,
+		&xsize, &ysize,
+		&block_diff_dc, &block_diff_ac,
+		&edge_detector_map,
+		&res_xsize,
+		&step);
 
-	size_t globalWorkSize[2] = {work_xsize, work_ysize};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 	LOG_CL_RESULT(err);
+
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
 }
+
 
 void clUpsampleSquareRootEx(cl_mem diffmap, const unsigned int xsize, const unsigned int ysize, const int step)
 {
@@ -1054,8 +1065,18 @@ void clUpsampleSquareRootEx(cl_mem diffmap, const unsigned int xsize, const unsi
 	const size_t res_xsize = (xsize + step - 1) / step;
 	const size_t res_ysize = (ysize + step - 1) / step;
 
+
+	const int block_x = 16;
+	const int block_y = 8;
+
+	cl::NDRange local(block_x, block_y);
+	cl::NDRange global(
+		((res_xsize + block_x - 1) / block_x) * block_x,
+		((res_ysize + block_y - 1) / block_y) * block_y);
+
+
 	size_t globalWorkSize[2] = {res_xsize, res_ysize};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, global, local, 0, NULL, NULL);
 	LOG_CL_RESULT(err);
 	err = clEnqueueCopyBuffer(ocl.commandQueue, diffmap_out, diffmap, 0, 0, xsize * ysize * sizeof(float), 0, NULL, NULL);
 	LOG_CL_RESULT(err);
