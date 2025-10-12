@@ -48,31 +48,5 @@ for %%f in (input\*.*) do (
 
 echo All files processed!
 echo.
-
-REM Generate MD5 hashes for all output files
-echo Generating MD5 hashes...
-echo.
-
-REM Create a temporary file for hashes
-set "hash_file=output\hashes.txt"
-echo MD5 Hashes of output files: > "%hash_file%"
-echo ========================== >> "%hash_file%"
-echo. >> "%hash_file%"
-
-for %%f in (output\*.*) do (
-    if not "%%~nxf"=="hashes.txt" (
-        echo File: %%~nxf >> "%hash_file%"
-        certutil -hashfile "%%f" MD5 | findstr /v ":" >> "%hash_file%"
-        echo. >> "%hash_file%"
-    )
-)
-
-echo MD5 hashes saved to: %hash_file%
-echo.
-
-REM Display the hash file
-type "%hash_file%"
-
-echo.
 echo Test completed!
 pause
