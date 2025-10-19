@@ -175,6 +175,7 @@ __device__ int get_global_size(int dim)
 
 typedef short coeff_t;
 
+#pragma pack(push, 1)
 typedef struct __channel_info_t
 {
 	int factor;
@@ -183,6 +184,7 @@ typedef struct __channel_info_t
 	__global const coeff_t *coeff;
 	__global const ushort *pixel;
 } channel_info;
+#pragma pack(pop)
 
 #endif /*__CLGUETZLI_CL_H__*/
 
@@ -197,17 +199,21 @@ typedef struct __channel_info_t
 #define kComputeBlockSize (kBlockSize * 3)
 
 // IntFloatPair: opencl version of output_order/input_order
+#pragma pack(push, 1)
 typedef struct __IntFloatPair
 {
 	int idx;
 	float err;
 } IntFloatPair, DCTScoreData, CoeffData;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct __IntFloatPairList
 {
 	int size;
 	__private IntFloatPair *pData;
 } IntFloatPairList;
+#pragma pack(pop)
 
 __device__ void XybToVals(
 	__private const float x, __private const float y, __private const float z,
@@ -1611,11 +1617,13 @@ __device__ void XybDiffLowFreqSquaredAccumulate(__private const float r0, __priv
 	res[2] += factor * valz * valz;
 }
 
+#pragma pack(push, 1)
 typedef struct __Complex
 {
 	float real;
 	float imag;
 } Complex;
+#pragma pack(pop)
 
 __constant float kSqrtHalf = 0.70710678118654752440084436210484903f;
 __device__ void RealFFT8(__private const float *in, __private Complex *out)
