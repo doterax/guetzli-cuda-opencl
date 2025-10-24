@@ -90,9 +90,9 @@ void clSquareSampleEx(
     const cl_mem image, unsigned int xsize, unsigned int ysize,
     unsigned int xstep, unsigned int ystep);
 
-void clBlurEx(cl_mem image/*out, opt*/, const unsigned int xsize, const unsigned int ysize,
+void clBlurEx(cl_mem image/*in*/, const unsigned int xsize, const unsigned int ysize,
     const float sigma, const float border_ratio,
-    cl_mem result = nullptr/*out, opt*/);
+    cl_mem result/*out*/);
 
 void clOpsinDynamicsImageEx(ocl_channels &rgb, const unsigned int xsize, const unsigned int ysize);
 

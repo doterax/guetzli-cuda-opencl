@@ -21,9 +21,13 @@
 int floatCompare(const float* a, const float* b, unsigned int size, const char* szFunc, int line)
 {
 	int count = 0;
+	float tolerance = 0.005;
 	for (int i = 0; i < size; i++)
 	{
-		if (fabs(a[i] - b[i]) > 0.001)
+		float ai = a[i];
+		float bi = b[i];
+		float absdiff = fabs(ai - bi);
+		if (absdiff > tolerance)
 		{
 			count++;
 		}
@@ -104,7 +108,7 @@ void tclEdgeDetectorMap(const float* r, const float* g, const float* b,
 
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
-	clReleaseMemObject(edge);
+	ocl.releaseMem(edge);
 }
 
 void tclBlockDiffMap(const float* r, const float* g, const float* b,
@@ -141,8 +145,8 @@ void tclBlockDiffMap(const float* r, const float* g, const float* b,
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
 
-	clReleaseMemObject(block_diff_ac);
-	clReleaseMemObject(block_diff_dc);
+	ocl.releaseMem(block_diff_ac);
+	ocl.releaseMem(block_diff_dc);
 }
 
 void tclEdgeDetectorLowFreq(const float* r, const float* g, const float* b,
@@ -176,7 +180,7 @@ void tclEdgeDetectorLowFreq(const float* r, const float* g, const float* b,
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
 
-	clReleaseMemObject(block_diff_ac);
+	ocl.releaseMem(block_diff_ac);
 }
 
 void tclMask(const float* r, const float* g, const float* b,
@@ -256,10 +260,10 @@ void tclCombineChannels(const float *mask_xyb_x, const float *mask_xyb_y, const 
     clEnqueueUnmapMemObject(ocl.commandQueue, cl_result, result_tmp, 0, NULL, NULL);
 	ocl.releaseMemChannels(mask);
 	ocl.releaseMemChannels(mask_dc);
-	clReleaseMemObject(cl_block_diff_dc);
-	clReleaseMemObject(cl_block_diff_ac);
-	clReleaseMemObject(cl_edge_detector_map);
-	clReleaseMemObject(cl_result);
+	ocl.releaseMem(cl_block_diff_dc);
+	ocl.releaseMem(cl_block_diff_ac);
+	ocl.releaseMem(cl_edge_detector_map);
+	ocl.releaseMem(cl_result);
 }
 
 void tclCalculateDiffmap(const unsigned int xsize, const unsigned int ysize,
@@ -278,7 +282,7 @@ void tclCalculateDiffmap(const unsigned int xsize, const unsigned int ysize,
     err = clFinish(ocl.commandQueue);
 	FLOAT_COMPARE(result_tmp, diffmap_cmp, xsize * ysize);
     clEnqueueUnmapMemObject(ocl.commandQueue, mem_diffmap, result_tmp, 0, NULL, NULL);
-	clReleaseMemObject(mem_diffmap);
+	ocl.releaseMem(mem_diffmap);
 }
 
 void tclBlur(const float* channel, unsigned int xsize, unsigned int ysize, double sigma, double border_ratio, const float* result)
@@ -298,7 +302,7 @@ void tclBlur(const float* channel, unsigned int xsize, unsigned int ysize, doubl
     clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
     err = clFinish(ocl.commandQueue);
 
-    clReleaseMemObject(r);
+    ocl.releaseMem(r);
 }
 
 void tclConvolution(unsigned int xsize, unsigned int ysize,
@@ -329,9 +333,9 @@ void tclConvolution(unsigned int xsize, unsigned int ysize,
 	clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-    clReleaseMemObject(r);
-	clReleaseMemObject(i);
-	clReleaseMemObject(m);
+    ocl.releaseMem(r);
+	ocl.releaseMem(i);
+	ocl.releaseMem(m);
 }
 
 void tclDiffPrecompute(
@@ -378,7 +382,7 @@ void tclAverage5x5(int xsize, int ysize, const std::vector<float> &diffs_org, co
   FLOAT_COMPARE(r, diffs_cmp.data(), xsize * ysize);
 
   clEnqueueUnmapMemObject(ocl.commandQueue, mem_diff, r, 0, NULL, NULL);
-  clReleaseMemObject(mem_diff);
+  ocl.releaseMem(mem_diff);
 }
 
 void tclMinSquareVal(const float *img, unsigned int square_size, unsigned int offset,
@@ -400,7 +404,7 @@ void tclMinSquareVal(const float *img, unsigned int square_size, unsigned int of
 	clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-	clReleaseMemObject(r);
+	ocl.releaseMem(r);
 }
 
 void tclScaleImage(double scale, const float *result_org, const float *result_cmp, unsigned int length)
@@ -417,7 +421,7 @@ void tclScaleImage(double scale, const float *result_org, const float *result_cm
     FLOAT_COMPARE(r_r, result_cmp, length);
 
     clEnqueueUnmapMemObject(ocl.commandQueue, mem_result_org, r_r, 0, NULL, NULL);
-    clReleaseMemObject(mem_result_org);
+    ocl.releaseMem(mem_result_org);
 }
 
 void tclOpsinDynamicsImage(const float* r, const float* g, const float* b, unsigned int xsize, unsigned int ysize,

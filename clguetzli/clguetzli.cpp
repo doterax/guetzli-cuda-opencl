@@ -18,7 +18,7 @@
 
 static size_t next_perf_id = 0;
 static size_t next_alloc_id = 0;
-extern bool verbose_cl = true;
+extern bool verbose_cl = false;
 
 class Perf
 {
@@ -84,8 +84,10 @@ public:
 			printf(info.c_str());
 		}
 
-		if (_memInUse == 0) {
-			string info = "Peak memory usage: " + mem_to_string(_maxMemInUse) + " Peak objects: " + alignl(5, _maxObjectsInUse) + "\n";
+		if (_memInUse == 0 && verbose_cl) {
+			int allocsFromCl = getOcl().allocations;
+
+			string info = "Peak memory usage: " + mem_to_string(_maxMemInUse) + " Peak objects: " + alignl(5, _maxObjectsInUse) + " OCL Allocs: " + alignl(5, allocsFromCl) + "\n";
 			printf(info.c_str());
 			
 			for (auto i = _granularity.begin(); i != _granularity.end(); ++i) {
@@ -176,8 +178,10 @@ void clOpsinDynamicsImage(
 	size_t elements = xsize * ysize;
 	size_t channel_size = elements * sizeof(float);
 
-	Perf clk("clOpsinDynamicsImage");
+
 	ocl_args_d_t &ocl = getOcl();
+
+	Perf clk("clOpsinDynamicsImage");
 	TrackMemory rgb_m(channel_size * 3, "clOpsinDynamicsImage:rgb");
 	ocl_channels rgb = ocl.allocMemChannels(channel_size, r, g, b);
 
@@ -219,7 +223,7 @@ void clDiffmapOpsinDynamicsImage(
 	ocl.releaseMemChannels(xyb1);
 	ocl.releaseMemChannels(xyb0);
 
-	clReleaseMemObject(mem_result);
+	ocl.releaseMem(mem_result);
 }
 
 void clComputeBlockZeroingOrder(
@@ -341,14 +345,14 @@ void clComputeBlockZeroingOrder(
 
 	for (int c = 0; c < 3; c++)
 	{
-		clReleaseMemObject(mem_orig_coeff[c]);
-		clReleaseMemObject(mem_mayout_coeff[c]);
-		clReleaseMemObject(mem_mayout_pixel[c]);
+		ocl.releaseMem(mem_orig_coeff[c]);
+		ocl.releaseMem(mem_mayout_coeff[c]);
+		ocl.releaseMem(mem_mayout_pixel[c]);
 	}
 
-	clReleaseMemObject(mem_orig_image);
-	clReleaseMemObject(mem_mask_scale);
-	clReleaseMemObject(mem_output_order_batch);
+	ocl.releaseMem(mem_orig_image);
+	ocl.releaseMem(mem_mask_scale);
+	ocl.releaseMem(mem_output_order_batch);
 }
 
 void clMask(
@@ -435,9 +439,9 @@ void clDiffmapOpsinDynamicsImageEx(
 
 	clCalculateDiffmapEx(result, xsize, ysize, step);
 
-	clReleaseMemObject(edge_detector_map);
-	clReleaseMemObject(block_diff_dc);
-	clReleaseMemObject(block_diff_ac);
+	ocl.releaseMem(edge_detector_map);
+	ocl.releaseMem(block_diff_dc);
+	ocl.releaseMem(block_diff_ac);
 }
 void clConvolutionEx(
 	cl_mem result /*out*/,
@@ -555,9 +559,9 @@ void clSquareSampleEx(
 	LOG_CL_RESULT(err);
 }
 
-void clBlurEx(cl_mem image/*out, opt*/, const unsigned int xsize, const unsigned int ysize,
+void clBlurEx(cl_mem image, const unsigned int xsize, const unsigned int ysize,
 	const float sigma, const float border_ratio,
-	cl_mem result/*out, opt*/)
+	cl_mem result)
 {
 	Perf clk("clBlurEx");
 	float m = 2.25; // Accuracy increases when m is increased.
@@ -570,8 +574,6 @@ void clBlurEx(cl_mem image/*out, opt*/, const unsigned int xsize, const unsigned
 	{
 		expn[i + diff] = static_cast<float>(exp(scaler * i * i));
 	}
-
-	result = result ? result : image;
 
 	const int xstep = std::max<int>(1, int(sigma / 3));
 
@@ -606,8 +608,9 @@ void clOpsinDynamicsImageEx(ocl_channels& rgb, const unsigned int xsize, const u
 	const size_t size = xsize * ysize;
 	size_t channel_size = size * sizeof(float);
 
-	Perf clk("clOpsinDynamicsImageEx");
 	ocl_args_d_t &ocl = getOcl();
+
+	Perf clk("clOpsinDynamicsImageEx");
 
 	size_t blurred_size = size * sizeof(float);
 	Memory<float> r_blurred(*ocl.device, size);
@@ -864,7 +867,7 @@ void clAverage5x5Ex(cl_mem img/*in,out*/, const unsigned int xsize, const unsign
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
 
-	clReleaseMemObject(img_org);
+	ocl.releaseMem(img_org);
 }
 
 void clMinSquareValEx(
@@ -889,7 +892,7 @@ void clMinSquareValEx(
 	LOG_CL_RESULT(err);
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
-	clReleaseMemObject(result);
+	ocl.releaseMem(result);
 }
 
 static void MakeMask(float extmul, float extoff,
@@ -1030,7 +1033,7 @@ void clMaskEx(
 			4.53358927369,
 		};
 
-		clBlurEx(mask.ch[i], xsize, ysize, sigma[i], 0.0);
+		clBlurEx(mask.ch[i], xsize, ysize, sigma[i], 0.0, mask.ch[i]);
 	}
 
 	clDoMask(mask, mask_dc, xsize, ysize);
@@ -1099,7 +1102,7 @@ void clUpsampleSquareRootEx(cl_mem diffmap, const unsigned int xsize, const unsi
 	err = clFinish(ocl.commandQueue);
 	LOG_CL_RESULT(err);
 
-	clReleaseMemObject(diffmap_out);
+	ocl.releaseMem(diffmap_out);
 }
 
 void clRemoveBorderEx(cl_mem out, const cl_mem in, const unsigned int xsize, const unsigned int ysize, const int step)
@@ -1150,7 +1153,7 @@ void clCalculateDiffmapEx(cl_mem diffmap/*in,out*/, const unsigned int xsize, co
 	static const float scale = 1.0 / (1.0 + mul1);
 
 	const int s = 8 - step;
-	int s2 = (8 - step) / 2;
+	const int s2 = (8 - step) / 2;
 
 	ocl_args_d_t &ocl = getOcl();
 	size_t blurred_size = (xsize - s) * (ysize - s) * sizeof(float);
@@ -1159,12 +1162,12 @@ void clCalculateDiffmapEx(cl_mem diffmap/*in,out*/, const unsigned int xsize, co
 	clRemoveBorderEx(blurred, diffmap, xsize, ysize, step);
 
 	static const float border_ratio = 0.03027655136;
-	clBlurEx(blurred, xsize - s, ysize - s, kSigma, border_ratio);
+	clBlurEx(blurred, xsize - s, ysize - s, kSigma, border_ratio, blurred);
 
 	clAddBorderEx(diffmap, xsize, ysize, step, blurred);
 	clScaleImageEx(diffmap, xsize * ysize, scale);
 
-	clReleaseMemObject(blurred);
+	ocl.releaseMem(blurred);
 }
 
 void clCopyFromJpegComponent(
@@ -1217,10 +1220,10 @@ void clCopyFromJpegComponent(
 	err = clEnqueueReadBuffer(ocl.commandQueue, dst_idct, false, 0, dst_idct_size, output_idct, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-	clReleaseMemObject(src_coeff);
-	clReleaseMemObject(dst_coeff);
-	clReleaseMemObject(dst_idct);
-	clReleaseMemObject(src_quant);
+	ocl.releaseMem(src_coeff);
+	ocl.releaseMem(dst_coeff);
+	ocl.releaseMem(dst_idct);
+	ocl.releaseMem(src_quant);
 }
 
 void clApplyGlobalQuantization(
@@ -1267,10 +1270,10 @@ void clApplyGlobalQuantization(
 	err = clEnqueueReadBuffer(ocl.commandQueue, dst_bool, false, 0, dst_bool_size, output_bool, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-	clReleaseMemObject(dst_bool);
-	clReleaseMemObject(dst_coeff);
-	clReleaseMemObject(dst_idct);
-	clReleaseMemObject(src_q);
+	ocl.releaseMem(dst_bool);
+	ocl.releaseMem(dst_coeff);
+	ocl.releaseMem(dst_idct);
+	ocl.releaseMem(src_q);
 }
 
 void clComponentsToPixels(
@@ -1283,8 +1286,9 @@ void clComponentsToPixels(
 {
 	using namespace guetzli;
 
+	ocl_args_d_t& ocl = getOcl();
+
 	Perf clk("clComponentsToPixels");
-	ocl_args_d_t &ocl = getOcl();
 
 	const int stride = 3;
 
@@ -1294,12 +1298,6 @@ void clComponentsToPixels(
 
 	for (int c = 0; c < stride; ++c)
 	{
-		cl_int err;
-		cl_buffer_region region;
-		region.origin = c;
-		region.size = out_size - c;
-		cl_mem cl_out_offset = clCreateSubBuffer(cl_out, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &err);
-
 		const int width = components[c].width();
 		const int height = components[c].height();
 
@@ -1309,13 +1307,15 @@ void clComponentsToPixels(
 		const int xend0 = std::min(xend1, width);
 
 		int pixels_size = width * height * sizeof(ushort);
-		TrackMemory cl_pixels_m(pixels_size, "clComponentsToPixels:cl_pixels");
-		cl_mem cl_pixels = ocl.allocMem(pixels_size, components[c].pixels());
+
 
 		{
+			TrackMemory cl_pixels_m(pixels_size, "clComponentsToPixels:cl_pixels");
+			cl_mem cl_pixels = ocl.allocMem(pixels_size, components[c].pixels());
+
 			cl_kernel kernel = ocl.kernel[KERNEL_COMPONENTSTOPIXELS];
 			clSetKernelArgEx(kernel,
-							 &cl_out_offset, &xmin, &ymin, &xsize, &ysize, &stride,
+							 &cl_out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &cl_pixels, &width, &height);
 
 			size_t globalWorkSize[2] = {xend0 - xmin, yend0 - ymin};
@@ -1323,15 +1323,17 @@ void clComponentsToPixels(
 			LOG_CL_RESULT(err);
 			err = clFinish(ocl.commandQueue);
 			LOG_CL_RESULT(err);
+
+			ocl.releaseMem(cl_pixels);
 		}
 
-		clReleaseMemObject(cl_pixels);
+
 
 		if (xend1 - xend0 > 0)
 		{
 			cl_kernel kernel = ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1];
 			clSetKernelArgEx(kernel,
-							 &cl_out_offset, &xmin, &ymin, &xsize, &ysize, &stride,
+							 &cl_out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &width, &height);
 
 			size_t globalWorkSize[2] = {xend1 - xend0, yend0 - ymin};
@@ -1345,7 +1347,7 @@ void clComponentsToPixels(
 		{
 			cl_kernel kernel = ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2];
 			clSetKernelArgEx(kernel,
-							 &cl_out_offset, &xmin, &ymin, &xsize, &ysize, &stride,
+							 &cl_out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &width, &height);
 
 			size_t globalWorkSize[2] = {xsize, yend1 - yend0};
@@ -1354,8 +1356,6 @@ void clComponentsToPixels(
 			err = clFinish(ocl.commandQueue);
 			LOG_CL_RESULT(err);
 		}
-
-		clReleaseMemObject(cl_out_offset);
 	}
 
 	cl_kernel kernel = ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB];
@@ -1368,7 +1368,7 @@ void clComponentsToPixels(
 	LOG_CL_RESULT(err);
 
 	clEnqueueReadBuffer(ocl.commandQueue, cl_out, CL_TRUE, 0, out_size, rgb, 0, NULL, NULL);
-	clReleaseMemObject(cl_out);
+	ocl.releaseMem(cl_out);
 }
 
 #endif

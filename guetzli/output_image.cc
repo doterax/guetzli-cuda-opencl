@@ -695,6 +695,28 @@ std::vector<uint8_t> OutputImage::ToSRGB(int xmin, int ymin,
 	  cuComponentsToPixels(rgb.data(), xmin, ymin, xsize, ysize, components_);
   }
 #endif
+#ifdef __USE_CUDA__
+  else if (MODE_CHECKCUDA == g_mathMode) {
+	  std::vector<uint8_t> rgb_gpu(xsize * ysize * 3);
+	  //calculate GPU data
+	  cuComponentsToPixels(rgb_gpu.data(), xmin, ymin, xsize, ysize, components_);
+	  //calculate CPU data
+	  _ToSRGB(rgb, xmin, ymin, xsize, ysize);
+
+	  int count = 0;
+	  for (int i = 0; i < rgb_gpu.size(); i++)
+	  {
+		  if (rgb[i] != rgb_gpu[i])
+		  {
+			  count++;
+		  }
+	  }
+	  if (count > 0)
+	  {
+		  LogError("CHK %s(%d, %d, %d, %d)(%d) %d:%d\r\n", "OutputImage::ToSRGB", xmin, ymin, xsize, ysize, __LINE__, count, rgb_gpu.size());
+	  }
+  }
+#endif
 #ifdef __USE_OPENCL__
   else if (MODE_CHECKCL == g_mathMode)
   {
@@ -714,7 +736,7 @@ std::vector<uint8_t> OutputImage::ToSRGB(int xmin, int ymin,
 	  }
 	  if (count > 0)
 	  {
-		  LogError("CHK %s(%d) %d:%d\r\n", "OutputImage::ToSRGB", __LINE__, count, rgb_gpu.size());
+		  LogError("CHK %s(%d, %d, %d, %d)(%d) %d:%d\r\n", "OutputImage::ToSRGB", xmin, ymin, xsize, ysize, __LINE__, count, rgb_gpu.size());
 	  }
   }
 #endif

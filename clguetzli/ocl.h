@@ -59,6 +59,7 @@ struct ocl_args_d_t
 
 	cl_mem allocMem(size_t s, const void *init = NULL);
 	ocl_channels allocMemChannels(size_t s, const void *c0 = NULL, const void *c1 = NULL, const void *c2 = NULL);
+	void releaseMem(cl_mem mem);
     void releaseMemChannels(ocl_channels &rgb);
 
 	// Regular OpenCL objects:
@@ -68,6 +69,8 @@ struct ocl_args_d_t
 	cl_kernel        kernel[KERNEL_COUNT];            // hold the kernel handler
 	bool             isAmd;
 	Device*          device;
+
+	int allocations;
 };
 
 #endif

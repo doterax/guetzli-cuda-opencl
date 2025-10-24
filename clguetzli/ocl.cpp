@@ -236,7 +236,9 @@ ocl_args_d_t::ocl_args_d_t() :
 	context(NULL),
 	commandQueue(NULL),
 	device(NULL),
-	program(NULL)
+	program(NULL),
+	allocations(0),
+	isAmd(false)
 {
 	for (int i = 0; i < KERNEL_COUNT; i++)
 	{
@@ -256,22 +258,27 @@ ocl_args_d_t::~ocl_args_d_t()
 		}
 	}
 
-	if (program)
-	{
-		err = clReleaseProgram(program);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
-		}
+	if (allocations != 0) {
+		LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
 	}
-	if (commandQueue)
-	{
-		err = clReleaseCommandQueue(commandQueue);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
-		}
-	}
+
+	//not needed, owned by wrapper
+	//if (program)
+	//{
+	//	err = clReleaseProgram(program);
+	//	if (CL_SUCCESS != err)
+	//	{
+	//		LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
+	//	}
+	//}
+	//if (commandQueue)
+	//{
+	//	err = clReleaseCommandQueue(commandQueue);
+	//	if (CL_SUCCESS != err)
+	//	{
+	//		LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
+	//	}
+	//}
 }
 
 cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
@@ -307,7 +314,33 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
         LOG_CL_RESULT(err);
     }
 
+	++allocations;
+
 	return mem;
+}
+
+void ocl_args_d_t::releaseMem(cl_mem mem) {
+	if (!mem) {
+		LogError("called releaseMem(NULL)\n");
+		return;
+	}
+	cl_int err = clReleaseMemObject(mem);
+
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clReleaseMemObject(...)\n");
+	}
+
+	LOG_CL_RESULT(err);
+
+	err = clFinish(this->commandQueue);
+
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clFinish during releaseMem\n");
+	}
+	LOG_CL_RESULT(err);
+
+	--allocations;
+
 }
 
 ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void *c0, const void *c1, const void *c2)
@@ -327,7 +360,7 @@ void ocl_args_d_t::releaseMemChannels(ocl_channels &rgb)
 {
     for (int i = 0; i < 3; i++)
     {
-        clReleaseMemObject(rgb.ch[i]);
+		releaseMem(rgb.ch[i]);
         rgb.ch[i] = NULL;
     }
 }

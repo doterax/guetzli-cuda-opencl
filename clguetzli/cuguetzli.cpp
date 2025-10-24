@@ -1072,7 +1072,6 @@ void cuComponentsToPixels(
 
 	for (int c = 0; c < stride; ++c)
 	{
-		cu_mem cl_out_offset = cl_out + c;
 
 		const int width = components[c].width();
 		const int height = components[c].height();
@@ -1087,8 +1086,8 @@ void cuComponentsToPixels(
 
 		{
 			CUfunction kernel = ocu.kernel[KERNEL_COMPONENTSTOPIXELS];
-			const void *args[] = { &cl_out_offset, 
-				&xmin, &ymin, &xsize, &ysize, &stride,
+			const void *args[] = { &cl_out, 
+				&xmin, &ymin, &xsize, &ysize, &c,
 				&cl_pixels, &width, &height };
 
 			int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
@@ -1108,8 +1107,8 @@ void cuComponentsToPixels(
 
 		if (xend1 - xend0 > 0) {
 			CUfunction kernel = ocu.kernel[KERNEL_COMPONENTSTOPIXELS_EX1];
-			const void *args[] = { &cl_out_offset,
-				&xmin, &ymin, &xsize, &ysize, &stride,
+			const void *args[] = { &cl_out,
+				&xmin, &ymin, &xsize, &ysize, &c,
 				&width, &height };
 
 			CUresult err = cuLaunchKernel(kernel,
@@ -1125,8 +1124,8 @@ void cuComponentsToPixels(
 
 		if (yend1 - yend0 > 0) {
 			CUfunction kernel = ocu.kernel[KERNEL_COMPONENTSTOPIXELS_EX2];
-			const void *args[] = { &cl_out_offset,
-				&xmin, &ymin, &xsize, &ysize, &stride,
+			const void *args[] = { &cl_out,
+				&xmin, &ymin, &xsize, &ysize, &c,
 				&width, &height };
 
 			CUresult err = cuLaunchKernel(kernel,

@@ -693,8 +693,13 @@ int main(int argc, char** argv) {
       }
   }
 
-  if (processed)
-    WriteFileOrDie(argv[opt_idx + 1], out_data);
+
+
+  if (processed) {
+      fprintf(stdout, "Guetzli process suceeded, writing ... ");
+      WriteFileOrDie(argv[opt_idx + 1], out_data);
+      fprintf(stdout, "Done.\n");
+  }
   else {
       fprintf(stderr, "Unknown file format: %s\n", argv[opt_idx]);
       return 2;
