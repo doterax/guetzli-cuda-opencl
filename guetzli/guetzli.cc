@@ -553,7 +553,7 @@ void Usage() {
       "\n"
       "Support this project:\n"
       "  If you find this tool useful, please consider supporting the development\n"
-      "  by buying me a coffee: https://www.buymeacoffee.com/doterax\n"
+      "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
       "  Your support helps maintain and improve this project!\n", 
       guetzli::kVersion, kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
@@ -698,7 +698,11 @@ int main(int argc, char** argv) {
   if (processed) {
       fprintf(stdout, "Guetzli process suceeded, writing ... ");
       WriteFileOrDie(argv[opt_idx + 1], out_data);
-      fprintf(stdout, "Done.\n");
+      fprintf(stdout, "Done.\n\n");
+      fprintf(stdout, "Support this project:\n"
+          "  If you find this tool useful, please consider supporting the development\n"
+          "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
+          "  Your support helps maintain and improve this project!\n\n");
   }
   else {
       fprintf(stderr, "Unknown file format: %s\n", argv[opt_idx]);

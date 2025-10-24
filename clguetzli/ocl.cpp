@@ -19,6 +19,8 @@
 
 using std::string;
 
+extern bool verbose_cl = false;
+
 #ifdef __USE_OPENCL__
 
 void PrintDeviceCapabilities(const Device_Info& deviceInfo);
@@ -139,7 +141,7 @@ ocl_args_d_t& getOcl()
 
 	print_info("OpenCL created\n");
 
-	PrintDeviceCapabilities(device.info);
+	if(verbose_cl) PrintDeviceCapabilities(device.info);
 
     return ocl;
 }

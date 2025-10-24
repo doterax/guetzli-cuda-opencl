@@ -18,7 +18,8 @@
 
 static size_t next_perf_id = 0;
 static size_t next_alloc_id = 0;
-extern bool verbose_cl = false;
+
+extern bool verbose_cl;
 
 class Perf
 {
