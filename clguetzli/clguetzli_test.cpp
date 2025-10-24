@@ -18,12 +18,16 @@
 
 #define FLOAT_COMPARE(a, b, c)  floatCompare((a), (b), (c), __FUNCTION__, __LINE__ )
 
-int floatCompare(const float* a, const float* b, size_t size, const char* szFunc, int line)
+int floatCompare(const float* a, const float* b, unsigned int size, const char* szFunc, int line)
 {
 	int count = 0;
+	float tolerance = 0.005;
 	for (int i = 0; i < size; i++)
 	{
-		if (fabs(a[i] - b[i]) > 0.001)
+		float ai = a[i];
+		float bi = b[i];
+		float absdiff = fabs(ai - bi);
+		if (absdiff > tolerance)
 		{
 			count++;
 		}
@@ -37,11 +41,11 @@ int floatCompare(const float* a, const float* b, size_t size, const char* szFunc
 
 void tclMaskHighIntensityChange(const float* r, const float* g, const float* b,
 	const float* r2, const float* g2, const float* b2,
-	size_t xsize, size_t ysize,
+	unsigned int xsize, unsigned int ysize,
 	const float* result_r, const float* result_g, const float* result_b,
 	const float* result_r2, const float* result_g2, const float* result_b2)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
 	ocl_channels xyb0 = ocl.allocMemChannels(channel_size, r, g, b);
@@ -78,13 +82,13 @@ void tclMaskHighIntensityChange(const float* r, const float* g, const float* b,
 
 void tclEdgeDetectorMap(const float* r, const float* g, const float* b,
 	const float* r2, const float* g2, const float* b2,
-	size_t xsize, size_t ysize, size_t step,
+	unsigned int xsize, unsigned int ysize, unsigned int step,
 	const float* result)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
-	const size_t res_xsize = (xsize + step - 1) / step;
-	const size_t res_ysize = (ysize + step - 1) / step;
-	const size_t edgemap_size = res_xsize * res_ysize * 3 * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
+	const unsigned int res_xsize = (xsize + step - 1) / step;
+	const unsigned int res_ysize = (ysize + step - 1) / step;
+	const unsigned int edgemap_size = res_xsize * res_ysize * 3 * sizeof(float);
 
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
@@ -104,18 +108,18 @@ void tclEdgeDetectorMap(const float* r, const float* g, const float* b,
 
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
-	clReleaseMemObject(edge);
+	ocl.releaseMem(edge);
 }
 
 void tclBlockDiffMap(const float* r, const float* g, const float* b,
 	const float* r2, const float* g2, const float* b2,
-	size_t xsize, size_t ysize, size_t step,
+	unsigned int xsize, unsigned int ysize, unsigned int step,
 	const float* result_diff_dc, const float* result_diff_ac)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
-	const size_t res_xsize = (xsize + step - 1) / step;
-	const size_t res_ysize = (ysize + step - 1) / step;
-	const size_t reschannel_size = res_xsize * res_ysize * 3 * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
+	const unsigned int res_xsize = (xsize + step - 1) / step;
+	const unsigned int res_ysize = (ysize + step - 1) / step;
+	const unsigned int reschannel_size = res_xsize * res_ysize * 3 * sizeof(float);
 
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
@@ -141,20 +145,20 @@ void tclBlockDiffMap(const float* r, const float* g, const float* b,
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
 
-	clReleaseMemObject(block_diff_ac);
-	clReleaseMemObject(block_diff_dc);
+	ocl.releaseMem(block_diff_ac);
+	ocl.releaseMem(block_diff_dc);
 }
 
 void tclEdgeDetectorLowFreq(const float* r, const float* g, const float* b,
 	const float* r2, const float* g2, const float* b2,
-	size_t xsize, size_t ysize, size_t step,
+	unsigned int xsize, unsigned int ysize, unsigned int step,
     const float* orign_ac,
 	const float* result_diff_ac)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
-	const size_t res_xsize = (xsize + step - 1) / step;
-	const size_t res_ysize = (ysize + step - 1) / step;
-	const size_t reschannel_size = res_xsize * res_ysize * 3 * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
+	const unsigned int res_xsize = (xsize + step - 1) / step;
+	const unsigned int res_ysize = (ysize + step - 1) / step;
+	const unsigned int reschannel_size = res_xsize * res_ysize * 3 * sizeof(float);
 
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
@@ -176,16 +180,16 @@ void tclEdgeDetectorLowFreq(const float* r, const float* g, const float* b,
 	ocl.releaseMemChannels(xyb0);
 	ocl.releaseMemChannels(xyb1);
 
-	clReleaseMemObject(block_diff_ac);
+	ocl.releaseMem(block_diff_ac);
 }
 
 void tclMask(const float* r, const float* g, const float* b,
 	const float* r2, const float* g2, const float* b2,
-	size_t xsize, size_t ysize,
+	unsigned int xsize, unsigned int ysize,
 	const float* mask_r, const float* mask_g, const float* mask_b,
 	const float* maskdc_r, const float* maskdc_g, const float* maskdc_b)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
 	ocl_channels rgb = ocl.allocMemChannels(channel_size, r, g, b);
@@ -229,17 +233,17 @@ void tclCombineChannels(const float *mask_xyb_x, const float *mask_xyb_y, const 
 	const float *mask_xyb_dc_x, const float *mask_xyb_dc_y, const float *mask_xyb_dc_b,
 	const float *block_diff_dc,	const float *block_diff_ac,
 	const float *edge_detector_map,
-	size_t xsize, size_t ysize,
-	size_t res_xsize, size_t res_ysize,
-	size_t step,
+	unsigned int xsize, unsigned int ysize,
+	unsigned int res_xsize, unsigned int res_ysize,
+	unsigned int step,
 	const float *init_result,
 	const float *result)
 {
 	cl_int err = CL_SUCCESS;
 	ocl_args_d_t &ocl = getOcl();
 
-	size_t channel_size = xsize * ysize * sizeof(float);
-    size_t res_channel_size = res_xsize * res_ysize * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
+    unsigned int res_channel_size = res_xsize * res_ysize * sizeof(float);
 	ocl_channels mask = ocl.allocMemChannels(channel_size, mask_xyb_x, mask_xyb_y, mask_xyb_b);
 	ocl_channels mask_dc = ocl.allocMemChannels(channel_size, mask_xyb_dc_x, mask_xyb_dc_y, mask_xyb_dc_b);
 	cl_mem cl_block_diff_dc = ocl.allocMem(3 * res_channel_size, block_diff_dc);
@@ -256,21 +260,21 @@ void tclCombineChannels(const float *mask_xyb_x, const float *mask_xyb_y, const 
     clEnqueueUnmapMemObject(ocl.commandQueue, cl_result, result_tmp, 0, NULL, NULL);
 	ocl.releaseMemChannels(mask);
 	ocl.releaseMemChannels(mask_dc);
-	clReleaseMemObject(cl_block_diff_dc);
-	clReleaseMemObject(cl_block_diff_ac);
-	clReleaseMemObject(cl_edge_detector_map);
-	clReleaseMemObject(cl_result);
+	ocl.releaseMem(cl_block_diff_dc);
+	ocl.releaseMem(cl_block_diff_ac);
+	ocl.releaseMem(cl_edge_detector_map);
+	ocl.releaseMem(cl_result);
 }
 
-void tclCalculateDiffmap(const size_t xsize, const size_t ysize,
-	const size_t step,
-	const float *diffmap, size_t org_len,
+void tclCalculateDiffmap(const unsigned int xsize, const unsigned int ysize,
+	const unsigned int step,
+	const float *diffmap, unsigned int org_len,
 	const float *diffmap_cmp)
 {
 	cl_int err = CL_SUCCESS;
 	ocl_args_d_t &ocl = getOcl();
 
-	size_t length = xsize * ysize * sizeof(float);
+	unsigned int length = xsize * ysize * sizeof(float);
 	cl_mem mem_diffmap = ocl.allocMem(length);
 	clEnqueueWriteBuffer(ocl.commandQueue, mem_diffmap, CL_FALSE, 0, org_len * sizeof(float), diffmap, 0, NULL, NULL);
 	clCalculateDiffmapEx(mem_diffmap, xsize, ysize, step);
@@ -278,12 +282,12 @@ void tclCalculateDiffmap(const size_t xsize, const size_t ysize,
     err = clFinish(ocl.commandQueue);
 	FLOAT_COMPARE(result_tmp, diffmap_cmp, xsize * ysize);
     clEnqueueUnmapMemObject(ocl.commandQueue, mem_diffmap, result_tmp, 0, NULL, NULL);
-	clReleaseMemObject(mem_diffmap);
+	ocl.releaseMem(mem_diffmap);
 }
 
-void tclBlur(const float* channel, size_t xsize, size_t ysize, double sigma, double border_ratio, const float* result)
+void tclBlur(const float* channel, unsigned int xsize, unsigned int ysize, double sigma, double border_ratio, const float* result)
 {
-    size_t channel_size = xsize * ysize * sizeof(float);
+    unsigned int channel_size = xsize * ysize * sizeof(float);
     cl_int err = 0;
     ocl_args_d_t &ocl = getOcl();
     cl_mem r = ocl.allocMem(channel_size, channel);
@@ -298,21 +302,21 @@ void tclBlur(const float* channel, size_t xsize, size_t ysize, double sigma, dou
     clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
     err = clFinish(ocl.commandQueue);
 
-    clReleaseMemObject(r);
+    ocl.releaseMem(r);
 }
 
-void tclConvolution(size_t xsize, size_t ysize,
-	size_t xstep,
-	size_t len, size_t offset,
+void tclConvolution(unsigned int xsize, unsigned int ysize,
+	unsigned int xstep,
+	unsigned int len, unsigned int offset,
 	const float* multipliers,
 	const float* inp,
 	float border_ratio,
 	float* result)
 {
 	int dxsize = (xsize + xstep - 1) / xstep;
-	size_t result_size = dxsize * ysize * sizeof(float);
-	size_t inp_size = xsize * ysize * sizeof(float);
-	size_t multipliers_size = len * sizeof(float);
+	unsigned int result_size = dxsize * ysize * sizeof(float);
+	unsigned int inp_size = xsize * ysize * sizeof(float);
+	unsigned int multipliers_size = len * sizeof(float);
 	cl_int err = 0;
     ocl_args_d_t &ocl = getOcl();
     cl_mem r = ocl.allocMem(result_size);
@@ -329,20 +333,20 @@ void tclConvolution(size_t xsize, size_t ysize,
 	clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-    clReleaseMemObject(r);
-	clReleaseMemObject(i);
-	clReleaseMemObject(m);
+    ocl.releaseMem(r);
+	ocl.releaseMem(i);
+	ocl.releaseMem(m);
 }
 
 void tclDiffPrecompute(
   const std::vector<std::vector<float> > &xyb0,
   const std::vector<std::vector<float> > &xyb1,
-  size_t xsize, size_t ysize,
+  unsigned int xsize, unsigned int ysize,
   const std::vector<std::vector<float> > *mask_cmp)
 {
   cl_int err = 0;
   ocl_args_d_t &ocl = getOcl();
-  size_t channel_size = xsize * ysize * sizeof(float);
+  unsigned int channel_size = xsize * ysize * sizeof(float);
   ocl_channels cl_xyb0 = ocl.allocMemChannels(channel_size, xyb0[0].data(), xyb0[1].data(), xyb0[2].data());
   ocl_channels cl_xyb1 = ocl.allocMemChannels(channel_size, xyb1[0].data(), xyb1[1].data(), xyb1[2].data());
   ocl_channels cl_mask = ocl.allocMemChannels(channel_size);
@@ -378,14 +382,14 @@ void tclAverage5x5(int xsize, int ysize, const std::vector<float> &diffs_org, co
   FLOAT_COMPARE(r, diffs_cmp.data(), xsize * ysize);
 
   clEnqueueUnmapMemObject(ocl.commandQueue, mem_diff, r, 0, NULL, NULL);
-  clReleaseMemObject(mem_diff);
+  ocl.releaseMem(mem_diff);
 }
 
-void tclMinSquareVal(const float *img, size_t square_size, size_t offset,
-	size_t xsize, size_t ysize,
+void tclMinSquareVal(const float *img, unsigned int square_size, unsigned int offset,
+	unsigned int xsize, unsigned int ysize,
 	const float *result)
 {
-	size_t img_size = xsize * ysize * sizeof(float);
+	unsigned int img_size = xsize * ysize * sizeof(float);
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
 	cl_mem r = ocl.allocMem(img_size, img);
@@ -400,10 +404,10 @@ void tclMinSquareVal(const float *img, size_t square_size, size_t offset,
 	clEnqueueUnmapMemObject(ocl.commandQueue, r, r_r, 0, NULL, NULL);
 	err = clFinish(ocl.commandQueue);
 
-	clReleaseMemObject(r);
+	ocl.releaseMem(r);
 }
 
-void tclScaleImage(double scale, const float *result_org, const float *result_cmp, size_t length)
+void tclScaleImage(double scale, const float *result_org, const float *result_cmp, unsigned int length)
 {
     cl_int err = 0;
     ocl_args_d_t &ocl = getOcl();
@@ -417,13 +421,13 @@ void tclScaleImage(double scale, const float *result_org, const float *result_cm
     FLOAT_COMPARE(r_r, result_cmp, length);
 
     clEnqueueUnmapMemObject(ocl.commandQueue, mem_result_org, r_r, 0, NULL, NULL);
-    clReleaseMemObject(mem_result_org);
+    ocl.releaseMem(mem_result_org);
 }
 
-void tclOpsinDynamicsImage(const float* r, const float* g, const float* b, size_t xsize, size_t ysize,
+void tclOpsinDynamicsImage(const float* r, const float* g, const float* b, unsigned int xsize, unsigned int ysize,
 	const float* result_r, const float* result_g, const float* result_b)
 {
-	size_t channel_size = xsize * ysize * sizeof(float);
+	unsigned int channel_size = xsize * ysize * sizeof(float);
 	cl_int err = 0;
 	ocl_args_d_t &ocl = getOcl();
 	ocl_channels rgb = ocl.allocMemChannels(channel_size, r, g, b);

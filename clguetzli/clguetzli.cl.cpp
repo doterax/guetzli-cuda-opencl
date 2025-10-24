@@ -10,6 +10,8 @@
 #include <vector>
 #include "utils.h"
 
+
+
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
 using namespace std;
@@ -52,11 +54,8 @@ namespace guetzli
             rgb_orig_opsin[1].resize(width * height);
             rgb_orig_opsin[2].resize(width * height);
 
-#ifdef __USE_DOUBLE_AS_FLOAT__
             const float* lut = kSrgb8ToLinearTable;
-#else
-            const double* lut = kSrgb8ToLinearTable;
-#endif
+            
             for (int c = 0; c < 3; ++c) {
                 for (int y = 0, ix = 0; y < height_; ++y) {
                     for (int x = 0; x < width_; ++x, ++ix) {
@@ -84,15 +83,16 @@ namespace guetzli
 #ifdef __USE_OPENCL__
         else if (MODE_OPENCL == g_mathMode)
         {
-            std::vector<std::vector<float> > rgb1(3, std::vector<float>(width_ * height_));
+            const size_t size = width_ * height_;
+            std::vector<std::vector<float> > rgb1(3, std::vector<float>(size));
             img.ToLinearRGB(&rgb1);
 
             const int xsize = width_;
             const int ysize = height_;
             std::vector<float>().swap(distmap_);
-            distmap_.resize(xsize * ysize);
+            distmap_.resize(size);
 
-            size_t channel_size = xsize * ysize * sizeof(float);
+            size_t channel_size = size * sizeof(float);
             ocl_args_d_t &ocl = getOcl();
             ocl_channels xyb0 = ocl.allocMemChannels(channel_size, rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data());
             ocl_channels xyb1 = ocl.allocMemChannels(channel_size, rgb1[0].data(), rgb1[1].data(), rgb1[2].data());
@@ -107,7 +107,7 @@ namespace guetzli
             err = clFinish(ocl.commandQueue);
             LOG_CL_RESULT(err);
 
-            clReleaseMemObject(mem_result);
+            ocl.releaseMem(mem_result);
             ocl.releaseMemChannels(xyb0);
             ocl.releaseMemChannels(xyb1);
 
@@ -170,11 +170,9 @@ namespace guetzli
         const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
         const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
         const int num_blocks = block_width * block_height;
-#ifdef __USE_DOUBLE_AS_FLOAT__
+
         const float* lut = kSrgb8ToLinearTable;
-#else
-        const double* lut = kSrgb8ToLinearTable;
-#endif
+
         imgOpsinDynamicsBlockList.resize(num_blocks * 3 * kDCTBlockSize);
         imgMaskXyzScaleBlockList.resize(num_blocks * 3);
         for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y)

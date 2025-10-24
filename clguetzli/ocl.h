@@ -39,21 +39,14 @@ enum KernelName {
 #include "clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
+#include "third_party/OpenCL/include/CL/cl.h"
 
-#include "CL/cl.h"
-
-// Macros for OpenCL versions
-#define OPENCL_VERSION_1_2  1.2f
-#define OPENCL_VERSION_2_0  2.0f
-#define OPENCL_VERSION_3_0  3.0f
-
-#define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e)));}
+#define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e))); std::abort();}
 
 struct ocl_args_d_t;
+class Device;
 
 const char* TranslateOpenCLError(cl_int errorCode);
-
-int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType, const char* preferredPlatform);
 
 bool supportsOpenCl();
 
@@ -66,17 +59,18 @@ struct ocl_args_d_t
 
 	cl_mem allocMem(size_t s, const void *init = NULL);
 	ocl_channels allocMemChannels(size_t s, const void *c0 = NULL, const void *c1 = NULL, const void *c2 = NULL);
+	void releaseMem(cl_mem mem);
     void releaseMemChannels(ocl_channels &rgb);
 
 	// Regular OpenCL objects:
 	cl_context       context;           // hold the context handler
-	cl_device_id     device;            // hold the selected device handler
 	cl_command_queue commandQueue;      // hold the commands-queue handler
 	cl_program       program;           // hold the program handler
 	cl_kernel        kernel[KERNEL_COUNT];            // hold the kernel handler
-	float            platformVersion;   // hold the OpenCL platform version (default 1.2)
-	float            deviceVersion;     // hold the OpenCL device version (default. 1.2)
-	float            compilerVersion;   // hold the device OpenCL C version (default. 1.2)
+	bool             isAmd;
+	Device*          device;
+
+	int allocations;
 };
 
 #endif

@@ -9,6 +9,7 @@
 #include <cuda.h>
 #include <nvrtc.h>
 #include "clguetzli/clguetzli_cu_ptx.h"
+#include "lzodec.h"
 
 bool supportsCuda()
 {
@@ -48,8 +49,11 @@ bool supportsCuda()
     }
     cuMemFree(new_mem);
 
-    const char* ptx = (char*)clguetzli_cu64;
-    size_t src_size = sizeof(clguetzli_cu64);
+    const char* ptx;
+
+    LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
+    ptx = (char*)decompressed.getData();
+    
 
     CUmodule mod;
     CUjit_option jit_options[2];
@@ -103,13 +107,12 @@ ocu_args_d_t& getOcu(void)
     cuDeviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
     LogError("CUDA Adapter:%s Ver%d.%d MP %d MaxThread Per MP %d)\r\n", name, cap_major, cap_minor, proc_count, thread_count);
 
-    const char* ptx = (char*)clguetzli_cu64;
-    size_t src_size = sizeof(clguetzli_cu64);
+    const char* ptx;
 
-//if (sizeof(void*) == 8)
-//    ReadSourceFromFile("clguetzli.cu.ptx64", &ptx, &src_size);
-//else
-//    ReadSourceFromFile("clguetzli.cu.ptx32", &ptx, &src_size);
+    LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
+    ptx = (char*)decompressed.getData();
+    
+
 
     CUmodule mod;
     CUjit_option jit_options[2];
@@ -148,7 +151,8 @@ ocu_args_d_t& getOcu(void)
 	cuModuleGetFunction(&ocu.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB], mod, "clColorTransformYCbCrToRGB");
 
     cuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_SHARED);
-    cuCtxSetSharedMemConfig(CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE);
+    // cuCtxSetSharedMemConfig is deprecated and no longer needed on modern GPUs
+    // as they have a fixed shared memory bank size
 
     cuStreamCreate(&stream, 0);
 

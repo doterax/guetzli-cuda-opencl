@@ -9,12 +9,14 @@
 #ifndef __CLGUETZLI_CL_H__
 #define __CLGUETZLI_CL_H__
 
+
+
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
 #if defined(__cplusplus) && !defined(__CUDACC__)
 
 #ifdef __USE_OPENCL__
-#include "CL/cl.h"
+#include "third_party/OpenCL/include/CL/cl.h"
 #endif
 
 #ifdef __USE_CUDA__
@@ -24,7 +26,7 @@ typedef CUdeviceptr cu_mem;
 
 #endif/*__cplusplus && !__CUDACC__*/
 
-#define __USE_DOUBLE_AS_FLOAT__
+#pragma pack(push, 1)
 
 #if defined(__cplusplus) && !defined(__CUDACC__)
     #define __kernel
@@ -164,6 +166,9 @@ typedef CUdeviceptr cu_mem;
         __global const ushort  *pixel;
     }channel_info;
 
+
 #endif /*__CLGUETZLI_CL_H__*/
 
 #endif // __USE_OPENCL__
+
+#pragma pack(pop)

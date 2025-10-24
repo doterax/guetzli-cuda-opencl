@@ -1,0 +1,7 @@
+{
+    "OpenCL.server.deviceID": 877627650,
+    "files.associations": {
+        "*.cl": "cpp",
+        "cmath": "cpp"
+    }
+}

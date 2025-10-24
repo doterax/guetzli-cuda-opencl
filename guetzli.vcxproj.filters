@@ -124,6 +124,7 @@
       <Filter>clguetzli</Filter>
     </ClInclude>
     <ClInclude Include="guetzli\version.h" />
+    <ClInclude Include="clguetzli\lzodec.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="guetzli\butteraugli_comparator.cc">
@@ -216,6 +217,8 @@
     <ClCompile Include="clguetzli\cumem_pool.cpp">
       <Filter>clguetzli</Filter>
     </ClCompile>
+    <ClCompile Include="clguetzli\lzodec.cpp" />
+    <ClCompile Include="third_party\minilzo\minilzo.c" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="clguetzli\clguetzli.cu">

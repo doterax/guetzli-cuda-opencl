@@ -322,15 +322,15 @@ namespace {
                 return false;
             }
 
-            uint32 width(0), height(0), components(0);
+            unsigned int width(0), height(0), components(0);
 
             TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
             TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
             TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &components);
 
-            uint32 npixels = width * height;
+            unsigned int npixels = width * height;
 
-            uint32* pixels = (uint32*)_TIFFmalloc(npixels * sizeof(uint32));
+            unsigned int* pixels = (unsigned int*)_TIFFmalloc(npixels * sizeof(unsigned int));
 
 
 
@@ -348,8 +348,8 @@ namespace {
 
 
             if (components != 4) {
-                for (int y = 0; y < height; ++y) {
-                    const uint32* row_in = pixels + (y * width);
+                for (unsigned int y = 0; y < height; ++y) {
+                    const unsigned int* row_in = pixels + (y * width);
                     uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
                     for (int x = 0; x < *xsize; ++x) {
                         const uint8_t* pixel = (const uint8_t*)&row_in[x];
@@ -360,8 +360,8 @@ namespace {
                 }
             }
             else {
-                for (int y = 0; y < height; ++y) {
-                    const uint32* row_in = pixels + (y * width);
+                for (unsigned int y = 0; y < height; ++y) {
+                    const unsigned int* row_in = pixels + (y * width);
                     uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
                     for (int x = 0; x < *xsize; ++x) {
                         const uint8_t* pixel = (const uint8_t*)&row_in[x];
@@ -553,7 +553,7 @@ void Usage() {
       "\n"
       "Support this project:\n"
       "  If you find this tool useful, please consider supporting the development\n"
-      "  by buying me a coffee: https://www.buymeacoffee.com/doterax\n"
+      "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
       "  Your support helps maintain and improve this project!\n", 
       guetzli::kVersion, kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
@@ -693,8 +693,17 @@ int main(int argc, char** argv) {
       }
   }
 
-  if (processed)
-    WriteFileOrDie(argv[opt_idx + 1], out_data);
+
+
+  if (processed) {
+      fprintf(stdout, "Guetzli process suceeded, writing ... ");
+      WriteFileOrDie(argv[opt_idx + 1], out_data);
+      fprintf(stdout, "Done.\n\n");
+      fprintf(stdout, "Support this project:\n"
+          "  If you find this tool useful, please consider supporting the development\n"
+          "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
+          "  Your support helps maintain and improve this project!\n\n");
+  }
   else {
       fprintf(stderr, "Unknown file format: %s\n", argv[opt_idx]);
       return 2;

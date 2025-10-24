@@ -7,12 +7,46 @@
 
 #include "ocl.h"
 #include <string.h>
+#include <string>
 #include <vector>
+#include <string>
 #include "clguetzli/clguetzli_cl_src.h"
+#include "lzodec.h"
 #include <stdexcept>
+//#define LOG
+//#define UTILITIES_FILE
+#include "third_party/OpenCL-Wrapper/opencl.hpp"
 
+using std::string;
+
+extern bool verbose_cl = false;
 
 #ifdef __USE_OPENCL__
+
+void PrintDeviceCapabilities(const Device_Info& deviceInfo);
+
+string opencl_c_container() {
+	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
+	return string((char*)decompressed.getData(), decompressed.getSize());
+}
+
+//inline Device_Info select_device_oclgrind_or_with_most_flops(const vector<Device_Info>& devices = get_devices()) { // returns device with best floating-point performance
+//	string simulator = "Oclgrind Simulator";
+//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
+//		if (devices[i].name.find(simulator) != std::string::npos) {
+//			return devices[i];
+//		}
+//	}
+//	float best_value = 0.0f;
+//	uint best_i = 0u;
+//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
+//		if (devices[i].tflops > best_value) {
+//			best_value = devices[i].tflops;
+//			best_i = i;
+//		}
+//	}
+//	return devices[best_i];
+//}
 
 ocl_args_d_t& getOcl()
 {
@@ -22,65 +56,191 @@ ocl_args_d_t& getOcl()
     if (bInit == true) return ocl;
 
     bInit = true;
-    cl_int err = SetupOpenCL(&ocl, CL_DEVICE_TYPE_GPU, nullptr);
-    LOG_CL_RESULT(err);
 
-	const char* source = (char*)clguetzli_cl_src;
-    size_t src_size = sizeof(clguetzli_cl_src);
+	vector<Device_Info> devices = get_devices(true);
 
-    ocl.program = clCreateProgramWithSource(ocl.context, 1, (const char**)&source, &src_size, &err);
+	if (devices.empty()) {
+		LogError("No OpenCL devices found");
+		throw std::runtime_error("Failed to create OpenCL program: No OpenCL devices found");
+	}
 
-    err = clBuildProgram(ocl.program, 1, &ocl.device, "", NULL, NULL);
-    LOG_CL_RESULT(err);
-    if (CL_BUILD_PROGRAM_FAILURE == err)
-    {
-        size_t log_size = 0;
-        clGetProgramBuildInfo(ocl.program, ocl.device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+	// Select the best device (highest performance)
+	Device_Info best_device = select_device_with_most_flops(devices);
+	
 
-        std::vector<char> build_log(log_size);
-        clGetProgramBuildInfo(ocl.program, ocl.device, CL_PROGRAM_BUILD_LOG, log_size, &build_log[0], NULL);
+	// Check if device is AMD for optimization
+	bool isAmd = contains(to_lower(best_device.vendor), "amd") ||
+		contains(to_lower(best_device.vendor), "advanced micro devices");
 
-        LogError("Error happened during the build of OpenCL program.\nBuild log:%s", &build_log[0]);
-		throw std::runtime_error("Failed to build of OpenCL program ");
-    }
+	string opencl_source = opencl_c_container();
+	Clock clock;
+	static Device device(best_device, opencl_source);
+	std::string info = "OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n";
+	print_info(info);
+
+    
+	ocl.isAmd = isAmd;
+
+	ocl.program = device.get_cl_program().get();
+	ocl.commandQueue = device.get_cl_queue().get();
+	ocl.context = device.get_cl_context().get();
+	ocl.device = &device;
+
+	cl_int  err = 0;
 
     ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
+	LOG_CL_RESULT(err);
+	
     ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_SQUARESAMPLE] = clCreateKernel(ocl.program, "clSquareSampleEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_OPSINDYNAMICSIMAGE] = clCreateKernel(ocl.program, "clOpsinDynamicsImageEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_MASKHIGHINTENSITYCHANGE] = clCreateKernel(ocl.program, "clMaskHighIntensityChangeEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_EDGEDETECTOR] = clCreateKernel(ocl.program, "clEdgeDetectorMapEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_BLOCKDIFFMAP] = clCreateKernel(ocl.program, "clBlockDiffMapEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_EDGEDETECTORLOWFREQ] = clCreateKernel(ocl.program, "clEdgeDetectorLowFreqEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_DIFFPRECOMPUTE] = clCreateKernel(ocl.program, "clDiffPrecomputeEx", &err);
-    ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
-    ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
-    ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
-    ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
-    ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
-    ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
-    ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
+	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
     ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_APPLYGLOBALQUANTIZATION] = clCreateKernel(ocl.program, "clApplyGlobalQuantizationEx", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS] = clCreateKernel(ocl.program, "clComponentsToPixels", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
+	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
+	LOG_CL_RESULT(err);
+
+	print_info("OpenCL created\n");
+
+	if(verbose_cl) PrintDeviceCapabilities(device.info);
 
     return ocl;
 }
 
+/*
+* Print detailed device capabilities and information
+*/
+void PrintDeviceCapabilities(const Device_Info& deviceInfo)
+{
+	// Get platform information from the device's context
+	cl_platform_id platform = nullptr;
+	cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
+	
+	std::string platformName = "Unknown";
+	std::string platformVersion = "Unknown";
+	std::string platformVendor = "Unknown";
+	
+	if (err == CL_SUCCESS && platform) {
+		size_t nameLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
+		std::vector<char> platformNameVec(nameLen + 1);
+		clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformNameVec[0], NULL);
+		platformName = std::string(platformNameVec.data());
+
+		size_t versionLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionLen);
+		std::vector<char> platformVersionVec(versionLen);
+		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionLen, &platformVersionVec[0], NULL);
+		platformVersion = std::string(platformVersionVec.data());
+
+		size_t vendorLen = 0;
+		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendorLen);
+		std::vector<char> platformVendorVec(vendorLen);
+		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendorLen, &platformVendorVec[0], NULL);
+		platformVendor = std::string(platformVendorVec.data());
+	}
+
+	// Get additional device information not available in Device_Info
+	cl_device_id device = deviceInfo.cl_device();
+	
+	cl_uint maxWorkGroupSize = 0;
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+
+	size_t maxWorkItemSizes[3] = { 0 };
+	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+
+	cl_bool compilerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+
+	cl_bool linkerAvailable = CL_FALSE;
+	clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+
+	cl_device_fp_config fpConfig = 0;
+	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+
+	cl_device_exec_capabilities execCapabilities = 0;
+	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+
+	// Print comprehensive device report
+	LogError("=== OpenCL Device Capabilities Report ===\n");
+	LogError("Platform: %s\n", platformName.c_str());
+	LogError("Platform Version: %s\n", platformVersion.c_str());
+	LogError("Platform Vendor: %s\n", platformVendor.c_str());
+	LogError("Device: %s\n", deviceInfo.name.c_str());
+	LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
+	LogError("Device Version: %s\n", deviceInfo.opencl_c_version.c_str());
+	LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
+	LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
+	LogError("\n=== Memory Information ===\n");
+	LogError("Global Memory Size: %u MB\n", deviceInfo.memory);
+	LogError("Local Memory Size: %u KB\n", deviceInfo.local_cache);
+	LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
+	LogError("\n=== Compute Capabilities ===\n");
+	LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
+	LogError("Max Work Group Size: %u\n", maxWorkGroupSize);
+	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
+	LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
+	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+	LogError("Double Precision Support: %s\n", (fpConfig & CL_FP_FMA) ? "Yes" : "No");
+	LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
+	LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
+	LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
+	LogError("Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
+	LogError("Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
+	LogError("Execution Capabilities: %s%s%s\n",
+		(execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+		(execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "",
+		"");
+	LogError("==========================================\n\n");
+}
+
 ocl_args_d_t::ocl_args_d_t() :
 	context(NULL),
-	device(NULL),
 	commandQueue(NULL),
+	device(NULL),
 	program(NULL),
-	platformVersion(OPENCL_VERSION_1_2),
-	deviceVersion(OPENCL_VERSION_1_2),
-	compilerVersion(OPENCL_VERSION_1_2)
+	allocations(0),
+	isAmd(false)
 {
 	for (int i = 0; i < KERNEL_COUNT; i++)
 	{
@@ -100,44 +260,36 @@ ocl_args_d_t::~ocl_args_d_t()
 		}
 	}
 
-	if (program)
-	{
-		err = clReleaseProgram(program);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
-		}
+	if (allocations != 0) {
+		LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
 	}
-	if (commandQueue)
-	{
-		err = clReleaseCommandQueue(commandQueue);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
-		}
-	}
-	if (device)
-	{
-		err = clReleaseDevice(device);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseDevice returned '%s'.\n", TranslateOpenCLError(err));
-		}
-	}
-	if (context)
-	{
-		err = clReleaseContext(context);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseContext returned '%s'.\n", TranslateOpenCLError(err));
-		}
-	}
+
+	//not needed, owned by wrapper
+	//if (program)
+	//{
+	//	err = clReleaseProgram(program);
+	//	if (CL_SUCCESS != err)
+	//	{
+	//		LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
+	//	}
+	//}
+	//if (commandQueue)
+	//{
+	//	err = clReleaseCommandQueue(commandQueue);
+	//	if (CL_SUCCESS != err)
+	//	{
+	//		LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
+	//	}
+	//}
 }
 
 cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
 {
 	cl_int err = 0;
 	cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
+	}
     LOG_CL_RESULT(err);
     if (!mem) return NULL;
     
@@ -145,6 +297,9 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
     if (init)
     {
         err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_FALSE, 0, s, init, 0, NULL, NULL);
+		if (CL_SUCCESS != (err)) {
+			LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
+		}
         LOG_CL_RESULT(err);
         err = clFinish(this->commandQueue);
         LOG_CL_RESULT(err);
@@ -153,12 +308,41 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
     {
         cl_char cc = 0;
         err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
+		if (CL_SUCCESS != (err)) {
+			LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
+		}
         LOG_CL_RESULT(err);
         err = clFinish(this->commandQueue);
         LOG_CL_RESULT(err);
     }
 
+	++allocations;
+
 	return mem;
+}
+
+void ocl_args_d_t::releaseMem(cl_mem mem) {
+	if (!mem) {
+		LogError("called releaseMem(NULL)\n");
+		return;
+	}
+	cl_int err = clReleaseMemObject(mem);
+
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clReleaseMemObject(...)\n");
+	}
+
+	LOG_CL_RESULT(err);
+
+	err = clFinish(this->commandQueue);
+
+	if (CL_SUCCESS != (err)) {
+		LogError("Failed to clFinish during releaseMem\n");
+	}
+	LOG_CL_RESULT(err);
+
+	--allocations;
+
 }
 
 ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void *c0, const void *c1, const void *c2)
@@ -178,7 +362,7 @@ void ocl_args_d_t::releaseMemChannels(ocl_channels &rgb)
 {
     for (int i = 0; i < 3; i++)
     {
-        clReleaseMemObject(rgb.ch[i]);
+		releaseMem(rgb.ch[i]);
         rgb.ch[i] = NULL;
     }
 }
@@ -296,358 +480,16 @@ bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredP
 	return match;
 }
 
-/*
-* Find and return the preferred OpenCL platform
-* In case that preferredPlatform is NULL, the ID of the first discovered platform will be returned
-*/
-cl_platform_id FindOpenCLPlatform(const char* preferredPlatform, cl_device_type deviceType)
-{
-	cl_uint numPlatforms = 0;
-	cl_int err = CL_SUCCESS;
-
-	// Get (in numPlatforms) the number of OpenCL platforms available
-	// No platform ID will be return, since platforms is NULL
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetplatform_ids() to get num platforms returned %s.\n", TranslateOpenCLError(err));
-		return NULL;
-	}
-	LogInfo("Number of available platforms: %u\n", numPlatforms);
-
-	if (0 == numPlatforms)
-	{
-		LogError("Error: No platforms found!\n");
-		return NULL;
-	}
-
-	std::vector<cl_platform_id> platforms(numPlatforms);
-
-	// Now, obtains a list of numPlatforms OpenCL platforms available
-	// The list of platforms available will be returned in platforms
-	err = clGetPlatformIDs(numPlatforms, &platforms[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetplatform_ids() to get platforms returned %s.\n", TranslateOpenCLError(err));
-		return NULL;
-	}
-
-	for (cl_uint i = 0; i < numPlatforms; i++)
-	{
-		size_t nameLen = 0;
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &nameLen);
-
-		std::vector<char> platformName(nameLen + 1);
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
-		platformName[nameLen] = 0;
-
-		size_t stringLength = 0;
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_VERSION, 0, NULL, &stringLength);
-		std::vector<char> platformVersion(stringLength);
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_VERSION, stringLength, &platformVersion[0], &stringLength);
-
-		LogError("Platform #%d: '%s' ver '%s' is GPU=%d\n", i, platformName.data(), platformVersion.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
-	}
-
-	// Check if one of the available platform matches the preferred requirements
-	for (cl_uint i = 0; i < numPlatforms; i++)
-	{
-		bool match = true;
-		cl_uint numDevices = 0;
-
-		size_t nameLen = 0;
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &nameLen);
-
-		std::vector<char> platformName(nameLen + 1);
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
-		platformName[nameLen] = 0;
-
-		LogError("DeviceName: %s\n", platformName.data());
-
-		if ((NULL != preferredPlatform) && (strlen(preferredPlatform) > 0))
-		{
-			match = (strstr(&platformName[0], preferredPlatform) != 0);
-		}
-
-		// match is true if the platform's name is the required one or don't care (NULL)
-		if (match)
-		{
-			// Obtains the number of deviceType devices available on platform
-			// When the function failed we expect numDevices to be zero.
-			// We ignore the function return value since a non-zero error code
-			// could happen if this platform doesn't support the specified device type.
-			err = clGetDeviceIDs(platforms[i], deviceType, 0, NULL, &numDevices);
-			if (CL_SUCCESS != err)
-			{
-				if (CL_DEVICE_TYPE_GPU == deviceType)
-				{
-					LogError("%s try GPU returned %s.\n", platformName.data(), TranslateOpenCLError(err));
-				}
-				if (CL_DEVICE_TYPE_CPU == deviceType)
-				{
-					LogError("%s try CPU returned %s.\n", platformName.data(), TranslateOpenCLError(err));
-				}
-			}
-
-			if (0 != numDevices)
-			{
-				// There is at list one device that answer the requirements
-				LogError("SelectDevice: '%s' GPU=%d\n", platformName.data(), deviceType == CL_DEVICE_TYPE_GPU ? 1 : 0);
-				return platforms[i];
-			}
-		}
-	}
-
-	return NULL;
-}
 
 bool supportsOpenCl()
 {
-	cl_uint numPlatforms = 0;
-	cl_int err = CL_SUCCESS;
+	vector<Device_Info> devices = get_devices(true);
 
-	// Get (in numPlatforms) the number of OpenCL platforms available
-	// No platform ID will be return, since platforms is NULL
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	if (CL_SUCCESS != err)
-	{
-		return false;
-	}
-	if (0 == numPlatforms)
-	{
+	if (devices.empty()) {
 		return false;
 	}
 
-	std::vector<cl_platform_id> platforms(numPlatforms);
-
-	// Now, obtains a list of numPlatforms OpenCL platforms available
-	// The list of platforms available will be returned in platforms
-	err = clGetPlatformIDs(numPlatforms, &platforms[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		return false;
-	}
-
-	// Check if one of the available platform matches the preferred requirements
-	for (cl_uint i = 0; i < numPlatforms; i++)
-	{
-		bool match = true;
-		cl_uint numDevices = 0;
-
-		size_t nameLen = 0;
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &nameLen);
-
-		std::vector<char> platformName(nameLen + 1);
-		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
-		platformName[nameLen] = 0;
-
-		// match is true if the platform's name is the required one or don't care (NULL)
-		if (match)
-		{
-			// Obtains the number of deviceType devices available on platform
-			// When the function failed we expect numDevices to be zero.
-			// We ignore the function return value since a non-zero error code
-			// could happen if this platform doesn't support the specified device type.
-			err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
-			if (CL_SUCCESS != err)
-			{
-				return false;
-			}
-
-			if (0 != numDevices)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-
-/*
-* This function read the OpenCL platdorm and device versions
-* (using clGetxxxInfo API) and stores it in the ocl structure.
-* Later it will enable us to support both OpenCL 1.2 and 2.0 platforms and devices
-* in the same program.
-*/
-int GetPlatformAndDeviceVersion(cl_platform_id platformId, ocl_args_d_t *ocl)
-{
-	cl_int err = CL_SUCCESS;
-
-	// Read the platform's version string length (param_value is NULL).
-	// The value returned in stringLength
-	size_t stringLength = 0;
-	err = clGetPlatformInfo(platformId, CL_PLATFORM_VERSION, 0, NULL, &stringLength);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetPlatformInfo() to get CL_PLATFORM_VERSION length returned '%s'.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	// Now, that we know the platform's version string length, we can allocate enough space before read it
-	std::vector<char> platformVersion(stringLength);
-
-	// Read the platform's version string
-	// The read value returned in platformVersion
-	err = clGetPlatformInfo(platformId, CL_PLATFORM_VERSION, stringLength, &platformVersion[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetplatform_ids() to get CL_PLATFORM_VERSION returned %s.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	if (strstr(&platformVersion[0], "OpenCL 2.0") != NULL)
-	{
-		ocl->platformVersion = OPENCL_VERSION_2_0;
-	}
-
-	if (strstr(&platformVersion[0], "OpenCL 3.0") != NULL)
-	{
-		ocl->platformVersion = OPENCL_VERSION_3_0;
-	}
-
-	// Read the device's version string length (param_value is NULL).
-	err = clGetDeviceInfo(ocl->device, CL_DEVICE_VERSION, 0, NULL, &stringLength);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetDeviceInfo() to get CL_DEVICE_VERSION length returned '%s'.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	// Now, that we know the device's version string length, we can allocate enough space before read it
-	std::vector<char> deviceVersion(stringLength);
-
-	// Read the device's version string
-	// The read value returned in deviceVersion
-	err = clGetDeviceInfo(ocl->device, CL_DEVICE_VERSION, stringLength, &deviceVersion[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetDeviceInfo() to get CL_DEVICE_VERSION returned %s.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	if (strstr(&deviceVersion[0], "OpenCL 2.0") != NULL)
-	{
-		ocl->deviceVersion = OPENCL_VERSION_2_0;
-	}
-
-	if (strstr(&deviceVersion[0], "OpenCL 3.0") != NULL)
-	{
-		ocl->deviceVersion = OPENCL_VERSION_3_0;
-	}
-
-	// Read the device's OpenCL C version string length (param_value is NULL).
-	err = clGetDeviceInfo(ocl->device, CL_DEVICE_OPENCL_C_VERSION, 0, NULL, &stringLength);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetDeviceInfo() to get CL_DEVICE_OPENCL_C_VERSION length returned '%s'.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	// Now, that we know the device's OpenCL C version string length, we can allocate enough space before read it
-	std::vector<char> compilerVersion(stringLength);
-
-	// Read the device's OpenCL C version string
-	// The read value returned in compilerVersion
-	err = clGetDeviceInfo(ocl->device, CL_DEVICE_OPENCL_C_VERSION, stringLength, &compilerVersion[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetDeviceInfo() to get CL_DEVICE_OPENCL_C_VERSION returned %s.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	else if (strstr(&compilerVersion[0], "OpenCL C 2.0") != NULL)
-	{
-		ocl->compilerVersion = OPENCL_VERSION_2_0;
-	}
-
-	return err;
-}
-
-
-/*
-* This function picks/creates necessary OpenCL objects which are needed.
-* The objects are:
-* OpenCL platform, device, context, and command queue.
-*
-* All these steps are needed to be performed once in a regular OpenCL application.
-* This happens before actual compute kernels calls are performed.
-*
-* For convenience, in this application you store all those basic OpenCL objects in structure ocl_args_d_t,
-* so this function populates fields of this structure, which is passed as parameter ocl.
-* Please, consider reviewing the fields before going further.
-* The structure definition is right in the beginning of this file.
-*/
-int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType, const char* preferredPlatform)
-{
-	// The following variable stores return codes for all OpenCL calls.
-	cl_int err = CL_SUCCESS;
-
-	// Query for all available OpenCL platforms on the system
-	// Here you enumerate all platforms and pick one which name has preferredPlatform as a sub-string
-	cl_platform_id platformId = FindOpenCLPlatform(preferredPlatform, deviceType);
-	if (NULL == platformId)
-	{
-		deviceType = CL_DEVICE_TYPE_CPU;
-		platformId = FindOpenCLPlatform(preferredPlatform, deviceType);
-	}
-
-	if (NULL == platformId)
-	{
-		LogError("Error: Failed to find OpenCL platform.\n");
-		return CL_INVALID_VALUE;
-	}
-
-	// Create context with device of specified type.
-	// Required device type is passed as function argument deviceType.
-	// So you may use this function to create context for any CPU or GPU OpenCL device.
-	// The creation is synchronized (pfn_notify is NULL) and NULL user_data
-	cl_context_properties contextProperties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platformId, 0 };
-	ocl->context = clCreateContextFromType(contextProperties, deviceType, NULL, NULL, &err);
-	if ((CL_SUCCESS != err) || (NULL == ocl->context))
-	{
-		LogError("Couldn't create a context, clCreateContextFromType() returned '%s'.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	// Query for OpenCL device which was used for context creation
-	err = clGetContextInfo(ocl->context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &ocl->device, NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetContextInfo() to get list of devices returned %s.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	// Read the OpenCL platform's version and the device OpenCL and OpenCL C versions
-	GetPlatformAndDeviceVersion(platformId, ocl);
-
-	// Create command queue.
-	// OpenCL kernels are enqueued for execution to a particular device through special objects called command queues.
-	// Command queue guarantees some ordering between calls and other OpenCL commands.
-	// Here you create a simple in-order OpenCL command queue that doesn't allow execution of two kernels in parallel on a target device.
-#ifdef CL_VERSION_2_0
-	if (OPENCL_VERSION_2_0 == ocl->deviceVersion)
-	{
-		const cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
-		ocl->commandQueue = clCreateCommandQueueWithProperties(ocl->context, ocl->device, properties, &err);
-	}
-	else {
-		// default behavior: OpenCL 1.2
-		cl_command_queue_properties properties = CL_QUEUE_PROFILING_ENABLE;
-		ocl->commandQueue = clCreateCommandQueue(ocl->context, ocl->device, properties, &err);
-	}
-#else
-	// default behavior: OpenCL 1.2
-	cl_command_queue_properties properties = CL_QUEUE_PROFILING_ENABLE;
-	ocl->commandQueue = clCreateCommandQueue(ocl->context, ocl->device, properties, &err);
-#endif
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clCreateCommandQueue() returned %s.\n", TranslateOpenCLError(err));
-		return err;
-	}
-
-	return CL_SUCCESS;
+	return true;
 }
 
 #endif

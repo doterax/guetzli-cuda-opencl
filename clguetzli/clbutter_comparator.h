@@ -9,7 +9,9 @@
 #include <vector>
 #include "butteraugli/butteraugli.h"
 
+#ifndef __restrict__
 #define __restrict__
+#endif
 
 namespace butteraugli {
 
