@@ -169,6 +169,23 @@ typedef CUdeviceptr cu_mem;
 
 #pragma pack(pop)
 
+/*
+ * Clean up kernel-qualifier macros so they do not leak into downstream
+ * system / library headers.  These identifiers (especially __global,
+ * __private) are reserved by the C++ implementation; redefining them
+ * to empty corrupts libc++ internals on macOS and potentially other
+ * platforms.  The macros are only needed inside this header for the
+ * shared struct layout above.
+ */
+#if defined(__cplusplus) && !defined(__CUDACC__)
+    #undef __kernel
+    #undef __private
+    #undef __global
+    #undef __constant
+    #undef __constant_ex
+    #undef __device__
+#endif
+
 #endif /*__CLGUETZLI_CL_H__*/
 
 #endif // __USE_OPENCL__ || __USE_CUDA__

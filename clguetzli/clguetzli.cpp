@@ -12,19 +12,6 @@
 #include <set>
 #include "clguetzli.h"
 #include "cl.hpp"
-
-// Undo OpenCL-kernel-keyword macros (defined to empty by clguetzli.cl.h for
-// C++ builds) so they do not leak into the system headers that opencl.hpp
-// transitively pulls in (<regex>, <iostream>, <mutex>, etc.).  On macOS
-// libc++ these identifiers appear in locale internals and the empty macro
-// silently corrupts compiled code, causing SIGABRT at runtime.
-#undef __kernel
-#undef __private
-#undef __global
-#undef __constant
-#undef __constant_ex
-#undef __device__
-
 #define LOG
 #define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"

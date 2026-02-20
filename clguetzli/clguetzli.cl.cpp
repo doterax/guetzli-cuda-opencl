@@ -40,6 +40,19 @@ void set_global_size(int dim, int size){
 #include "ocu.h"
 #endif
 #define abs(exper)    fabs((exper))
+
+// Re-define kernel qualifiers that clguetzli.cl.h #undef'd.  The .cl kernel
+// source below uses these as type specifiers (e.g. __global const float *).
+// In C++ they must expand to nothing; in real OpenCL/CUDA they are keywords.
+#if !defined(__OPENCL_VERSION__) && !defined(__CUDACC__)
+#define __kernel
+#define __private
+#define __global
+#define __constant
+#define __constant_ex
+#define __device__
+#endif
+
 #include "clguetzli.cl"
 
 namespace guetzli
