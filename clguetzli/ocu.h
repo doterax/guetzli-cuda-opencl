@@ -8,6 +8,7 @@
 #ifdef __USE_CUDA__
 
 #include <cuda.h>
+#include "cuda_dynload.h"
 #include "ocl.h"
 #include "cumem_pool.h"
 

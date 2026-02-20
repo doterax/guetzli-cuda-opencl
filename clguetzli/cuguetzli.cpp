@@ -8,9 +8,11 @@
 */
 #include "cuguetzli.h"
 #include <algorithm>
+#include <cmath>
 #include "ocu.h"
 
 #ifdef __USE_CUDA__
+#include "cuda_dynload.h"
 
 #define cuFinish cuStreamSynchronize
 #define BLOCK_SIZE 96

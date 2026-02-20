@@ -26,8 +26,12 @@ extern bool verbose_cl = false;
 void PrintDeviceCapabilities(const Device_Info& deviceInfo);
 
 string opencl_c_container() {
+#if defined(clguetzli_cl_src_lzo)
 	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
 	return string((char*)decompressed.getData(), decompressed.getSize());
+#else
+	return string((const char*)clguetzli_cl_src, sizeof(clguetzli_cl_src));
+#endif
 }
 
 //inline Device_Info select_device_oclgrind_or_with_most_flops(const vector<Device_Info>& devices = get_devices()) { // returns device with best floating-point performance

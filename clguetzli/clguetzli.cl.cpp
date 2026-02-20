@@ -34,11 +34,11 @@ void set_global_size(int dim, int size){
 }
 
 #define __checkcl
-#define abs(exper)    fabs((exper))
 #include "clguetzli.h"
-#include "clguetzli.cl"
 #include "cuguetzli.h"
 #include "ocu.h"
+#define abs(exper)    fabs((exper))
+#include "clguetzli.cl"
 
 namespace guetzli
 {

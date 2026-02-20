@@ -564,7 +564,9 @@ void Usage() {
 void autoDetectBestMode() {
     fprintf(stdout, "Autodetect:\n");
 #ifdef __USE_CUDA__
+#ifdef _MSC_VER
     __try {
+#endif
         fprintf(stdout, "  Try CUDA...\n");
         if (supportsCuda()) {
             fprintf(stdout, "  CUDA detected.\n");
@@ -574,13 +576,17 @@ void autoDetectBestMode() {
         else {
             fprintf(stdout, "    CUDA is not supported.\n");
         }
+#ifdef _MSC_VER
     }
     __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
         fprintf(stdout, "    nvcuda.dll is not found\n");
     }
 #endif
+#endif
 #ifdef __USE_OPENCL__
+#ifdef _MSC_VER
     __try {
+#endif
         fprintf(stdout, "  Try OpenCL...\n");
         if (supportsOpenCl()) {
             fprintf(stdout, "  OpenCL detected.\n");
@@ -590,10 +596,12 @@ void autoDetectBestMode() {
         else {
             fprintf(stdout, "    OpenCL is not supported.\n");
         }
+#ifdef _MSC_VER
     }
     __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
         fprintf(stdout, "    OpenCl.dll is not found\n");
     }
+#endif
 #endif
     fprintf(stdout, "  Using optimized CPU implementation (--c).\n");
     g_mathMode = MODE_CPU_OPT;

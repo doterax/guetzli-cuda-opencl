@@ -8,24 +8,23 @@
 #ifdef __USE_CUDA__
 #include <cuda.h>
 #include <nvrtc.h>
+#include "cuda_dynload.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
 #include "lzodec.h"
 
 bool supportsCuda()
 {
+    if (!cudaDynloadInit())
+        return false;
+
     CUresult err = cuInit(0);
     if (err != CUDA_SUCCESS)
         return false;
 
     CUdevice dev = 0;
     CUcontext ctxt;
-    CUctxCreateParams params;
 
-    params.cigParams = NULL;
-    params.execAffinityParams = NULL;
-    params.numExecAffinityParams = 0;
-
-    err = cuCtxCreate(&ctxt, &params, CU_CTX_SCHED_AUTO, dev);
+    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
 
     if (err != CUDA_SUCCESS)
         return false;
@@ -87,13 +86,8 @@ ocu_args_d_t& getOcu(void)
     CUdevice dev = 0;
     CUcontext ctxt;
     CUstream  stream;
-    CUctxCreateParams params;
 
-    params.cigParams = NULL;
-    params.execAffinityParams = NULL;
-    params.numExecAffinityParams = 0;
-
-    err = cuCtxCreate(&ctxt, &params, CU_CTX_SCHED_AUTO, dev);
+    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
     LOG_CU_RESULT(err);
 
     char name[1024];

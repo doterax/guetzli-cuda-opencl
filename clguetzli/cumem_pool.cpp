@@ -7,6 +7,7 @@
 #include "cumem_pool.h"
 
 #ifdef __USE_CUDA__
+#include "cuda_dynload.h"
 
 bool compare_size(const cu_mem_block_t& first, const cu_mem_block_t& second)
 {

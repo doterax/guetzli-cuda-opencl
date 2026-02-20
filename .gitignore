@@ -1,11 +1,19 @@
+# Build output
 bin/
 obj/
+build/
+BUILD
+
+# Bazel (legacy)
 /bazel-*
 
-# Visual Studio 2015 cache/options directory
-.vs/
+# External dependency build artifacts
+external/build/
+external/install/
+external/_deps/
 
-# Visual C++ cache files
+# Visual Studio
+.vs/
 ipch/
 *.aps
 *.ncb
@@ -15,27 +23,22 @@ ipch/
 *.cachefile
 *.VC.db
 *.VC.VC.opendb
-guetzli.vcxproj.user
-clguetzli/clguetzli.cu.ptx*
-
-test/
-
 *.user
+*.vcxproj.user
 
+# Generated / intermediate
+clguetzli/clguetzli.cu.ptx*
+clguetzli/clguetzli_amd.cl.lzo
+clguetzli/clguetzli.cl.lzo
+*.ptx64
 *.zip
 
-*.ptx64
-
-performanceTest.bat
-
+# Test output
+test/
 test.bat
-
 tests/output/
-
-clguetzli/clguetzli_amd.cl.lzo
-
-clguetzli/clguetzli.cl.lzo
-
 tests/output_/
-
 output/
+
+# Misc
+performanceTest.bat

@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+    tags: ['v*']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux — OpenCL only
+          - os: ubuntu-24.04
+            name: linux-opencl
+            features: "OPENCL FULL_JPEG"
+            cuda: false
+            opencl: true
+            shell: bash
+
+          # Linux — CUDA + OpenCL
+          - os: ubuntu-24.04
+            name: linux-full
+            features: "CUDA OPENCL FULL_JPEG"
+            cuda: true
+            opencl: true
+            shell: bash
+
+          # Windows — CUDA + OpenCL (runtime auto-detects available GPU)
+          - os: windows-2022
+            name: win-full
+            features: "CUDA OPENCL FULL_JPEG"
+            cuda: true
+            opencl: true
+            shell: msys2 {0}
+
+          # macOS — OpenCL (Apple framework)
+          - os: macos-14
+            name: macos-opencl
+            features: "OPENCL FULL_JPEG"
+            cuda: false
+            opencl: true
+            shell: bash
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Checkout
+      # ------------------------------------------------------------------
+      - uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # 2. MSYS2 setup (Windows only)
+      # ------------------------------------------------------------------
+      - name: Setup MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-pkg-config
+            make
+            python3
+
+      # ------------------------------------------------------------------
+      # 3. Cache external dependencies
+      # ------------------------------------------------------------------
+      - name: Cache external deps
+        uses: actions/cache@v4
+        id: ext-cache
+        with:
+          path: external/install
+          key: ext-${{ runner.os }}-${{ hashFiles('external/CMakeLists.txt') }}
+
+      # ------------------------------------------------------------------
+      # 4. Install system packages — Linux
+      # ------------------------------------------------------------------
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3 pkg-config
+          if [ "${{ matrix.opencl }}" = "true" ]; then
+            sudo apt-get install -y opencl-headers ocl-icd-opencl-dev
+          fi
+
+      # ------------------------------------------------------------------
+      # 5. Install system packages — macOS
+      # ------------------------------------------------------------------
+      - name: Install packages (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake pkg-config python3
+
+      # ------------------------------------------------------------------
+      # 6. Install CUDA Toolkit (conditional)
+      # ------------------------------------------------------------------
+      - name: Install CUDA
+        if: matrix.cuda && runner.os != 'Windows'
+        uses: Jimver/cuda-toolkit@v0.2.16
+        with:
+          cuda: '12.4.0'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart"]'
+
+      - name: Install CUDA (Windows)
+        if: matrix.cuda && runner.os == 'Windows'
+        uses: Jimver/cuda-toolkit@v0.2.16
+        with:
+          cuda: '12.4.0'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart"]'
+
+      # ------------------------------------------------------------------
+      # 7. Build external dependencies (if not cached)
+      # ------------------------------------------------------------------
+      - name: Build external dependencies
+        if: steps.ext-cache.outputs.cache-hit != 'true'
+        run: |
+          cd external
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="$(pwd)/install" \
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+
+      # ------------------------------------------------------------------
+      # 8. Build guetzli
+      # ------------------------------------------------------------------
+      - name: Build guetzli
+        run: |
+          make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+
+      # ------------------------------------------------------------------
+      # 9. Run smoke tests
+      # ------------------------------------------------------------------
+      - name: Run tests
+        run: |
+          chmod +x tests/run_tests.sh 2>/dev/null || true
+          bash tests/run_tests.sh bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}
+
+      # ------------------------------------------------------------------
+      # 10. Package artifact
+      # ------------------------------------------------------------------
+      - name: Package artifact
+        run: |
+          mkdir -p dist
+          cp bin/release/guetzli* dist/ 2>/dev/null || true
+          cp README.md LICENSE dist/ 2>/dev/null || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: guetzli-${{ matrix.name }}
+          path: dist/
+
+  # ====================================================================
+  # Release job — runs only on v* tags after all builds pass
+  # ====================================================================
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Package release archives
+        run: |
+          cd artifacts
+          # Linux
+          if [ -d guetzli-linux-full ]; then
+            tar czf ../guetzli-cuda-opencl-linux-x64.tar.gz -C guetzli-linux-full .
+          elif [ -d guetzli-linux-opencl ]; then
+            tar czf ../guetzli-cuda-opencl-linux-x64.tar.gz -C guetzli-linux-opencl .
+          fi
+          # Windows
+          if [ -d guetzli-win-full ]; then
+            (cd guetzli-win-full && zip -r ../../guetzli-cuda-opencl-win-x64.zip .)
+          fi
+          # macOS
+          if [ -d guetzli-macos-opencl ]; then
+            tar czf ../guetzli-cuda-opencl-macos-arm64.tar.gz -C guetzli-macos-opencl .
+          fi
+          cd ..
+          ls -la *.tar.gz *.zip 2>/dev/null || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            guetzli-cuda-opencl-linux-x64.tar.gz
+            guetzli-cuda-opencl-win-x64.zip
+            guetzli-cuda-opencl-macos-arm64.tar.gz
