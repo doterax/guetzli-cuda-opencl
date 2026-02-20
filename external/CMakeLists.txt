@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
 project(guetzli_external_deps NONE)
 
+# CMake 4.x removed compatibility with policies < 3.5.  CMP0135 controls
+# whether ExternalProject sets file timestamps to extraction time (NEW) or
+# to the values stored in the archive.  Setting it here avoids per-target
+# DOWNLOAD_EXTRACT_TIMESTAMP boilerplate.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 # =============================================================================
 # Guetzli CUDA/OpenCL — External Dependency Superbuild
 #
@@ -31,11 +39,14 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Common CMake args for all external projects
+# CMAKE_POLICY_VERSION_MINIMUM lets CMake 4.x configure sub-projects whose
+# cmake_minimum_required is older than the compatibility floor (currently 3.5).
 set(EP_CMAKE_ARGS
   -DCMAKE_INSTALL_PREFIX:PATH=${EP_INSTALL_DIR}
   -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
   -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON
   -DBUILD_SHARED_LIBS:BOOL=OFF
+  -DCMAKE_POLICY_VERSION_MINIMUM:STRING=3.5
 )
 # Propagate compilers if set
 if(CMAKE_C_COMPILER)
