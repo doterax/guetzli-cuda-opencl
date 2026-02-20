@@ -66,12 +66,7 @@ int ReadSourceFromFile(const char* fileName, char** source, size_t* sourceSize)
 {
     int errorCode = RSEC_SUCCESS;
 
-    FILE* fp = NULL;
-#ifdef __linux__
-    fp = fopen(fileName, "rb");
-#else
-    fopen_s(&fp, fileName, "rb");
-#endif
+    FILE* fp = fopen(fileName, "rb");
     if (fp == NULL)
     {
         LogError("Error: Couldn't find program source file '%s'.\n", fileName);
