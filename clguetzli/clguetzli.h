@@ -187,11 +187,11 @@ void clComponentsToPixels(
 
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
-class guetzli::OutputImage;
-
 namespace guetzli {
 
-    class ButteraugliComparatorEx : public ButteraugliComparator
+class OutputImage;  // forward declaration
+
+class ButteraugliComparatorEx : public ButteraugliComparator
     {
     public:
         ButteraugliComparatorEx(const int width, const int height,

@@ -97,7 +97,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake python3 pkg-config
           if [ "${{ matrix.opencl }}" = "true" ]; then
-            sudo apt-get install -y opencl-headers ocl-icd-opencl-dev
+            sudo apt-get install -y opencl-headers ocl-icd-opencl-dev ocl-icd-libopencl1 pocl-opencl-icd
           fi
 
       # ------------------------------------------------------------------
@@ -148,6 +148,15 @@ jobs:
       # ------------------------------------------------------------------
       # 8. Build guetzli
       # ------------------------------------------------------------------
+      # Expose CUDA include/lib to MSYS2 shell (paths from Jimver/cuda-toolkit)
+      - name: Configure CUDA env (Windows)
+        if: runner.os == 'Windows' && matrix.cuda
+        run: |
+          echo "CUDA_PATH=$CUDA_PATH"
+          echo "CPLUS_INCLUDE_PATH=$CUDA_PATH/include" >> $GITHUB_ENV
+          echo "C_INCLUDE_PATH=$CUDA_PATH/include" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=$CUDA_PATH/lib/x64" >> $GITHUB_ENV
+
       - name: Build guetzli
         run: |
           make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)

@@ -7,7 +7,6 @@
 
 #ifdef __USE_CUDA__
 #include <cuda.h>
-#include <nvrtc.h>
 #include "cuda_dynload.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
 #include "lzodec.h"

@@ -19,7 +19,7 @@
 
 using std::string;
 
-extern bool verbose_cl = false;
+bool verbose_cl = false;
 
 #ifdef __USE_OPENCL__
 
