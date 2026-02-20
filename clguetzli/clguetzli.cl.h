@@ -167,8 +167,8 @@ typedef CUdeviceptr cu_mem;
     }channel_info;
 
 
+#pragma pack(pop)
+
 #endif /*__CLGUETZLI_CL_H__*/
 
-#endif // __USE_OPENCL__
-
-#pragma pack(pop)
+#endif // __USE_OPENCL__ || __USE_CUDA__

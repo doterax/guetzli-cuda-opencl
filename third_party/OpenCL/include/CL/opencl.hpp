@@ -530,11 +530,10 @@
 #error Visual studio 2013 or another C++11-supporting compiler required
 #endif
 
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/opencl.h>
-#else
+// Always use our vendored CL headers (which self-define cl_GL* types in
+// cl_gl.h) rather than the macOS system <OpenCL/opencl.h> whose cl_gl.h
+// requires OpenGL headers to be included first.
 #include <CL/opencl.h>
-#endif // !__APPLE__
 
 #if __cplusplus >= 201703L
 # define CL_HPP_DEFINE_STATIC_MEMBER_ inline
