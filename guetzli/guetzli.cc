@@ -608,18 +608,22 @@ void autoDetectBestMode() {
 }
 
 int main(int argc, char** argv) {
+  fprintf(stderr, "DIAG: main() entered\n");
+  fflush(stderr);
+
 #ifdef __USE_GPERFTOOLS__
 	ProfilerStart("guetzli.prof");
 #endif
   std::set_terminate(TerminateHandler);
 
-  
-
   int opt_idx = 1;
   for(;opt_idx < argc;opt_idx++) {
     if (strnlen(argv[opt_idx], 2) < 2 || argv[opt_idx][0] != '-' || argv[opt_idx][1] != '-')
       break;
-    if (!strcmp(argv[opt_idx], "--verbose")) {
+    if (!strcmp(argv[opt_idx], "--version")) {
+      fprintf(stdout, "Guetzli JPEG compressor (%s) - CUDA/OpenCL Optimized\n", guetzli::kVersion);
+      return 0;
+    } else if (!strcmp(argv[opt_idx], "--verbose")) {
       verbose = 1;
     } else if (!strcmp(argv[opt_idx], "--quality")) {
       opt_idx++;

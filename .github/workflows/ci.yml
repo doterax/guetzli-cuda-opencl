@@ -162,7 +162,25 @@ jobs:
           make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
       # ------------------------------------------------------------------
-      # 9. Run smoke tests
+      # 9. Binary diagnostics (macOS / Linux)
+      # ------------------------------------------------------------------
+      - name: Binary diagnostics
+        if: runner.os != 'Windows'
+        run: |
+          BIN="bin/release/guetzli"
+          echo "--- file ---"
+          file "$BIN"
+          echo "--- otool -L / ldd ---"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            otool -L "$BIN"
+          else
+            ldd "$BIN" || true
+          fi
+          echo "--- quick smoke (should print DIAG line) ---"
+          "$BIN" --version 2>&1 || echo "exit code: $?"
+
+      # ------------------------------------------------------------------
+      # 10. Run smoke tests
       # ------------------------------------------------------------------
       - name: Run tests
         run: |
@@ -174,7 +192,7 @@ jobs:
           bash tests/run_tests.sh "bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" "$EXTRA_FLAGS"
 
       # ------------------------------------------------------------------
-      # 10. Package artifact
+      # 11. Package artifact
       # ------------------------------------------------------------------
       - name: Package artifact
         run: |

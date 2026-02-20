@@ -26,6 +26,13 @@ R"(|----------------.-----------------------------------------------------------
 |----------------'------------------------------------------------------------.
 | Don't forget to reboot after installation! Press Enter to exit.             |
 '-----------------------------------------------------------------------------')""\n";
+#elif defined(__APPLE__)
+// macOS: keep it simple — no dynamic std::string construction at static scope.
+// Complex string()+R"()"+string() concatenation at file scope has been
+// observed to crash (SIGABRT) during static initialisation on macOS ARM64 CI.
+R"(OpenCL is provided by Apple as part of macOS.
+Note: Apple has deprecated OpenCL in favour of Metal.
+)";
 #else // Linux
 string("'-----------------------------------------------------------------------------'\n")+R"(
 )"+string("\033[31m")+R"(.-----------------------------------------------------------------------------.
