@@ -32,6 +32,8 @@ clguetzli/clguetzli_amd.cl.lzo
 clguetzli/clguetzli.cl.lzo
 *.ptx64
 *.zip
+minilzoc/minilzoc
+minilzoc/minilzoc.exe
 
 # Test output
 test/

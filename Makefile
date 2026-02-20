@@ -26,14 +26,19 @@ ifeq ($(OS),Windows_NT)
         # Default to LLVM/Clang on Windows if available
         ifeq ($(CXX),)
             CXX := $(shell which clang++ 2>/dev/null || which g++ 2>/dev/null || echo g++)
+        else
+            # Normalize backslashes from Windows env vars for Unix shell
+            CXX := $(subst \,/,$(CXX))
         endif
         ifeq ($(AR),)
             AR := $(shell which llvm-ar 2>/dev/null || which ar 2>/dev/null || echo ar)
+        else
+            AR := $(subst \,/,$(AR))
         endif
-        # Windows-specific paths
+        # Windows-specific paths (normalize backslashes)
         ifdef CUDA_PATH
-            CUDA_INC := $(CUDA_PATH)/include
-            CUDA_LIB := $(CUDA_PATH)/lib/x64
+            CUDA_INC := $(subst \,/,$(CUDA_PATH))/include
+            CUDA_LIB := $(subst \,/,$(CUDA_PATH))/lib/x64
         else
             CUDA_INC :=
             CUDA_LIB :=
@@ -216,10 +221,11 @@ endif
 # Platform-specific includes
 # CUDA includes
 ifdef CUDA_PATH
-    # Always use the CUDA_PATH/include - handle spaces in path by quoting
-    # For Windows paths with spaces, we need to quote them
-    CUDA_INCLUDE_PATH := $(CUDA_PATH)/include
-    CXXFLAGS_BASE += -I"$(CUDA_INCLUDE_PATH)"
+    # Normalize backslashes and escape spaces for shell compatibility
+    CUDA_INCLUDE_PATH := $(subst \,/,$(CUDA_PATH))/include
+    space := $(subst ,, )
+    CUDA_INC_ESC := $(subst $(space),\ ,$(CUDA_INCLUDE_PATH))
+    CXXFLAGS_BASE += -I$(CUDA_INC_ESC)
     NVCC_INCLUDES := -I"$(CUDA_INCLUDE_PATH)"
 else
     # Try to find CUDA in common locations
@@ -295,14 +301,9 @@ FEATURES ?= CUDA OPENCL FULL_JPEG
 ifneq (,$(findstring CUDA,$(FEATURES)))
     CXXFLAGS += -D__USE_CUDA__
     # CUDA driver library is loaded at runtime (cuda_dynload.cpp) so we do NOT
-    # link -lcuda.  On Linux we need -ldl for dlopen/dlsym.
+    # link -lcuda or -L<cuda_lib>.  On Linux we need -ldl for dlopen/dlsym.
     ifneq ($(DETECTED_OS),$(filter $(DETECTED_OS),Windows WindowsUnix macOS))
         LDFLAGS += -ldl
-    endif
-    ifdef CUDA_LIB
-        ifneq ($(CUDA_LIB),)
-            LDFLAGS += -L"$(CUDA_LIB)"
-        endif
     endif
 endif
 
@@ -515,18 +516,29 @@ endif
 # Prevent Make's implicit %: %.cpp rule from trying to compile .cl.cpp -> .cl
 $(CLGUETZLI_DIR)/clguetzli.cl: ;
 
-# Generate CUDA headers - simplified version without LZO compression
-# For full build with LZO, you'll need minilzoc compiled first
+# Build minilzoc tool (needed for LZO compression of embedded GPU kernels)
+# GPU kernel source/PTX MUST be LZO-compressed before embedding to avoid
+# antivirus false positives from C-like code in the executable's text segment.
+MINILZOC_DIR := minilzoc
+MINILZOC := $(MINILZOC_DIR)/minilzoc$(EXE_EXT)
+
+$(MINILZOC): $(MINILZOC_DIR)/minilzoc.cpp $(MINILZO_DIR)/minilzo.c
+	@echo Building minilzoc...
+	@$(CXX) -O2 -std=c++11 -I$(MINILZO_DIR) -o $@ $^
+
+# Generate CUDA headers with mandatory LZO compression
 cuda-headers: $(GENERATED_HEADERS)
 
-$(CLGUETZLI_DIR)/clguetzli_cu_ptx.h: $(CLGUETZLI_DIR)/clguetzli.cu
+$(CLGUETZLI_DIR)/clguetzli_cu_ptx.h: $(CLGUETZLI_DIR)/clguetzli.cu | $(MINILZOC)
 	@echo Generating CUDA PTX header...
 	@$(NVCC) $(NVCCFLAGS) -Xcompiler "/wd 4819" -I"$(SRC_DIR)" -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -ptx -o $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu || echo "Warning: CUDA PTX generation failed - CUDA may not be available"
-	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli_cu_ptx.h clguetzli_cu64 || echo "Warning: Header generation failed"
+	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo
+	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo $(CLGUETZLI_DIR)/clguetzli_cu_ptx.h clguetzli_cu64_lzo || echo "Warning: Header generation failed"
 
-$(CLGUETZLI_DIR)/clguetzli_cl_src.h: $(CLGUETZLI_DIR)/clguetzli.cl
+$(CLGUETZLI_DIR)/clguetzli_cl_src.h: $(CLGUETZLI_DIR)/clguetzli.cl | $(MINILZOC)
 	@echo Generating OpenCL source header...
-	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cl $(CLGUETZLI_DIR)/clguetzli_cl_src.h clguetzli_cl_src || echo "Warning: OpenCL header generation failed"
+	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cl $(CLGUETZLI_DIR)/clguetzli.cl.lzo
+	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cl.lzo $(CLGUETZLI_DIR)/clguetzli_cl_src.h clguetzli_cl_src_lzo || echo "Warning: OpenCL header generation failed"
 
 # Build executable - ensure object files are built first
 # Note: CUDA_OBJECTS not linked — .cu kernels are compiled to PTX and loaded at
@@ -623,17 +635,23 @@ ifeq ($(DETECTED_OS),WindowsUnix)
 	@test ! -f $(BIN_DIR) || ($(RM) $(BIN_DIR) && echo Removed file $(BIN_DIR)) || true
 	@$(RMDIR) $(BUILD_DIR) $(BIN_DIR) 2>/dev/null || true
 	@$(RM) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu.ptx32 $(CLGUETZLI_DIR)/clguetzli.cu.ptx 2>/dev/null || true
+	@$(RM) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo 2>/dev/null || true
+	@$(RM) $(MINILZOC) 2>/dev/null || true
 else ifeq ($(DETECTED_OS),Windows)
 	@if exist "$(subst /,\,$(BUILD_DIR))" $(RMDIR) "$(subst /,\,$(BUILD_DIR))" 2>NUL || if exist "$(subst /,\,$(BUILD_DIR))" $(RM) "$(subst /,\,$(BUILD_DIR))" 2>NUL || true
 	@if exist "$(subst /,\,$(BIN_DIR))" $(RMDIR) "$(subst /,\,$(BIN_DIR))" 2>NUL || if exist "$(subst /,\,$(BIN_DIR))" $(RM) "$(subst /,\,$(BIN_DIR))" 2>NUL || true
 	@if exist "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx64" $(RM) "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx64"
 	@if exist "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx32" $(RM) "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx32"
 	@if exist "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx" $(RM) "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx"
+	@if exist "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx64.lzo" $(RM) "$(subst /,\,$(CLGUETZLI_DIR))\clguetzli.cu.ptx64.lzo"
+	@if exist "$(subst /,\,$(MINILZOC))" $(RM) "$(subst /,\,$(MINILZOC))"
 else
 	@test ! -f $(BUILD_DIR) || ($(RM) $(BUILD_DIR) && echo Removed file $(BUILD_DIR)) || true
 	@test ! -f $(BIN_DIR) || ($(RM) $(BIN_DIR) && echo Removed file $(BIN_DIR)) || true
 	@$(RMDIR) $(BUILD_DIR) $(BIN_DIR) 2>/dev/null || true
 	@$(RM) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu.ptx32 $(CLGUETZLI_DIR)/clguetzli.cu.ptx 2>/dev/null || true
+	@$(RM) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo 2>/dev/null || true
+	@$(RM) $(MINILZOC) 2>/dev/null || true
 endif
 
 # Help target
