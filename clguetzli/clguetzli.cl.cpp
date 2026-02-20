@@ -35,10 +35,8 @@ void set_global_size(int dim, int size){
 
 #define __checkcl
 #include "clguetzli.h"
-#ifdef __USE_CUDA__
 #include "cuguetzli.h"
 #include "ocu.h"
-#endif
 #define abs(exper)    fabs((exper))
 #include "clguetzli.cl"
 

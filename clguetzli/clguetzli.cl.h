@@ -29,10 +29,12 @@ typedef CUdeviceptr cu_mem;
 #pragma pack(push, 1)
 
 #if defined(__cplusplus) && !defined(__CUDACC__)
-    // Note: OpenCL/CUDA keyword macros (__global, __kernel, __private, etc.)
-    // are intentionally NOT defined here.  They are defined in clguetzli.cl
-    // which is the only translation unit that needs them.  Defining them here
-    // would leak into system headers (e.g. macOS <locale> has __global()).
+    #define __kernel
+    #define __private
+    #define __global
+    #define __constant
+    #define __constant_ex
+    #define __device__
 
     typedef unsigned char uchar;
     typedef unsigned short ushort;
@@ -160,9 +162,20 @@ typedef CUdeviceptr cu_mem;
         int factor;
         int block_width;
         int block_height;
-        const coeff_t *coeff;
-        const ushort  *pixel;
+        __global const coeff_t *coeff;
+        __global const ushort  *pixel;
     }channel_info;
+
+// Clean up OpenCL/CUDA keyword macros so they don't leak into system headers
+// (e.g. macOS <locale> defines locale::__global() which conflicts).
+#if defined(__cplusplus) && !defined(__CUDACC__) && !defined(__OPENCL_VERSION__)
+    #undef __kernel
+    #undef __private
+    #undef __global
+    #undef __constant
+    #undef __constant_ex
+    #undef __device__
+#endif
 
 #pragma pack(pop)
 
