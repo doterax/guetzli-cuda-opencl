@@ -5,14 +5,13 @@
 *         ianhuang@tencent.com
 */
 
-#include "ocl.h"
 #include <string.h>
 #include <string>
 #include <vector>
-#include <string>
+#include <stdexcept>
+#include "ocl.h"
 #include "clguetzli/clguetzli_cl_src.h"
 #include "lzodec.h"
-#include <stdexcept>
 //#define LOG
 //#define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"

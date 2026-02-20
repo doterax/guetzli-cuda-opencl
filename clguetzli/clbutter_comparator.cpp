@@ -5,12 +5,11 @@
 *         ianhuang@tencent.com
 *         chriskzhou@tencent.com
 */
+#include <algorithm>
+#include <array>
 #include "clbutter_comparator.h"
 #include "clguetzli.h"
 #include "clguetzli_test.h"
-
-#include <algorithm>
-#include <array>
 
 namespace butteraugli {
 

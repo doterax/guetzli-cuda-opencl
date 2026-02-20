@@ -6,11 +6,11 @@
  *         chriskzhou@tencent.com
  *		  stephendeng@tencent.com
  */
-#include "clguetzli.h"
 #include <math.h>
 #include <algorithm>
 #include <vector>
 #include <set>
+#include "clguetzli.h"
 #include "cl.hpp"
 #define LOG
 #define UTILITIES_FILE

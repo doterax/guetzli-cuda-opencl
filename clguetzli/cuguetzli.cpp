@@ -6,9 +6,9 @@
 *         chriskzhou@tencent.com
 *		  stephendeng@tencent.com
 */
-#include "cuguetzli.h"
 #include <algorithm>
 #include <cmath>
+#include "cuguetzli.h"
 #include "ocu.h"
 
 #ifdef __USE_CUDA__
