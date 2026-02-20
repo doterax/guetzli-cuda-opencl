@@ -166,6 +166,16 @@ typedef CUdeviceptr cu_mem;
         __global const ushort  *pixel;
     }channel_info;
 
+// Clean up OpenCL/CUDA keyword macros so they don't leak into system headers
+// (e.g. macOS <locale> defines locale::__global() which conflicts).
+#if defined(__cplusplus) && !defined(__CUDACC__) && !defined(__OPENCL_VERSION__)
+    #undef __kernel
+    #undef __private
+    #undef __global
+    #undef __constant
+    #undef __constant_ex
+    #undef __device__
+#endif
 
 #pragma pack(pop)
 
