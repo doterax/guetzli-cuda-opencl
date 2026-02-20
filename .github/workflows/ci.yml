@@ -168,7 +168,7 @@ jobs:
         run: |
           chmod +x tests/run_tests.sh 2>/dev/null || true
           EXTRA_FLAGS=""
-          if [ "${{ runner.os }}" = "Windows" ]; then
+          if [ "${{ runner.os }}" = "Windows" ] || [ "${{ runner.os }}" = "macOS" ]; then
             EXTRA_FLAGS="--c"
           fi
           bash tests/run_tests.sh "bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" "$EXTRA_FLAGS"
