@@ -140,6 +140,12 @@ if(BUILD_LIBTIFF)
       -Dtiff-contrib:BOOL=OFF
       -Dtiff-docs:BOOL=OFF
       -Dtiff-install:BOOL=ON
+      # Disable optional codecs that pull in system libs we don't bundle
+      -Dzstd:BOOL=OFF
+      -Dlzma:BOOL=OFF
+      -Dwebp:BOOL=OFF
+      -Djbig:BOOL=OFF
+      -Dlerc:BOOL=OFF
       -DCMAKE_PREFIX_PATH:PATH=${EP_INSTALL_DIR}
     ${EP_GENERATOR}
   )

@@ -113,17 +113,17 @@ jobs:
       # ------------------------------------------------------------------
       - name: Install CUDA
         if: matrix.cuda && runner.os != 'Windows'
-        uses: Jimver/cuda-toolkit@v0.2.16
+        uses: Jimver/cuda-toolkit@v0.2.30
         with:
-          cuda: '12.4.0'
+          cuda: '12.6.2'
           method: 'network'
           sub-packages: '["nvcc", "cudart"]'
 
       - name: Install CUDA (Windows)
         if: matrix.cuda && runner.os == 'Windows'
-        uses: Jimver/cuda-toolkit@v0.2.16
+        uses: Jimver/cuda-toolkit@v0.2.30
         with:
-          cuda: '12.4.0'
+          cuda: '12.6.2'
           method: 'network'
           sub-packages: '["nvcc", "cudart"]'
 
@@ -134,9 +134,15 @@ jobs:
         if: steps.ext-cache.outputs.cache-hit != 'true'
         run: |
           cd external
+          extra_args=""
+          # macOS uses Apple's OpenCL.framework — skip Khronos ICD Loader
+          if [ "$(uname -s)" = "Darwin" ]; then
+            extra_args="-DBUILD_OPENCL=OFF"
+          fi
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX="$(pwd)/install" \
-                -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                $extra_args
           cmake --build build --config Release -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
       # ------------------------------------------------------------------
