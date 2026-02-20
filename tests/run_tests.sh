@@ -3,7 +3,8 @@
 # Usage: tests/run_tests.sh <path-to-guetzli-binary>
 set -euo pipefail
 
-GUETZLI="${1:?Usage: $0 <guetzli-binary>}"
+GUETZLI="${1:?Usage: $0 <guetzli-binary> [extra-flags]}"
+EXTRA_FLAGS="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -58,7 +59,7 @@ if [ ! -f "$INPUT_PNG" ]; then
     INPUT_PNG=$(find "$SCRIPT_DIR/input" -name '*.png' -size -200k 2>/dev/null | head -1)
 fi
 if [ -n "$INPUT_PNG" ] && [ -f "$INPUT_PNG" ]; then
-    if "$GUETZLI" --quality 84 "$INPUT_PNG" "$OUTPUT_JPG" 2>/dev/null; then
+    if "$GUETZLI" $EXTRA_FLAGS --quality 84 "$INPUT_PNG" "$OUTPUT_JPG" 2>/dev/null; then
         if [ -f "$OUTPUT_JPG" ]; then
             pass
         else

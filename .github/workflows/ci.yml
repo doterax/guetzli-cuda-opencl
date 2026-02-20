@@ -167,7 +167,11 @@ jobs:
       - name: Run tests
         run: |
           chmod +x tests/run_tests.sh 2>/dev/null || true
-          bash tests/run_tests.sh bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}
+          EXTRA_FLAGS=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXTRA_FLAGS="--c"
+          fi
+          bash tests/run_tests.sh "bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" "$EXTRA_FLAGS"
 
       # ------------------------------------------------------------------
       # 10. Package artifact

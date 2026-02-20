@@ -419,6 +419,14 @@ inline string to_string(uint x) {
 inline string to_string(int x) {
 	return x>=0 ? to_string((uint)x) : "-"+to_string((uint)(-x));
 }
+// On macOS (LP64), size_t = unsigned long, which is distinct from both
+// uint (unsigned int) and ulong (uint64_t = unsigned long long).
+// Without this overload, to_string(size_t) is ambiguous.
+#ifdef __APPLE__
+inline string to_string(unsigned long x) {
+	return to_string(static_cast<ulong>(x));
+}
+#endif
 inline string to_string(float x) { // convert float to string with full precision (<string> to_string() prints only 6 decimals)
 	string s = "";
 	if(x<0.0f) { s += "-"; x = -x; }
