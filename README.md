@@ -2,7 +2,7 @@
 
 # Guetzli CUDA/OpenCL
 
-[![CI](https://github.com/niclaslind/guetzli-cuda-opencl/actions/workflows/ci.yml/badge.svg)](https://github.com/niclaslind/guetzli-cuda-opencl/actions/workflows/ci.yml)
+[![CI](https://github.com/doterax/guetzli-cuda-opencl/actions/workflows/ci.yml/badge.svg)](https://github.com/doterax/guetzli-cuda-opencl/actions/workflows/ci.yml)
 
 GPU-accelerated JPEG encoder based on [Google Guetzli](https://github.com/google/guetzli). Guetzli generates JPEG images that are typically 20-30% smaller than libjpeg at equivalent visual quality.
 
