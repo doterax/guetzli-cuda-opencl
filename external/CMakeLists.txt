@@ -151,6 +151,7 @@ if(BUILD_LIBTIFF)
       -Dwebp:BOOL=OFF
       -Djbig:BOOL=OFF
       -Dlerc:BOOL=OFF
+      -Dlibdeflate:BOOL=OFF
       -DCMAKE_PREFIX_PATH:PATH=${EP_INSTALL_DIR}
     ${EP_GENERATOR}
   )

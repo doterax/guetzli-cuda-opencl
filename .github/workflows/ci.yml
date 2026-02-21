@@ -176,8 +176,16 @@ jobs:
           else
             ldd "$BIN" || true
           fi
-          echo "--- quick smoke (should print DIAG line) ---"
+          echo "--- quick smoke ---"
           "$BIN" --version 2>&1 || echo "exit code: $?"
+
+      - name: Binary diagnostics (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "--- DLL dependencies ---"
+          objdump -p bin/release/guetzli.exe | grep "DLL Name" || true
+          echo "--- quick smoke ---"
+          bin/release/guetzli.exe --version 2>&1 || echo "exit code: $?"
 
       # ------------------------------------------------------------------
       # 10. Run smoke tests

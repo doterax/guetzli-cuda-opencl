@@ -281,13 +281,25 @@ else
 endif
 
 # Windows-specific compiler flags (apply after CXXFLAGS is set from CXXFLAGS_BASE)
+# On Windows (MinGW) we produce a fully self-contained binary:
+#   -static-libgcc -static-libstdc++  → no libgcc_s_seh-1.dll / libstdc++-6.dll
+#   -Wl,-Bstatic                      → force .a for jpeg, png, zlib, tiff, pthread
+# Libraries that *must* remain dynamic (OpenCL, cfgmgr32, ole32) go into
+# LDFLAGS_DYNAMIC and are appended after -Wl,-Bdynamic at link time.
+LDFLAGS_DYNAMIC :=
 ifeq ($(DETECTED_OS),Windows)
     CXXFLAGS += -Wno-unknown-pragmas -Wno-microsoft-template
     # Use forward slashes for paths in compiler flags
     CXXFLAGS := $(subst \,/,$(CXXFLAGS))
+    # Produce a fully self-contained binary: -static makes the linker prefer
+    # .a archives for ALL libraries (including implicit libgcc, libstdc++,
+    # winpthread).  Libraries that must stay dynamic (OpenCL, Windows system
+    # DLLs) go into LDFLAGS_DYNAMIC with -Wl,-Bdynamic.
+    LDFLAGS += -static
 endif
 ifeq ($(DETECTED_OS),WindowsUnix)
     CXXFLAGS += -Wno-unknown-pragmas
+    LDFLAGS += -static
 endif
 
 # macOS-specific compiler flags
@@ -320,11 +332,16 @@ ifneq (,$(findstring OPENCL,$(FEATURES)))
         else ifneq ($(wildcard $(EXT_LIB)/libOpenCL.a),)
             LDFLAGS += -lOpenCL
         else
-            LDFLAGS += -lOpenCL
+            # On Windows, OpenCL.dll is a system-provided DLL — keep it dynamic
+            ifeq ($(DETECTED_OS),$(filter $(DETECTED_OS),Windows WindowsUnix))
+                LDFLAGS_DYNAMIC += -lOpenCL
+            else
+                LDFLAGS += -lOpenCL
+            endif
         endif
-        # Windows: OpenCL ICD Loader needs cfgmgr32 and ole32
+        # Windows: OpenCL ICD Loader needs cfgmgr32 and ole32 (system DLLs)
         ifeq ($(DETECTED_OS),$(filter $(DETECTED_OS),Windows WindowsUnix))
-            LDFLAGS += -lcfgmgr32 -lole32
+            LDFLAGS_DYNAMIC += -lcfgmgr32 -lole32
         endif
     endif
     ifdef OPENCL_LIB
@@ -591,11 +608,11 @@ $(TARGET): $(TARGET_DIR) $(OBJ_TARGET_DIR) cuda-headers $(EXECUTABLE_OBJECTS)
 	@echo "  LDFLAGS  = $(LDFLAGS)"
 	@echo "  OBJECTS  = $(words $(EXECUTABLE_OBJECTS)) object file(s)"
 ifeq ($(DETECTED_OS),WindowsUnix)
-	$(CXX) $(EXECUTABLE_OBJECTS) -o $@ $(LDFLAGS)
+	$(CXX) $(EXECUTABLE_OBJECTS) -o $@ $(LDFLAGS) -Wl,-Bdynamic $(LDFLAGS_DYNAMIC) -Wl,-Bstatic
 else ifeq ($(DETECTED_OS),Windows)
-	$(CXX) $(EXECUTABLE_OBJECTS) -o "$@" $(LDFLAGS)
+	$(CXX) $(EXECUTABLE_OBJECTS) -o "$@" $(LDFLAGS) -Wl,-Bdynamic $(LDFLAGS_DYNAMIC) -Wl,-Bstatic
 else
-	$(CXX) $(EXECUTABLE_OBJECTS) -o $@ $(LDFLAGS)
+	$(CXX) $(EXECUTABLE_OBJECTS) -o $@ $(LDFLAGS) $(LDFLAGS_DYNAMIC)
 endif
 
 # Build static library
