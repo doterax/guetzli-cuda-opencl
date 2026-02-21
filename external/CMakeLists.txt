@@ -100,6 +100,11 @@ if(BUILD_LIBPNG)
       -DPNG_TESTS:BOOL=OFF
       -DPNG_TOOLS:BOOL=OFF
       -DCMAKE_PREFIX_PATH:PATH=${EP_INSTALL_DIR}
+      -DZLIB_ROOT:PATH=${EP_INSTALL_DIR}
+      -DZLIB_INCLUDE_DIR:PATH=${EP_INSTALL_DIR}/include
+      # Prevent MSVC from using /external:I for zlib includes (which can fail
+      # to be searched as a real include path on some toolset versions).
+      -DCMAKE_NO_SYSTEM_FROM_IMPORTED:BOOL=ON
     ${EP_GENERATOR}
   )
   set(LIBPNG_DEP ep_libpng)

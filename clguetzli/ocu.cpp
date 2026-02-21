@@ -6,6 +6,7 @@
 #include "ocu.h"
 
 #ifdef __USE_CUDA__
+#include <cstdio>
 #include <cuda.h>
 #include "cuda_dynload.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
@@ -79,6 +80,15 @@ ocu_args_d_t& getOcu(void)
     if (bInit == true) return ocu;
 
     bInit = true;
+
+    // Ensure CUDA driver library is loaded (cudaDynloadInit is idempotent).
+    // Without this, --cuda flag bypasses autoDetectBestMode() which normally
+    // calls supportsCuda() -> cudaDynloadInit(), leaving function pointers
+    // uninitialized and causing an access violation (0xC0000005).
+    if (!cudaDynloadInit()) {
+        fprintf(stderr, "Error: failed to load CUDA driver library\n");
+        exit(1);
+    }
 
     CUresult err = cuInit(0);
     LOG_CU_RESULT(err);

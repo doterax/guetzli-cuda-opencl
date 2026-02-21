@@ -608,9 +608,6 @@ void autoDetectBestMode() {
 }
 
 int main(int argc, char** argv) {
-  fprintf(stderr, "DIAG: main() entered\n");
-  fflush(stderr);
-
 #ifdef __USE_GPERFTOOLS__
 	ProfilerStart("guetzli.prof");
 #endif
@@ -681,8 +678,6 @@ int main(int argc, char** argv) {
   if (g_mathMode == MODE_AUTO) {
       autoDetectBestMode();
   }
-
-
 
   static PngProcessor pngProcessor;
   static TiffProcessor tiffProcessor;

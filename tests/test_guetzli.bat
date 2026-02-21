@@ -8,7 +8,7 @@ REM Create output directory if it doesn't exist
 if not exist "output" mkdir output
 
 REM Set the path to guetzli.exe (relative to tests folder)
-set GUETZLI_PATH=..\bin\x86_64\Release\guetzli.exe
+set GUETZLI_PATH=..\bin\release\guetzli.exe
 
 REM Check if guetzli.exe exists
 if not exist "%GUETZLI_PATH%" (
