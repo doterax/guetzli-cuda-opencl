@@ -337,18 +337,50 @@ endif
 # JPEG support via libjpeg-turbo
 ifneq (,$(findstring FULL_JPEG,$(FEATURES)))
     CXXFLAGS += -D__SUPPORT_FULL_JPEG__
-    LDFLAGS += -ljpeg -lturbojpeg
+    # On macOS, prefer static archives to avoid @rpath dylib issues
+    ifeq ($(DETECTED_OS),macOS)
+        ifneq ($(wildcard $(EXT_LIB)/libjpeg.a),)
+            LDFLAGS += $(EXT_LIB)/libjpeg.a
+        else
+            LDFLAGS += -ljpeg
+        endif
+        ifneq ($(wildcard $(EXT_LIB)/libturbojpeg.a),)
+            LDFLAGS += $(EXT_LIB)/libturbojpeg.a
+        else
+            LDFLAGS += -lturbojpeg
+        endif
+    else
+        LDFLAGS += -ljpeg -lturbojpeg
+    endif
 endif
 
 # PNG + zlib support — prefer external/install, then third_party, then system
 # Check external/install first (from CMake superbuild)
 ifneq ($(wildcard $(EXT_INC)/png.h),)
     # Already added -I/-L above; just add link flags
+    # On macOS the linker prefers .dylib over .a when both exist in the same
+    # directory, even though the CMake superbuild passes BUILD_SHARED_LIBS=OFF.
+    # zlib's own CMakeLists always builds both; linking the dylib produces an
+    # @rpath reference that fails at runtime.  Explicitly pass the static
+    # archive paths on macOS to avoid this.
+    ifeq ($(DETECTED_OS),macOS)
+        ifneq ($(wildcard $(EXT_LIB)/libpng16.a),)
+            PNG_LIBS := $(EXT_LIB)/libpng16.a
+        else
+            PNG_LIBS := -lpng16
+        endif
+        ifneq ($(wildcard $(EXT_LIB)/libz.a),)
+            PNG_LIBS += $(EXT_LIB)/libz.a
+        else
+            PNG_LIBS += -lz
+        endif
+    else
     # CMake zlib on MinGW installs as libzlibstatic.a, not libz.a
     ifneq ($(wildcard $(EXT_LIB)/libz.a),)
         PNG_LIBS := -lpng16 -lz
     else
         PNG_LIBS := -lpng16 -lzlibstatic
+    endif
     endif
 else
     # Check third_party/libpng
@@ -380,7 +412,16 @@ LDFLAGS += $(PNG_LIBS)
 
 # TIFF support — prefer external/install, then system
 ifneq ($(wildcard $(EXT_INC)/tiffio.h),)
-    TIFF_LIBS := -ltiff
+    # On macOS, prefer static archive to avoid @rpath dylib issues
+    ifeq ($(DETECTED_OS),macOS)
+        ifneq ($(wildcard $(EXT_LIB)/libtiff.a),)
+            TIFF_LIBS := $(EXT_LIB)/libtiff.a
+        else
+            TIFF_LIBS := -ltiff
+        endif
+    else
+        TIFF_LIBS := -ltiff
+    endif
 else
     ifeq ($(DETECTED_OS),$(filter $(DETECTED_OS),Windows WindowsUnix))
         TIFF_LIBS := -ltiff
