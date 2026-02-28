@@ -349,6 +349,10 @@ ifneq (,$(findstring OPENCL,$(FEATURES)))
             LDFLAGS += -L$(OPENCL_LIB)
         endif
     endif
+    # Fallback: bundled import library in third_party/OpenCL/lib
+    ifneq ($(wildcard $(THIRD_PARTY_DIR)/OpenCL/lib/OpenCL.lib),)
+        LDFLAGS += -L$(THIRD_PARTY_DIR)/OpenCL/lib
+    endif
 endif
 
 # JPEG support via libjpeg-turbo
