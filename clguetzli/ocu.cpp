@@ -10,6 +10,7 @@
 #include <cuda.h>
 #include "cuda_dynload.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
+#include "clguetzli/clguetzli.h"
 #include "lzodec.h"
 
 bool supportsCuda()
@@ -72,6 +73,43 @@ bool supportsCuda()
     return true;
 }
 
+void enumCudaDevices()
+{
+    if (!cudaDynloadInit())
+    {
+        fprintf(stdout, "CUDA:\n  (driver not available)\n\n");
+        return;
+    }
+
+    CUresult err = cuInit(0);
+    if (err != CUDA_SUCCESS)
+    {
+        fprintf(stdout, "CUDA:\n  (initialization failed)\n\n");
+        return;
+    }
+
+    int deviceCount = 0;
+    err = cuDeviceGetCount(&deviceCount);
+    if (err != CUDA_SUCCESS || deviceCount == 0)
+    {
+        fprintf(stdout, "CUDA:\n  (no devices found)\n\n");
+        return;
+    }
+
+    fprintf(stdout, "CUDA:\n");
+    for (int i = 0; i < deviceCount; i++)
+    {
+        CUdevice dev;
+        err = cuDeviceGet(&dev, i);
+        if (err != CUDA_SUCCESS) continue;
+
+        char name[256] = {0};
+        cuDeviceGetName(name, sizeof(name), dev);
+        fprintf(stdout, "  %d: %s\n", i, name);
+    }
+    fprintf(stdout, "\n");
+}
+
 ocu_args_d_t& getOcu(void)
 {
     static bool bInit = false;
@@ -93,6 +131,20 @@ ocu_args_d_t& getOcu(void)
     CUresult err = cuInit(0);
     LOG_CU_RESULT(err);
     CUdevice dev = 0;
+
+    // Use user-specified device index if valid
+    if (g_deviceIndex >= 0) {
+        int deviceCount = 0;
+        cuDeviceGetCount(&deviceCount);
+        if (g_deviceIndex < deviceCount) {
+            err = cuDeviceGet(&dev, g_deviceIndex);
+            LOG_CU_RESULT(err);
+        } else {
+            fprintf(stderr, "Warning: CUDA device %d not found (only %d devices available), using default device 0\n",
+                    g_deviceIndex, deviceCount);
+        }
+    }
+
     CUcontext ctxt;
     CUstream  stream;
 

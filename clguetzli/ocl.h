@@ -49,6 +49,7 @@ class Device;
 const char* TranslateOpenCLError(cl_int errorCode);
 
 bool supportsOpenCl();
+void enumOpenClDevices();
 
 ocl_args_d_t& getOcl();
 

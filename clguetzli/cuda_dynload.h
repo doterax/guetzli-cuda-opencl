@@ -28,6 +28,8 @@ typedef CUresult (CUDAAPI *PFN_cuCtxCreate)(CUcontext *pctx, unsigned int flags,
 typedef CUresult (CUDAAPI *PFN_cuCtxDestroy)(CUcontext ctx);
 typedef CUresult (CUDAAPI *PFN_cuCtxSetCacheConfig)(CUfunc_cache config);
 typedef CUresult (CUDAAPI *PFN_cuDeviceGetAttribute)(int *pi, CUdevice_attribute attrib, CUdevice dev);
+typedef CUresult (CUDAAPI *PFN_cuDeviceGetCount)(int *count);
+typedef CUresult (CUDAAPI *PFN_cuDeviceGet)(CUdevice *device, int ordinal);
 typedef CUresult (CUDAAPI *PFN_cuDeviceGetName)(char *name, int len, CUdevice dev);
 typedef CUresult (CUDAAPI *PFN_cuMemAlloc)(CUdeviceptr *dptr, size_t bytesize);
 typedef CUresult (CUDAAPI *PFN_cuMemFree)(CUdeviceptr dptr);
@@ -55,6 +57,8 @@ extern PFN_cuCtxCreate            dynCuCtxCreate;
 extern PFN_cuCtxDestroy           dynCuCtxDestroy;
 extern PFN_cuCtxSetCacheConfig    dynCuCtxSetCacheConfig;
 extern PFN_cuDeviceGetAttribute   dynCuDeviceGetAttribute;
+extern PFN_cuDeviceGetCount       dynCuDeviceGetCount;
+extern PFN_cuDeviceGet            dynCuDeviceGet;
 extern PFN_cuDeviceGetName        dynCuDeviceGetName;
 extern PFN_cuMemAlloc             dynCuMemAlloc;
 extern PFN_cuMemFree              dynCuMemFree;
@@ -95,6 +99,8 @@ bool cudaDynloadAvailable();
 #undef cuCtxDestroy
 #undef cuCtxSetCacheConfig
 #undef cuDeviceGetAttribute
+#undef cuDeviceGetCount
+#undef cuDeviceGet
 #undef cuDeviceGetName
 #undef cuMemAlloc
 #undef cuMemFree
@@ -116,6 +122,8 @@ bool cudaDynloadAvailable();
 #define cuCtxDestroy          dynCuCtxDestroy
 #define cuCtxSetCacheConfig   dynCuCtxSetCacheConfig
 #define cuDeviceGetAttribute  dynCuDeviceGetAttribute
+#define cuDeviceGetCount      dynCuDeviceGetCount
+#define cuDeviceGet           dynCuDeviceGet
 #define cuDeviceGetName       dynCuDeviceGetName
 #define cuMemAlloc            dynCuMemAlloc
 #define cuMemFree             dynCuMemFree

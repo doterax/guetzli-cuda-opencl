@@ -10,6 +10,7 @@
 #include <vector>
 #include <stdexcept>
 #include "ocl.h"
+#include "clguetzli/clguetzli.h"
 #include "clguetzli/clguetzli_cl_src.h"
 #include "lzodec.h"
 //#define LOG
@@ -63,8 +64,17 @@ ocl_args_d_t& getOcl()
 		throw std::runtime_error("Failed to create OpenCL program: No OpenCL devices found");
 	}
 
-	// Select the best device (highest performance)
-	Device_Info best_device = select_device_with_most_flops(devices);
+	// Select device: use user-specified index if valid, otherwise pick best by flops
+	Device_Info best_device;
+	if (g_deviceIndex >= 0 && g_deviceIndex < (int)devices.size()) {
+		best_device = select_device_with_id((uint)g_deviceIndex, devices);
+	} else {
+		if (g_deviceIndex >= 0) {
+			fprintf(stderr, "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
+				g_deviceIndex, (int)devices.size());
+		}
+		best_device = select_device_with_most_flops(devices);
+	}
 	
 
 	// Check if device is AMD for optimization
@@ -489,6 +499,35 @@ bool supportsOpenCl()
 	}
 
 	return true;
+}
+
+void enumOpenClDevices()
+{
+	vector<cl::Platform> cl_platforms;
+	cl::Platform::get(&cl_platforms);
+
+	if (cl_platforms.empty()) {
+		fprintf(stdout, "OpenCL:\n  (no platforms found)\n\n");
+		return;
+	}
+
+	fprintf(stdout, "OpenCL:\n");
+	uint id = 0;
+	for (uint i = 0; i < (uint)cl_platforms.size(); i++) {
+		vector<cl::Device> cl_devices;
+		cl_platforms[i].getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
+		for (uint j = 0; j < (uint)cl_devices.size(); j++) {
+			string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
+			// trim whitespace
+			size_t start = name.find_first_not_of(" \t\r\n");
+			size_t end = name.find_last_not_of(" \t\r\n");
+			if (start != string::npos)
+				name = name.substr(start, end - start + 1);
+			fprintf(stdout, "  %u: %s\n", id, name.c_str());
+			id++;
+		}
+	}
+	fprintf(stdout, "\n");
 }
 
 #endif

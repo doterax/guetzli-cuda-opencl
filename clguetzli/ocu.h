@@ -19,6 +19,7 @@ struct ocu_args_d_t;
 const char* TranslateCUDAError(CUresult errorCode);
 
 bool supportsCuda();
+void enumCudaDevices();
 ocu_args_d_t& getOcu(void);
 
 struct ocu_args_d_t

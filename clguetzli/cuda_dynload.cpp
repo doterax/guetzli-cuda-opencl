@@ -25,6 +25,8 @@ PFN_cuCtxCreate            dynCuCtxCreate         = nullptr;
 PFN_cuCtxDestroy           dynCuCtxDestroy        = nullptr;
 PFN_cuCtxSetCacheConfig    dynCuCtxSetCacheConfig = nullptr;
 PFN_cuDeviceGetAttribute   dynCuDeviceGetAttribute= nullptr;
+PFN_cuDeviceGetCount       dynCuDeviceGetCount    = nullptr;
+PFN_cuDeviceGet            dynCuDeviceGet         = nullptr;
 PFN_cuDeviceGetName        dynCuDeviceGetName     = nullptr;
 PFN_cuMemAlloc             dynCuMemAlloc          = nullptr;
 PFN_cuMemFree              dynCuMemFree           = nullptr;
@@ -130,6 +132,8 @@ bool cudaDynloadInit()
     LOAD_SYM       (dynCuCtxDestroy,         PFN_cuCtxDestroy,         "cuCtxDestroy");
     LOAD_SYM_EXACT (dynCuCtxSetCacheConfig,  PFN_cuCtxSetCacheConfig,  "cuCtxSetCacheConfig");
     LOAD_SYM_EXACT (dynCuDeviceGetAttribute, PFN_cuDeviceGetAttribute, "cuDeviceGetAttribute");
+    LOAD_SYM_EXACT (dynCuDeviceGetCount,     PFN_cuDeviceGetCount,     "cuDeviceGetCount");
+    LOAD_SYM       (dynCuDeviceGet,          PFN_cuDeviceGet,          "cuDeviceGet");
     LOAD_SYM_EXACT (dynCuDeviceGetName,      PFN_cuDeviceGetName,      "cuDeviceGetName");
     LOAD_SYM       (dynCuMemAlloc,           PFN_cuMemAlloc,           "cuMemAlloc");
     LOAD_SYM       (dynCuMemFree,            PFN_cuMemFree,            "cuMemFree");

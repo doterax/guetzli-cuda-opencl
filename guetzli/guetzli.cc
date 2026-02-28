@@ -548,6 +548,8 @@ void Usage() {
       "  --checkcuda       - Check CUDA result accuracy\n"
 #endif
       "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt) (enabled by default)\n"
+      "  --device N        - Use device with index N for the selected platform (see --version)\n"
+      "                      If not specified or out of range, uses default device selection\n"
       "  --blend-on-white  - Blend pixels with transparency on white background\n"
       "  --nomemlimit      - Do not limit memory usage\n"
       "\n"
@@ -618,8 +620,19 @@ int main(int argc, char** argv) {
     if (strnlen(argv[opt_idx], 2) < 2 || argv[opt_idx][0] != '-' || argv[opt_idx][1] != '-')
       break;
     if (!strcmp(argv[opt_idx], "--version")) {
-      fprintf(stdout, "Guetzli JPEG compressor (%s) - CUDA/OpenCL Optimized\n", guetzli::kVersion);
+      fprintf(stdout, "Guetzli JPEG compressor (%s) - CUDA/OpenCL Optimized\n\n", guetzli::kVersion);
+#ifdef __USE_CUDA__
+      enumCudaDevices();
+#endif
+#ifdef __USE_OPENCL__
+      enumOpenClDevices();
+#endif
       return 0;
+    } else if (!strcmp(argv[opt_idx], "--device")) {
+      opt_idx++;
+      if (opt_idx >= argc)
+        Usage();
+      g_deviceIndex = atoi(argv[opt_idx]);
     } else if (!strcmp(argv[opt_idx], "--verbose")) {
       verbose = 1;
     } else if (!strcmp(argv[opt_idx], "--quality")) {

@@ -26,6 +26,7 @@ enum MATH_MODE
 };
 
 extern MATH_MODE g_mathMode;
+extern int g_deviceIndex;
 
 #ifdef __USE_OPENCL__
 

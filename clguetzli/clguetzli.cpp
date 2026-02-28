@@ -119,6 +119,7 @@ public:
 };
 
 extern MATH_MODE g_mathMode = MODE_AUTO;
+extern int g_deviceIndex = -1;
 
 // Helper function to calculate optimal workgroup size for AMD GPUs
 void calculateOptimalWorkgroupSize(size_t globalSize[2], size_t localSize[2], bool isAMD)
