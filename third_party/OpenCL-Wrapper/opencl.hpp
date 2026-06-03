@@ -14,6 +14,94 @@
 #endif // macOS
 #include "CL/opencl.hpp"
 #include "utilities.hpp"
+#include <fstream>
+#ifdef _WIN32
+#include <direct.h>
+#include <sys/stat.h>
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <sys/stat.h>
+#include <mach-o/dyld.h>
+#include <stdlib.h>
+#include <limits.h>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#include <limits.h>
+#endif
+// Returns the directory containing the running executable, or "." on failure.
+inline string opencl_path_exec() {
+#ifdef _WIN32
+	char buf[MAX_PATH] = {};
+	DWORD n = GetModuleFileNameA(NULL, buf, MAX_PATH);
+	if (n > 0) {
+		string p(buf, n);
+		size_t pos = p.find_last_of("/\\");
+		if (pos != string::npos) return p.substr(0, pos);
+	}
+#elif defined(__APPLE__)
+	char buf[PATH_MAX]; uint32_t sz = (uint32_t)sizeof(buf);
+	if (_NSGetExecutablePath(buf, &sz) == 0) {
+		char resolved[PATH_MAX];
+		if (realpath(buf, resolved)) {
+			string p(resolved);
+			size_t pos = p.rfind('/');
+			if (pos != string::npos) return p.substr(0, pos);
+		}
+	}
+#else // Linux
+	char buf[PATH_MAX];
+	ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+	if (n > 0) {
+		buf[n] = '\0';
+		string p(buf);
+		size_t pos = p.rfind('/');
+		if (pos != string::npos) return p.substr(0, pos);
+	}
+#endif
+	return ".";
+}
+// Returns the platform-appropriate user cache directory for OpenCL binaries.
+// If an opencl_cache/ directory already exists next to the executable it is
+// used as-is (handy for portable/development setups).  Otherwise falls back
+// to the platform user cache location, or a local "opencl_cache" folder if
+// the system path cannot be resolved.
+inline string opencl_path_cache() {
+	// Local override: existing opencl_cache/ alongside the binary takes priority
+	const string local_cache = opencl_path_exec() + "/opencl_cache";
+	struct stat st;
+	if (stat(local_cache.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+		return local_cache;
+#ifdef _WIN32
+	const char* base = getenv("LOCALAPPDATA");
+	return base ? string(base) + "/guetzli_opencl" : "opencl_cache";
+#elif defined(__APPLE__)
+	const char* home = getenv("HOME");
+	return home ? string(home) + "/Library/Caches/guetzli_opencl" : "opencl_cache";
+#else // Linux / other POSIX — respect XDG Base Directory spec
+	const char* xdg = getenv("XDG_CACHE_HOME");
+	if (xdg && xdg[0]) return string(xdg) + "/guetzli_opencl";
+	const char* home = getenv("HOME");
+	return home ? string(home) + "/.cache/guetzli_opencl" : "opencl_cache";
+#endif
+}
+// Creates every component of path that does not yet exist (equivalent to mkdir -p).
+inline void opencl_create_dirs(const string& path) {
+	for (size_t i = 1; i <= path.size(); ++i) {
+		if (i == path.size() || path[i] == '/'
+#ifdef _WIN32
+			|| path[i] == '\\'
+#endif
+		) {
+			string sub = path.substr(0, i);
+#ifdef _WIN32
+			_mkdir(sub.c_str());
+#else
+			mkdir(sub.c_str(), 0755);
+#endif
+		}
+	}
+}
 using cl::Event;
 
 static const string driver_installation_instructions =
@@ -281,6 +369,20 @@ inline Device_Info select_device_with_id(const uint id, const vector<Device_Info
 	}
 }
 
+// FNV-1a 64-bit hash — stable across platforms/compilers
+inline ulong opencl_hash_fnv1a(const string& s) {
+	ulong h = 14695981039346656037ULL;
+	for (unsigned char c : s) { h ^= (ulong)c; h *= 1099511628211ULL; }
+	return h;
+}
+// Sanitize a string so it is safe to use as part of a filename
+inline string opencl_safe_fname(const string& s, size_t maxlen=48) {
+	string r;
+	for (char c : s)
+		r += ((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9'))?c:'_';
+	return r.size() > maxlen ? r.substr(0, maxlen) : r;
+}
+
 class Device {
 private:
 	cl::Program cl_program;
@@ -308,34 +410,86 @@ public:
 		print_device_info(info);
 		this->info = info;
 		this->cl_queue = cl::CommandQueue(info.cl_context, info.cl_device); // queue to push commands for the device
-		cl::Program::Sources cl_source;
 		string simulator = "Oclgrind Simulator";
 		bool isOclgrind = info.name.find(simulator) != std::string::npos;
 		const string kernel_code = isOclgrind ? opencl_c_code : enable_device_capabilities() + "\n" + opencl_c_code;
-		cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
-		this->cl_program = cl::Program(info.cl_context, cl_source);
 		const string build_options = isOclgrind ? "" : ("-cl-std=CL" + info.opencl_c_version + " -cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable" + (info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : ""));
+
+		// --- Binary program cache ---
+		// Cache key encodes device identity + driver version + a hash of the source and build options.
+		// Any change to the kernel source, build flags, device, or driver automatically invalidates it.
+		const string cache_dir = opencl_path_cache();
+		const string cache_file = cache_dir + "/" +
+			opencl_safe_fname(info.name) + "_" +
+			opencl_safe_fname(info.driver_version) + "_" +
+			to_string(opencl_hash_fnv1a(kernel_code + build_options)) + ".bin";
+
+		bool loaded_from_cache = false;
+		if (!isOclgrind) {
+			std::ifstream fin(cache_file, std::ios::binary | std::ios::ate);
+			if (fin.is_open()) {
+				const std::streamsize sz = fin.tellg();
+				fin.seekg(0, std::ios::beg);
+				vector<unsigned char> binary((size_t)sz);
+				if (sz > 0 && fin.read(reinterpret_cast<char*>(binary.data()), sz)) {
+					cl::Program::Binaries bins = { binary };
+					vector<cl_int> bin_status(1, CL_SUCCESS);
+					cl_int err = CL_SUCCESS;
+					cl::Program cached_prog(info.cl_context, {info.cl_device}, bins, &bin_status, &err);
+					if (err == CL_SUCCESS && bin_status[0] == CL_SUCCESS) {
+						const string bopts = build_options + " -w";
+						int berr = cached_prog.build({info.cl_device}, bopts.c_str());
+						if (!berr) {
+							this->cl_program = cached_prog;
+							loaded_from_cache = true;
+							print_info("OpenCL kernel loaded from cache.");
+						}
+					}
+				}
+			}
+		}
+
+		if (!loaded_from_cache) {
+			cl::Program::Sources cl_source;
+			cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
+			this->cl_program = cl::Program(info.cl_context, cl_source);
 #ifndef LOG
-		int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
-		if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
-		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
-		if ((uint)log.length() > 2u) {
-			if (isOclgrind) println(log); // more readable
-		}
+			int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
+			if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
+			const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
+			if ((uint)log.length() > 2u) {
+				if (isOclgrind) println(log); // more readable
+			}
 #else // LOG, generate logfile for OpenCL code compilation
-		int error = cl_program.build({ info.cl_device }, build_options.c_str()); // compile OpenCL C code
-		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
-		write_file("bin/kernel.log", log); // save build log
-		if ((uint)log.length() > 2u) {
-			print_warning(log); // print build log
-			if (isOclgrind) println(log); // more readable
-		}
+			int error = cl_program.build({ info.cl_device }, build_options.c_str()); // compile OpenCL C code
+			const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
+			write_file("bin/kernel.log", log); // save build log
+			if ((uint)log.length() > 2u) {
+				print_warning(log); // print build log
+				if (isOclgrind) println(log); // more readable
+			}
 #endif // LOG
-		if(error) print_error("OpenCL C code compilation failed with error code "+to_string(error)+". Make sure there are no errors in kernel.cpp.");
-		else print_info("OpenCL C code successfully compiled.");
+			if(error) print_error("OpenCL C code compilation failed with error code "+to_string(error)+". Make sure there are no errors in kernel.cpp.");
+			else {
+				print_info("OpenCL C code successfully compiled.");
+				// Save compiled binary to cache so future launches skip recompilation
+				if (!isOclgrind) {
+					vector<vector<unsigned char>> prog_bins = cl_program.getInfo<CL_PROGRAM_BINARIES>();
+					if (!prog_bins.empty() && !prog_bins[0].empty()) {
+						opencl_create_dirs(cache_dir);
+						std::ofstream fout(cache_file, std::ios::binary);
+						if (fout.is_open()) {
+							fout.write(reinterpret_cast<const char*>(prog_bins[0].data()), prog_bins[0].size());
+							print_info("OpenCL kernel cached to: " + cache_file);
+						}
+					}
+				}
+			}
 #ifdef PTX // generate assembly (ptx) file for OpenCL code
-		write_file("bin/kernel.ptx", (char*)&cl_program.getInfo<CL_PROGRAM_BINARIES>()[0][0]); // save binary (ptx file)
+			write_file("bin/kernel.ptx", (char*)&cl_program.getInfo<CL_PROGRAM_BINARIES>()[0][0]); // save binary (ptx file)
 #endif // PTX
+		}
+
 		this->exists = true;
 	}
 	inline Device() {} // default constructor
