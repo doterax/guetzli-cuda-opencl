@@ -26,8 +26,8 @@ typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef int64_t slong;
 typedef uint64_t ulong;
-#define pif 3.1415927f
-#define pi 3.141592653589793
+constexpr float pif = 3.1415927f;
+constexpr double pi = 3.141592653589793;
 #define min_char ((char)-128)
 #define max_char ((char)127)
 #define max_uchar ((uchar)255)
