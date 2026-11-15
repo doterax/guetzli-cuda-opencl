@@ -1,0 +1,13 @@
+# Not ours / generated / kernels (kernels are OpenCL C + CUDA, formatted separately).
+external/**
+third_party/OpenCL/**
+third_party/OpenCL-Wrapper/**
+third_party/minilzo/**
+third_party/doctest/**
+third_party/CLI11/**
+minilzoc/**
+clguetzli/cl.hpp
+clguetzli/clguetzli_cl_src.h
+clguetzli/clguetzli_cu_ptx.h
+clguetzli/clguetzli.cl
+clguetzli/clguetzli.cu

@@ -1,0 +1,20 @@
+# Formatting for host C++ (see docs/design/modernization.md §9).
+# Checked in CI with a pinned clang-format (see .github/workflows/ci.yml);
+# different clang-format versions format differently, so use the same one.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+ColumnLimit: 120
+IndentWidth: 2
+UseTab: Never
+DerivePointerAlignment: false
+PointerAlignment: Left
+# Include order has broken builds before (kernel keyword macros vs. system
+# headers); never reorder includes automatically.
+SortIncludes: Never
+# Reflowing would mangle the many commented-out code blocks.
+ReflowComments: Never
+IncludeBlocks: Preserve
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
