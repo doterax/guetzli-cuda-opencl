@@ -32,6 +32,7 @@ jobs:
           # Linux — OpenCL only
           - os: ubuntu-24.04
             name: linux-opencl
+            preset: ci-linux
             features: "OPENCL FULL_JPEG"
             cuda: false
             opencl: true
@@ -40,6 +41,7 @@ jobs:
           # Linux — CUDA + OpenCL
           - os: ubuntu-24.04
             name: linux-full
+            preset: ci-linux
             features: "CUDA OPENCL FULL_JPEG"
             cuda: true
             opencl: true
@@ -48,6 +50,7 @@ jobs:
           # Windows — CUDA + OpenCL (runtime auto-detects available GPU)
           - os: windows-2022
             name: win-full
+            preset: ci-windows-mingw
             features: "CUDA OPENCL FULL_JPEG"
             cuda: true
             opencl: true
@@ -56,6 +59,7 @@ jobs:
           # macOS — OpenCL (Apple framework)
           - os: macos-14
             name: macos-opencl
+            preset: ci-macos
             features: "OPENCL FULL_JPEG"
             cuda: false
             opencl: true
@@ -85,6 +89,7 @@ jobs:
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
             mingw-w64-x86_64-make
             mingw-w64-x86_64-pkg-config
             make
@@ -107,7 +112,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake python3 pkg-config
+          sudo apt-get install -y build-essential cmake ninja-build python3 pkg-config
           if [ "${{ matrix.opencl }}" = "true" ]; then
             sudo apt-get install -y opencl-headers ocl-icd-opencl-dev ocl-icd-libopencl1 pocl-opencl-icd
           fi
@@ -118,7 +123,7 @@ jobs:
       - name: Install packages (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake pkg-config python3
+          brew install cmake ninja pkg-config python3
 
       # ------------------------------------------------------------------
       # 6. Install CUDA Toolkit (conditional)
@@ -173,18 +178,24 @@ jobs:
           echo "C_INCLUDE_PATH=$CUDA_PATH/include" >> $GITHUB_ENV
           echo "LIBRARY_PATH=$CUDA_PATH/lib/x64" >> $GITHUB_ENV
 
+      - name: Configure (CMake)
+        run: |
+          # The CUDA backend needs only cuda.h (driver API, loaded at runtime).
+          # Linux runs the smoke test without --c so pocl exercises the OpenCL path.
+          cmake --preset ${{ matrix.preset }}             -DGUETZLI_WITH_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}             -DGUETZLI_WITH_OPENCL=${{ matrix.opencl && 'ON' || 'OFF' }}             ${{ runner.os == 'Linux' && '-DGUETZLI_SMOKE_FLAGS=' || '' }}
+
       - name: Build guetzli
         run: |
-          make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+          cmake --build --preset ${{ matrix.preset }}
 
-      - name: Unit tests
+      - name: Unit and smoke tests
         run: |
-          make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2) unit-test
+          ctest --preset ${{ matrix.preset }}
 
       # The embedded kernel headers are committed; CI must never regenerate them.
       - name: Verify embedded kernel headers
         run: |
-          make check-kernel-headers
+          cmake --build --preset ${{ matrix.preset }} --target check-kernel-headers
 
       - name: Verify the build did not modify committed kernel headers
         shell: bash
@@ -192,12 +203,12 @@ jobs:
           git diff --exit-code -- clguetzli/clguetzli_cu_ptx.h clguetzli/clguetzli_cl_src.h
 
       # ------------------------------------------------------------------
-      # 9. Binary diagnostics (macOS / Linux)
+      # 9. Binary diagnostics
       # ------------------------------------------------------------------
       - name: Binary diagnostics
         if: runner.os != 'Windows'
         run: |
-          BIN="bin/release/guetzli"
+          BIN="build/${{ matrix.preset }}/bin/guetzli"
           echo "--- file ---"
           file "$BIN"
           echo "--- otool -L / ldd ---"
@@ -212,22 +223,11 @@ jobs:
       - name: Binary diagnostics (Windows)
         if: runner.os == 'Windows'
         run: |
+          BIN="build/${{ matrix.preset }}/bin/guetzli.exe"
           echo "--- DLL dependencies ---"
-          objdump -p bin/release/guetzli.exe | grep "DLL Name" || true
+          objdump -p "$BIN" | grep "DLL Name" || true
           echo "--- quick smoke ---"
-          bin/release/guetzli.exe --version 2>&1 || echo "exit code: $?"
-
-      # ------------------------------------------------------------------
-      # 10. Run smoke tests
-      # ------------------------------------------------------------------
-      - name: Run tests
-        run: |
-          chmod +x tests/run_tests.sh 2>/dev/null || true
-          EXTRA_FLAGS=""
-          if [ "${{ runner.os }}" = "Windows" ] || [ "${{ runner.os }}" = "macOS" ]; then
-            EXTRA_FLAGS="--c"
-          fi
-          bash tests/run_tests.sh "bin/release/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" "$EXTRA_FLAGS"
+          "$BIN" --version 2>&1 || echo "exit code: $?"
 
       # ------------------------------------------------------------------
       # 11. Package artifact
@@ -235,7 +235,7 @@ jobs:
       - name: Package artifact
         run: |
           mkdir -p dist
-          cp bin/release/guetzli* dist/ 2>/dev/null || true
+          cp "build/${{ matrix.preset }}/bin/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" dist/
           cp README.md LICENSE dist/ 2>/dev/null || true
 
       - name: Upload artifact

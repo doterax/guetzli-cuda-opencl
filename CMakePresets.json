@@ -1,0 +1,55 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "release",
+      "displayName": "Release (CUDA + OpenCL + JPEG)",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug (CUDA + OpenCL + JPEG)",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "ci-linux",
+      "displayName": "CI: Linux (features set by the workflow)",
+      "inherits": "release"
+    },
+    {
+      "name": "ci-windows-mingw",
+      "displayName": "CI: Windows MinGW-w64, static",
+      "inherits": "release",
+      "cacheVariables": { "GUETZLI_STATIC": "ON", "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+    },
+    {
+      "name": "ci-macos",
+      "displayName": "CI: macOS (OpenCL framework, no CUDA)",
+      "inherits": "release",
+      "cacheVariables": { "GUETZLI_WITH_CUDA": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "ci-linux", "configurePreset": "ci-linux" },
+    { "name": "ci-windows-mingw", "configurePreset": "ci-windows-mingw" },
+    { "name": "ci-macos", "configurePreset": "ci-macos" }
+  ],
+  "testPresets": [
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "ci-linux", "configurePreset": "ci-linux", "output": { "outputOnFailure": true } },
+    { "name": "ci-windows-mingw", "configurePreset": "ci-windows-mingw", "output": { "outputOnFailure": true } },
+    { "name": "ci-macos", "configurePreset": "ci-macos", "output": { "outputOnFailure": true } }
+  ]
+}
