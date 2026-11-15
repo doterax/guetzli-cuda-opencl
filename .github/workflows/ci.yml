@@ -47,6 +47,17 @@ jobs:
             opencl: true
             shell: bash
 
+          # Linux — AddressSanitizer + LeakSanitizer on the CPU path (unit tests, smoke test with --c,
+          # injected GPU failures). Both GPU backends are compiled in; no artifact.
+          - os: ubuntu-24.04
+            name: linux-asan
+            preset: ci-linux-asan
+            features: "CUDA OPENCL FULL_JPEG"
+            cuda: true
+            opencl: true
+            sanitize: true
+            shell: bash
+
           # Windows — CUDA + OpenCL (runtime auto-detects available GPU)
           - os: windows-2022
             name: win-full
@@ -182,7 +193,7 @@ jobs:
         run: |
           # The CUDA backend needs only cuda.h (driver API, loaded at runtime).
           # Linux runs the smoke test without --c so pocl exercises the OpenCL path.
-          cmake --preset ${{ matrix.preset }}             -DGUETZLI_WITH_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}             -DGUETZLI_WITH_OPENCL=${{ matrix.opencl && 'ON' || 'OFF' }}             ${{ runner.os == 'Linux' && '-DGUETZLI_SMOKE_FLAGS=' || '' }}
+          cmake --preset ${{ matrix.preset }}             -DGUETZLI_WITH_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}             -DGUETZLI_WITH_OPENCL=${{ matrix.opencl && 'ON' || 'OFF' }}             ${{ runner.os == 'Linux' && !matrix.sanitize && '-DGUETZLI_SMOKE_FLAGS=' || '' }}
 
       - name: Build guetzli
         run: |
@@ -191,6 +202,15 @@ jobs:
       - name: Unit and smoke tests
         run: |
           ctest --preset ${{ matrix.preset }}
+
+      - name: Sanitized runs with an injected GPU failure (CPU fallback)
+        if: matrix.sanitize
+        run: |
+          BIN="build/${{ matrix.preset }}/bin/guetzli"
+          for backend in --opencl --cuda; do
+            GUETZLI_TEST_GPU_FAIL=1 "$BIN" $backend tests/regress/input/rgb_150x118.png "$RUNNER_TEMP/out.jpg"
+            GUETZLI_TEST_GPU_FAIL=1 "$BIN" $backend tests/regress/input/yuv420_150x118.jpg "$RUNNER_TEMP/out.jpg"
+          done
 
       # The embedded kernel headers are committed; CI must never regenerate them.
       - name: Verify embedded kernel headers
@@ -233,12 +253,14 @@ jobs:
       # 11. Package artifact
       # ------------------------------------------------------------------
       - name: Package artifact
+        if: ${{ !matrix.sanitize }}
         run: |
           mkdir -p dist
           cp "build/${{ matrix.preset }}/bin/guetzli${{ runner.os == 'Windows' && '.exe' || '' }}" dist/
           cp README.md LICENSE dist/ 2>/dev/null || true
 
       - name: Upload artifact
+        if: ${{ !matrix.sanitize }}
         uses: actions/upload-artifact@v4
         with:
           name: guetzli-${{ matrix.name }}

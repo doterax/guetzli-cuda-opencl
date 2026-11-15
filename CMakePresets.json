@@ -26,6 +26,12 @@
       "inherits": "release"
     },
     {
+      "name": "ci-linux-asan",
+      "displayName": "CI: Linux with AddressSanitizer/LeakSanitizer",
+      "inherits": "ci-linux",
+      "cacheVariables": { "GUETZLI_SANITIZE": "address" }
+    },
+    {
       "name": "ci-windows-mingw",
       "displayName": "CI: Windows MinGW-w64, static",
       "inherits": "release",
@@ -42,6 +48,7 @@
     { "name": "release", "configurePreset": "release" },
     { "name": "debug", "configurePreset": "debug" },
     { "name": "ci-linux", "configurePreset": "ci-linux" },
+    { "name": "ci-linux-asan", "configurePreset": "ci-linux-asan" },
     { "name": "ci-windows-mingw", "configurePreset": "ci-windows-mingw" },
     { "name": "ci-macos", "configurePreset": "ci-macos" }
   ],
@@ -49,6 +56,7 @@
     { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
     { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
     { "name": "ci-linux", "configurePreset": "ci-linux", "output": { "outputOnFailure": true } },
+    { "name": "ci-linux-asan", "configurePreset": "ci-linux-asan", "output": { "outputOnFailure": true } },
     { "name": "ci-windows-mingw", "configurePreset": "ci-windows-mingw", "output": { "outputOnFailure": true } },
     { "name": "ci-macos", "configurePreset": "ci-macos", "output": { "outputOnFailure": true } }
   ]

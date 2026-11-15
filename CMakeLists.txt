@@ -29,6 +29,7 @@ option(GUETZLI_STATIC "Self-contained binary (static libgcc/libstdc++/winpthread
        ${_guetzli_static_default})
 option(GUETZLI_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(GUETZLI_BUILD_TESTS "Build the doctest unit tests" ON)
+set(GUETZLI_SANITIZE "" CACHE STRING "Build with -fsanitize=<value>, e.g. address (GCC/Clang on Linux or macOS)")
 set(GUETZLI_EXTERNAL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/external/install"
     CACHE PATH "Install prefix of the external dependency superbuild")
 
@@ -69,6 +70,10 @@ if(MINGW)
 endif()
 if(GUETZLI_WARNINGS_AS_ERRORS)
   target_compile_options(guetzli_flags INTERFACE -Werror)
+endif()
+if(GUETZLI_SANITIZE)
+  target_compile_options(guetzli_flags INTERFACE -fsanitize=${GUETZLI_SANITIZE} -fno-omit-frame-pointer)
+  target_link_options(guetzli_flags INTERFACE -fsanitize=${GUETZLI_SANITIZE})
 endif()
 
 add_library(guetzli_core OBJECT
