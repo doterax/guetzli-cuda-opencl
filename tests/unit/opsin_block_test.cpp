@@ -1,7 +1,7 @@
-// Host port of the kernel helpers (clguetzli/opsin_block.cpp).
+// Host port of the kernel helpers (guetzli/opsin_block.cc).
 #include <cmath>
 
-#include "clguetzli/opsin_block.h"
+#include "guetzli/opsin_block.h"
 #include "doctest.h"
 #include "guetzli/gamma_correct.h"
 

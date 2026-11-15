@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "butteraugli/butteraugli.h"
-#include "clguetzli/opsin_block.h"
+#include "guetzli/opsin_block.h"
 
 namespace guetzli {
 

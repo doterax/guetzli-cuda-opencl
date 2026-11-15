@@ -52,25 +52,46 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
 include(cmake/Dependencies.cmake)
 
 # ---------------------------------------------------------------------------------------------
-# Library objects (everything except main), shared by the executable and the unit tests
+# Library objects (everything except main), shared by the executable and the unit tests.
+#   guetzli_core     encoder, image/JPEG code, butteraugli, config, logging, I/O -- no GPU code
+#   guetzli_backend  backend/ (CPU, OpenCL, CUDA, --check) and the GPU layer in clguetzli/
+# The dependency rule (core never includes backend/ or GPU headers) is checked by the `layering` test.
 # ---------------------------------------------------------------------------------------------
 file(GLOB GUETZLI_SOURCES CONFIGURE_DEPENDS guetzli/*.cc)
 file(GLOB CLGUETZLI_SOURCES CONFIGURE_DEPENDS clguetzli/*.cpp)
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS config/*.cpp logging/*.cpp core/*/*.cpp)
 file(GLOB BACKEND_SOURCES CONFIGURE_DEPENDS backend/*.cpp backend/*/*.cpp)
 
-add_library(guetzli_objs OBJECT
+# Warning flags shared by all host code.
+add_library(guetzli_flags INTERFACE)
+if(MINGW)
+  target_compile_options(guetzli_flags INTERFACE -Wno-unknown-pragmas)
+endif()
+if(GUETZLI_WARNINGS_AS_ERRORS)
+  target_compile_options(guetzli_flags INTERFACE -Werror)
+endif()
+
+add_library(guetzli_core OBJECT
   ${CORE_SOURCES}
-  ${BACKEND_SOURCES}
   ${GUETZLI_SOURCES}
+  third_party/butteraugli/butteraugli/butteraugli.cc)
+target_include_directories(guetzli_core PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/third_party/butteraugli"
+  ${GUETZLI_DEP_INCLUDE_DIRS})
+target_link_libraries(guetzli_core PUBLIC guetzli_flags)
+if(GUETZLI_WITH_FULL_JPEG)
+  target_compile_definitions(guetzli_core PUBLIC __SUPPORT_FULL_JPEG__)
+endif()
+
+add_library(guetzli_backend OBJECT
+  ${BACKEND_SOURCES}
   ${CLGUETZLI_SOURCES}
-  third_party/butteraugli/butteraugli/butteraugli.cc
   third_party/minilzo/minilzo.c)
 # The Makefile compiles minilzo.c with the C++ compiler; keep that until parity is no longer needed.
 set_source_files_properties(third_party/minilzo/minilzo.c PROPERTIES LANGUAGE CXX)
-
 # Include order matches the Makefile (some headers rely on it).
-target_include_directories(guetzli_objs PUBLIC
+target_include_directories(guetzli_backend PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/butteraugli"
   "${CMAKE_CURRENT_SOURCE_DIR}/clguetzli"
@@ -78,29 +99,19 @@ target_include_directories(guetzli_objs PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/OpenCL-Wrapper"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minilzo"
   ${GUETZLI_DEP_INCLUDE_DIRS})
-
-if(MINGW)
-  target_compile_options(guetzli_objs PUBLIC -Wno-unknown-pragmas)
-endif()
-if(GUETZLI_WARNINGS_AS_ERRORS)
-  target_compile_options(guetzli_objs PUBLIC -Werror)
-endif()
-
+target_link_libraries(guetzli_backend PUBLIC guetzli_core)
 if(GUETZLI_WITH_CUDA)
-  target_compile_definitions(guetzli_objs PUBLIC __USE_CUDA__)
+  target_compile_definitions(guetzli_backend PUBLIC __USE_CUDA__)
 endif()
 if(GUETZLI_WITH_OPENCL)
-  target_compile_definitions(guetzli_objs PUBLIC __USE_OPENCL__ CL_TARGET_OPENCL_VERSION=300
-                                                 CL_HPP_MINIMUM_OPENCL_VERSION=200)
-endif()
-if(GUETZLI_WITH_FULL_JPEG)
-  target_compile_definitions(guetzli_objs PUBLIC __SUPPORT_FULL_JPEG__)
+  target_compile_definitions(guetzli_backend PUBLIC __USE_OPENCL__ CL_TARGET_OPENCL_VERSION=300
+                                                    CL_HPP_MINIMUM_OPENCL_VERSION=200)
 endif()
 
-# Link interface (libraries, options) for executables built from guetzli_objs; link guetzli_objs
-# directly as well: object files do not propagate through an INTERFACE library.
+# Link interface (libraries, options) for executables built from the object libraries; link the
+# object libraries directly as well: object files do not propagate through an INTERFACE library.
 add_library(guetzli_link INTERFACE)
-target_link_libraries(guetzli_link INTERFACE guetzli_objs ${GUETZLI_DEP_LIBRARIES})  # objs: usage requirements
+target_link_libraries(guetzli_link INTERFACE guetzli_backend ${GUETZLI_DEP_LIBRARIES})  # usage requirements
 if(GUETZLI_STATIC)
   target_link_options(guetzli_link INTERFACE -static)
 endif()
@@ -111,10 +122,10 @@ endif()
 # Application layer (CLI, composition root); main.cpp only in the executable so tests can link the rest.
 add_library(guetzli_app OBJECT app/cli.cpp app/application.cpp)
 target_include_directories(guetzli_app PUBLIC third_party/CLI11)
-target_link_libraries(guetzli_app PUBLIC guetzli_objs)
+target_link_libraries(guetzli_app PUBLIC guetzli_backend)
 
 add_executable(guetzli app/main.cpp)
-target_link_libraries(guetzli PRIVATE guetzli_app guetzli_objs guetzli_link)
+target_link_libraries(guetzli PRIVATE guetzli_app guetzli_backend guetzli_core guetzli_link)
 
 enable_testing()
 if(GUETZLI_BUILD_TESTS)
@@ -122,7 +133,7 @@ if(GUETZLI_BUILD_TESTS)
   add_executable(guetzli_tests ${UNIT_TEST_SOURCES})
   target_include_directories(guetzli_tests PRIVATE third_party/doctest)
   target_compile_definitions(guetzli_tests PRIVATE GUETZLI_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(guetzli_tests PRIVATE guetzli_app guetzli_objs guetzli_link)
+  target_link_libraries(guetzli_tests PRIVATE guetzli_app guetzli_backend guetzli_core guetzli_link)
   add_test(NAME unit COMMAND guetzli_tests)
 endif()
 
@@ -134,5 +145,9 @@ if(GUETZLI_BASH)
   add_test(NAME smoke COMMAND "${GUETZLI_BASH}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_tests.sh"
                               "$<TARGET_FILE:guetzli>" "${GUETZLI_SMOKE_FLAGS}")
 endif()
+
+# core/, guetzli/, config/, logging/ and the butteraugli library must not include backend/ or GPU headers.
+add_test(NAME layering COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+                               -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckLayering.cmake")
 
 include(cmake/KernelHeaders.cmake)

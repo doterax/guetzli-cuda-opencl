@@ -6,7 +6,7 @@
  * functions and must stay numerically identical to them: they feed
  * the GPU comparator's per-block opsin lists for the GPU block search.
  */
-#include "opsin_block.h"
+#include "guetzli/opsin_block.h"
 
 #include <cmath>
 

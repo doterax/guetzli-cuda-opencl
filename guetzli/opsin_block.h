@@ -1,8 +1,8 @@
 /*
- * Host (CPU) copies of kernel helpers used by host code. See opsin_block.cpp.
+ * Host (CPU) copies of kernel helpers used by host code. See opsin_block.cc.
  */
-#ifndef GUETZLI_CLGUETZLI_OPSIN_BLOCK_H_
-#define GUETZLI_CLGUETZLI_OPSIN_BLOCK_H_
+#ifndef GUETZLI_OPSIN_BLOCK_H_
+#define GUETZLI_OPSIN_BLOCK_H_
 
 namespace guetzli {
 
@@ -18,4 +18,4 @@ void OpsinDynamicsBlock8x8(float rgb[3][kOpsinBlockSize]);
 
 }  // namespace guetzli
 
-#endif  // GUETZLI_CLGUETZLI_OPSIN_BLOCK_H_
+#endif  // GUETZLI_OPSIN_BLOCK_H_

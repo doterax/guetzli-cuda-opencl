@@ -19,7 +19,7 @@
 #include <algorithm>
 
 #include "butteraugli/butteraugli.h"
-#include "clguetzli/opsin_block.h"
+#include "guetzli/opsin_block.h"
 #include "guetzli/gamma_correct.h"
 #include "guetzli/score.h"
 
