@@ -187,8 +187,17 @@ EXT_INSTALL  := $(EXTERNAL_DIR)/install
 EXT_INC      := $(EXT_INSTALL)/include
 EXT_LIB      := $(EXT_INSTALL)/lib
 
-# Configurable CUDA architecture
+# Embedded CUDA kernel (clguetzli_cu_ptx.h) policy -- see docs/design/modernization.md section 7.
+# The PTX header is generated locally with `make cuda-headers` and committed; normal builds
+# and CI never regenerate it. The toolkit is pinned because the driver only JIT-compiles
+# PTX ISA versions it knows (issue #15: CUDA 13.0 PTX was rejected by a CUDA 12.9 driver).
 CUDA_ARCH ?= compute_75
+KERNEL_NVCC_VERSION ?= 11.8
+# Fixed release flags: the committed PTX must not depend on CONFIG.
+KERNEL_NVCCFLAGS := -O3 -DNDEBUG -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false
+# Extra host-compiler flags for local toolchain quirks, e.g.
+#   NVCC_EXTRA_FLAGS=-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
+NVCC_EXTRA_FLAGS ?=
 
 # Target configuration
 CONFIG ?= release
@@ -493,7 +502,7 @@ TARGET := $(TARGET_DIR)/$(TARGET_NAME)$(EXE_EXT)
 STATIC_TARGET := $(TARGET_DIR)/$(STATIC_LIB_NAME)
 
 # Default target
-.PHONY: all clean help static executable cuda-headers external test install dist
+.PHONY: all clean help static executable cuda-headers cl-header ptx-header check-kernel-headers external test install dist
 
 all: $(TARGET)
 
@@ -588,25 +597,40 @@ $(MINILZOC): $(MINILZOC_DIR)/minilzoc.cpp $(MINILZO_DIR)/minilzo.c
 	@echo Building minilzoc...
 	@$(CXX) -O2 -std=c++11 -I$(MINILZO_DIR) -o $@ $^
 
-# Generate CUDA headers with mandatory LZO compression
-cuda-headers: $(GENERATED_HEADERS)
+# Embedded kernel headers (committed). Normal builds and CI only consume them; regenerate
+# explicitly after editing clguetzli.cl / clguetzli.cl.h / clguetzli.cu and commit the result:
+#   make cuda-headers       both headers (PTX needs the pinned CUDA toolkit, see KERNEL_NVCC_VERSION)
+#   make cl-header          OpenCL source header only (no toolkit needed)
+#   make check-kernel-headers   verify the committed OpenCL header matches clguetzli.cl (used by CI)
+cuda-headers: ptx-header cl-header
 
-$(CLGUETZLI_DIR)/clguetzli_cu_ptx.h: $(CLGUETZLI_DIR)/clguetzli.cu $(CLGUETZLI_DIR)/clguetzli.cl $(CLGUETZLI_DIR)/clguetzli.cl.h | $(MINILZOC)
+ptx-header: | $(MINILZOC)
 	@echo Generating CUDA PTX header...
-	@"$(NVCC)" $(NVCCFLAGS) -Xcompiler -wd4819 -I"$(SRC_DIR)" -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -ptx -o $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu || echo "Warning: CUDA PTX generation failed - CUDA may not be available"
+	@mkdir -p $(BUILD_DIR)
+	@"$(NVCC)" --version > $(BUILD_DIR)/nvcc_version.txt 2>&1 || (echo "Error: nvcc not found ($(NVCC))" && exit 1)
+	@grep -q "release $(KERNEL_NVCC_VERSION)," $(BUILD_DIR)/nvcc_version.txt || 		(echo "Error: the embedded PTX must be built with CUDA $(KERNEL_NVCC_VERSION) (found: $$(grep release $(BUILD_DIR)/nvcc_version.txt))." && 		 echo "       Newer toolkits emit PTX that older drivers reject (issue #15). Override with KERNEL_NVCC_VERSION=x.y only deliberately." && exit 1)
+	"$(NVCC)" $(KERNEL_NVCCFLAGS) $(NVCC_EXTRA_FLAGS) -Xcompiler -wd4819 -I"$(SRC_DIR)" -arch=$(CUDA_ARCH) -ptx -o $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu
 	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo
-	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo $(CLGUETZLI_DIR)/clguetzli_cu_ptx.h clguetzli_cu64_lzo || echo "Warning: Header generation failed"
+	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo $(CLGUETZLI_DIR)/clguetzli_cu_ptx.h clguetzli_cu64_lzo
+	@echo "PTX: $$(grep -m1 '^\.version' $(CLGUETZLI_DIR)/clguetzli.cu.ptx64), $$(grep -m1 '^\.target' $(CLGUETZLI_DIR)/clguetzli.cu.ptx64)"
 
-$(CLGUETZLI_DIR)/clguetzli_cl_src.h: $(CLGUETZLI_DIR)/clguetzli.cl | $(MINILZOC)
+cl-header: | $(MINILZOC)
 	@echo Generating OpenCL source header...
 	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cl $(CLGUETZLI_DIR)/clguetzli.cl.lzo
-	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cl.lzo $(CLGUETZLI_DIR)/clguetzli_cl_src.h clguetzli_cl_src_lzo || echo "Warning: OpenCL header generation failed"
+	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cl.lzo $(CLGUETZLI_DIR)/clguetzli_cl_src.h clguetzli_cl_src_lzo
+
+check-kernel-headers: | $(MINILZOC)
+	@mkdir -p $(BUILD_DIR)
+	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cl $(BUILD_DIR)/clguetzli.cl.lzo > /dev/null
+	@$(PYTHON) format_header.py $(BUILD_DIR)/clguetzli.cl.lzo $(BUILD_DIR)/clguetzli_cl_src.h clguetzli_cl_src_lzo
+	@cmp -s $(BUILD_DIR)/clguetzli_cl_src.h $(CLGUETZLI_DIR)/clguetzli_cl_src.h || 		(echo "Error: clguetzli/clguetzli_cl_src.h is out of date with clguetzli.cl -- run 'make cuda-headers' and commit both headers." && exit 1)
+	@echo "Kernel headers: OpenCL source header matches clguetzli.cl."
 
 # Build executable - ensure object files are built first
 # Note: CUDA_OBJECTS not linked — .cu kernels are compiled to PTX and loaded at
 # runtime via the driver API (cuModuleLoadDataEx). The PTX is embedded in
-# clguetzli_cu_ptx.h which is generated by the cuda-headers target.
-$(TARGET): $(TARGET_DIR) $(OBJ_TARGET_DIR) cuda-headers $(EXECUTABLE_OBJECTS)
+# clguetzli_cu_ptx.h, which is committed (regenerate explicitly with `make cuda-headers`).
+$(TARGET): $(TARGET_DIR) $(OBJ_TARGET_DIR) $(EXECUTABLE_OBJECTS)
 	@echo Linking $(TARGET_NAME)...
 	@echo "  CXX      = $(CXX)"
 	@echo "  LDFLAGS  = $(LDFLAGS)"
@@ -620,7 +644,7 @@ else
 endif
 
 # Build static library
-$(STATIC_TARGET): $(TARGET_DIR) $(OBJ_TARGET_DIR) cuda-headers $(STATIC_OBJECTS)
+$(STATIC_TARGET): $(TARGET_DIR) $(OBJ_TARGET_DIR) $(STATIC_OBJECTS)
 	@echo Creating static library...
 ifeq ($(DETECTED_OS),WindowsUnix)
 	@$(AR) rcs $@ $(STATIC_OBJECTS)
