@@ -24,8 +24,8 @@ struct BlockZeroingInput {
   OutputImage& img;        // the current image; unchanged when run() returns
   uint8_t comp_mask;       // components to search; all have the subsampling of the last one
   Comparator& comparator;  // StartBlockComparisons() has been called
-  int greedy_lookahead;    // Params::zeroing_greedy_lookahead
-  bool new_zeroing_model;  // Params::new_zeroing_model
+  int greedy_lookahead;    // EncoderParams::zeroing_greedy_lookahead
+  bool new_zeroing_model;  // EncoderParams::new_zeroing_model
 };
 
 class IBlockZeroingSearch {

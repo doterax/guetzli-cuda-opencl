@@ -3,14 +3,14 @@
 #include <exception>
 #include <new>
 #include <optional>
+#include <utility>
 
 #include "backend/factory.h"
+#include "core/encoder/encoder.h"
 #include "core/io/image_io.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/jpeg_data_reader.h"
-#include "guetzli/processor.h"
 #include "guetzli/quality.h"
-#include "guetzli/stats.h"
 
 namespace guetzli {
 
@@ -41,10 +41,9 @@ bool Application::withinMemoryLimit(double pixels) const {
 }
 
 Application::Result Application::encode(Backend& backend, const std::string& in_data, std::string* out_data) {
-  Params params;
+  EncoderParams params;
   params.butteraugli_target = static_cast<float>(ButteraugliScoreForQuality(config_.encoder.quality));
-  ProcessStats stats;
-  stats.logger = &logger_;
+  Encoder encoder(params, backend, logger_);
   const AlphaBackground background = config_.encoder.blend_on_white ? AlphaBackground::White : AlphaBackground::Black;
 
   std::optional<RgbImage> image;
@@ -67,10 +66,12 @@ Application::Result Application::encode(Backend& backend, const std::string& in_
       logMemoryLimitExceeded();
       return Result::Failed;
     }
-    if (!Process(params, backend, &stats, image->rgb, image->width, image->height, out_data)) {
+    std::optional<std::string> jpeg = encoder.encodeRgb(image->rgb, image->width, image->height);
+    if (!jpeg) {
       logger_.log(LogLevel::Error, "Guetzli processing failed\n");
       return Result::Failed;
     }
+    *out_data = std::move(*jpeg);
     return Result::Success;
   }
 
@@ -84,10 +85,12 @@ Application::Result Application::encode(Backend& backend, const std::string& in_
     logMemoryLimitExceeded();
     return Result::Failed;
   }
-  if (!Process(params, backend, &stats, in_data, out_data)) {
+  std::optional<std::string> jpeg = encoder.encodeJpeg(in_data);
+  if (!jpeg) {
     logger_.log(LogLevel::Error, "Guetzli processing failed\n");
     return Result::Failed;
   }
+  *out_data = std::move(*jpeg);
   return Result::Success;
 }
 

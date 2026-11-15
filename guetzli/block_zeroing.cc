@@ -22,9 +22,9 @@
 #include <cstring>
 #include <utility>
 
+#include "core/util/narrow_cast.h"
 #include "guetzli/fast_log.h"
 #include "guetzli/jpeg_data.h"
-#include "guetzli/processor.h"
 
 namespace guetzli {
 
