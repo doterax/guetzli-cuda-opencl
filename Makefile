@@ -492,7 +492,7 @@ EXECUTABLE_OBJECTS += $(patsubst $(BUTTERAUGLI_DIR)/%.cc,$(OBJ_TARGET_DIR)/$(BUT
 EXECUTABLE_OBJECTS += $(patsubst $(MINILZO_DIR)/%.c,$(OBJ_TARGET_DIR)/$(MINILZO_DIR)/%.o,$(filter $(MINILZO_DIR)/%.c,$(EXECUTABLE_SOURCES)))
 
 # Modernized tree (config/, logging/, core/, app/); app/main.cpp only goes into the executable.
-MODERN_SOURCES := $(wildcard config/*.cpp logging/*.cpp core/*/*.cpp) app/cli.cpp app/application.cpp
+MODERN_SOURCES := $(wildcard config/*.cpp logging/*.cpp core/*/*.cpp backend/*.cpp backend/*/*.cpp) app/cli.cpp app/application.cpp
 MODERN_OBJECTS := $(patsubst %.cpp,$(OBJ_TARGET_DIR)/%.o,$(MODERN_SOURCES))
 STATIC_OBJECTS += $(MODERN_OBJECTS)
 EXECUTABLE_OBJECTS += $(MODERN_OBJECTS) $(OBJ_TARGET_DIR)/app/main.o

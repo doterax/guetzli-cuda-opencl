@@ -4,6 +4,7 @@
 #include <new>
 #include <optional>
 
+#include "backend/factory.h"
 #include "clguetzli/clguetzli.h"
 #include "core/io/image_io.h"
 #include "guetzli/jpeg_data.h"
@@ -27,18 +28,18 @@ constexpr const char* kSupportMessage =
     "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
     "  Your support helps maintain and improve this project!\n\n";
 
-MATH_MODE mathModeFor(const BackendOptions& backend) {
-  switch (backend.kind) {
-    case BackendKind::Cpu:
-      return MODE_CPU_OPT;
+// Transitional: the parts of the encoder that do not take the Backend yet still read g_mathMode.
+MATH_MODE mathModeFor(BackendKind kind, bool check) {
+  switch (kind) {
     case BackendKind::OpenCl:
-      return backend.check_against_cpu ? MODE_CHECKCL : MODE_OPENCL;
+      return check ? MODE_CHECKCL : MODE_OPENCL;
     case BackendKind::Cuda:
-      return backend.check_against_cpu ? MODE_CHECKCUDA : MODE_CUDA;
+      return check ? MODE_CHECKCUDA : MODE_CUDA;
+    case BackendKind::Cpu:
     case BackendKind::Auto:
       break;
   }
-  return MODE_AUTO;
+  return MODE_CPU_OPT;
 }
 
 }  // namespace
@@ -54,44 +55,7 @@ bool Application::withinMemoryLimit(double pixels) const {
   return !(pixels * kBytesPerPixel / (1 << 20) > limit || limit < kLowestMemusageMB);
 }
 
-void Application::selectBackend() {
-  GpuOptions gpu;
-  gpu.device = config_.backend.device.value_or(-1);
-  gpu.verbose = logger_.enabled(LogLevel::Debug);
-#ifdef __USE_OPENCL__
-  configureOpenCl(gpu);
-#endif
-#ifdef __USE_CUDA__
-  configureCuda(gpu);
-#endif
-
-  g_mathMode = mathModeFor(config_.backend);
-  if (g_mathMode != MODE_AUTO) return;
-
-  logger_.log(LogLevel::Info, "Autodetect:\n");
-#ifdef __USE_CUDA__
-  logger_.log(LogLevel::Info, "  Try CUDA...\n");
-  if (supportsCuda()) {
-    logger_.log(LogLevel::Info, "  CUDA detected.\n");
-    g_mathMode = MODE_CUDA;
-    return;
-  }
-  logger_.log(LogLevel::Info, "    CUDA is not supported.\n");
-#endif
-#ifdef __USE_OPENCL__
-  logger_.log(LogLevel::Info, "  Try OpenCL...\n");
-  if (supportsOpenCl()) {
-    logger_.log(LogLevel::Info, "  OpenCL detected.\n");
-    g_mathMode = MODE_OPENCL;
-    return;
-  }
-  logger_.log(LogLevel::Info, "    OpenCL is not supported.\n");
-#endif
-  logger_.log(LogLevel::Info, "  Using optimized CPU implementation (--c).\n");
-  g_mathMode = MODE_CPU_OPT;
-}
-
-Application::Result Application::encode(const std::string& in_data, std::string* out_data) {
+Application::Result Application::encode(Backend& backend, const std::string& in_data, std::string* out_data) {
   Params params;
   params.butteraugli_target = static_cast<float>(ButteraugliScoreForQuality(config_.encoder.quality));
   ProcessStats stats;
@@ -118,7 +82,7 @@ Application::Result Application::encode(const std::string& in_data, std::string*
       logMemoryLimitExceeded();
       return Result::Failed;
     }
-    if (!Process(params, &stats, image->rgb, image->width, image->height, out_data)) {
+    if (!Process(params, backend, &stats, image->rgb, image->width, image->height, out_data)) {
       logger_.log(LogLevel::Error, "Guetzli processing failed\n");
       return Result::Failed;
     }
@@ -135,7 +99,7 @@ Application::Result Application::encode(const std::string& in_data, std::string*
     logMemoryLimitExceeded();
     return Result::Failed;
   }
-  if (!Process(params, &stats, in_data, out_data)) {
+  if (!Process(params, backend, &stats, in_data, out_data)) {
     logger_.log(LogLevel::Error, "Guetzli processing failed\n");
     return Result::Failed;
   }
@@ -143,7 +107,8 @@ Application::Result Application::encode(const std::string& in_data, std::string*
 }
 
 int Application::run() {
-  selectBackend();
+  configureGpuBackends(config_.backend, logger_);
+  BackendKind kind = resolveBackendKind(config_.backend.kind, compiledInProbes(), logger_);
 
   std::string in_data;
   try {
@@ -157,16 +122,18 @@ int Application::run() {
   Result result = Result::Failed;
   for (int attempt = 0; attempt < 2; ++attempt) {
     try {
-      result = encode(in_data, &out_data);
+      Backend backend = makeBackend(kind, config_.backend.check_against_cpu, logger_);
+      g_mathMode = mathModeFor(kind, config_.backend.check_against_cpu);
+      result = encode(backend, in_data, &out_data);
       break;
     } catch (const std::bad_alloc&) {
       throw;  // host OOM: retrying on the CPU would not help (main's terminate handler reports it)
     } catch (const std::exception& e) {
-      if (g_mathMode == MODE_CPU_OPT || g_mathMode == MODE_CPU) throw;
+      if (kind == BackendKind::Cpu) throw;
       // GPU backend failure (no device, kernel build/load error, device OOM, ...):
       // redo the whole job on the CPU.
       logger_.log(LogLevel::Error, "GPU processing failed (%s); falling back to CPU (--c).\n", e.what());
-      g_mathMode = MODE_CPU_OPT;
+      kind = BackendKind::Cpu;
       out_data.clear();
     }
   }

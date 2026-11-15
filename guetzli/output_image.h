@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <vector>
 
+#include "guetzli/dct_ops.h"
 #include "guetzli/jpeg_data.h"
 
 namespace guetzli {
@@ -66,18 +67,17 @@ class OutputImageComponent {
   // REQUIRES: block[k] % quant()[k] == 0 for each coefficient index k.
   void SetCoeffBlock(int block_x, int block_y, const coeff_t block[kDCTBlockSize]);
 
+  // CPU implementations of IDctOps (OutputImage goes through its IDctOps).
   // Requires that comp is not downsampled.
   void CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y, const int* quant);
-
   void ApplyGlobalQuantization(const int q[kDCTBlockSize]);
 
- private:
+  // Low-level access for the device implementations of IDctOps.
+  coeff_t* mutable_coeffs() { return &coeffs_[0]; }
   void UpdatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDCTBlockSize]);
+  void SetQuant(const int q[kDCTBlockSize]);
 
-  void _CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y, const int* quant);
-
-  void _ApplyGlobalQuantization(const int q[kDCTBlockSize]);
-
+ private:
   const int width_;
   const int height_;
   int factor_x_;
@@ -93,13 +93,16 @@ class OutputImageComponent {
 
 class OutputImage {
  public:
-  OutputImage(int w, int h);
+  // ops runs the coefficient/pixel operations; it must outlive the image (and its copies).
+  OutputImage(int w, int h, IDctOps& ops);
 
   int width() const { return width_; }
   int height() const { return height_; }
 
   OutputImageComponent& component(int c) { return components_[c]; }
   const OutputImageComponent& component(int c) const { return components_[c]; }
+  const std::vector<OutputImageComponent>& components() const { return components_; }
+  IDctOps& dct_ops() const { return *ops_; }
 
   // Requires that jpg is in YUV444 format.
   void CopyFromJpegData(const JPEGData& jpg);
@@ -151,11 +154,9 @@ class OutputImage {
   std::string FrameTypeStr() const;
 
  private:
-  void _ToSRGB(std::vector<uint8_t>& rgb, int xmin, int ymin, int xsize, int ysize) const;
-
- private:
   const int width_;
   const int height_;
+  IDctOps* ops_;
   std::vector<OutputImageComponent> components_;
 };
 

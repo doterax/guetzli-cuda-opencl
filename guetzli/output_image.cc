@@ -29,7 +29,6 @@
 #include "guetzli/gamma_correct.h"
 #include "guetzli/preprocess_downsample.h"
 #include "guetzli/quantize.h"
-#include "clguetzli/clguetzli.h"
 
 namespace guetzli {
 
@@ -212,8 +211,11 @@ void OutputImageComponent::UpdatePixelsForBlock(int block_x, int block_y, const 
   }
 }
 
-void OutputImageComponent::_CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y,
-                                                  const int* quant) {
+void OutputImageComponent::CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y,
+                                                 const int* quant) {
+  Reset(factor_x, factor_y);
+  assert(width_in_blocks_ <= comp.width_in_blocks);
+  assert(height_in_blocks_ <= comp.height_in_blocks);
   const size_t src_row_size = comp.width_in_blocks * kDCTBlockSize;
   for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
     const coeff_t* src_coeffs = &comp.coeffs[block_y * src_row_size];
@@ -226,98 +228,10 @@ void OutputImageComponent::_CopyFromJpegComponent(const JPEGComponent& comp, int
       src_coeffs += kDCTBlockSize;
     }
   }
-}
-
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-namespace {
-
-typedef void (*CopyFromJpegComponentFn)(coeff_t*, uint8_t*, const coeff_t*, const int*, const int, const int, const int,
-                                        const int, const int, const int);
-typedef void (*ApplyGlobalQuantizationFn)(coeff_t*, uchar*, uchar*, const int*, const int, const int);
-
-// Returns the GPU implementation for the current mode, or NULL for CPU.
-CopyFromJpegComponentFn GpuCopyFromJpegComponent() {
-#ifdef __USE_OPENCL__
-  if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode) return clCopyFromJpegComponent;
-#endif
-#ifdef __USE_CUDA__
-  if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode) return cuCopyFromJpegComponent;
-#endif
-  return NULL;
-}
-
-ApplyGlobalQuantizationFn GpuApplyGlobalQuantization() {
-#ifdef __USE_OPENCL__
-  if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode) return clApplyGlobalQuantization;
-#endif
-#ifdef __USE_CUDA__
-  if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode) return cuApplyGlobalQuantization;
-#endif
-  return NULL;
-}
-
-bool IsCheckMode() {
-  return MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode;
-}
-
-template <typename T>
-void ReportMismatch(const char* what, const std::vector<T>& cpu, const std::vector<T>& gpu) {
-  int count = 0;
-  for (size_t i = 0; i < gpu.size(); i++) {
-    if (cpu[i] != gpu[i]) count++;
-  }
-  if (count > 0) {
-    LogError("CHK %s %d:%d\r\n", what, count, (int)gpu.size());
-  }
-}
-
-}  // namespace
-#endif
-
-void OutputImageComponent::CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y,
-                                                 const int* quant) {
-  Reset(factor_x, factor_y);
-  assert(width_in_blocks_ <= comp.width_in_blocks);
-  assert(height_in_blocks_ <= comp.height_in_blocks);
-
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-  CopyFromJpegComponentFn gpu = GpuCopyFromJpegComponent();
-  if (gpu != NULL) {
-    const bool check = IsCheckMode();
-    // In check mode keep a copy of the initial state for the CPU run.
-    std::vector<coeff_t> saved_coeffs;
-    std::vector<uint16_t> saved_pixels;
-    if (check) {
-      saved_coeffs = coeffs_;
-      saved_pixels = pixels_;
-    }
-    std::vector<uint8_t> output_idct_gpu(width_in_blocks_ * height_in_blocks_ * kDCTBlockSize);
-    gpu(coeffs_.data(), output_idct_gpu.data(), comp.coeffs.data(), quant, comp.width_in_blocks, comp.height_in_blocks,
-        width_in_blocks_, height_in_blocks_, width_, height_);
-    for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
-      for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
-        int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-        UpdatePixelsForBlock(block_x, block_y, &output_idct_gpu[offset]);
-      }
-    }
-    if (check) {
-      // Move GPU result aside, restore the initial state, run CPU; CPU result is kept.
-      std::swap(coeffs_, saved_coeffs);
-      std::swap(pixels_, saved_pixels);
-      _CopyFromJpegComponent(comp, factor_x, factor_y, quant);
-      ReportMismatch("CopyFromJpegComponent coeff", coeffs_, saved_coeffs);
-      ReportMismatch("CopyFromJpegComponent pixel", pixels_, saved_pixels);
-    }
-  } else
-#endif
-  {
-    _CopyFromJpegComponent(comp, factor_x, factor_y, quant);
-  }
-
   memcpy(quant_, quant, sizeof(quant_));
 }
 
-void OutputImageComponent::_ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
+void OutputImageComponent::ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
   for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
     for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
       coeff_t block[kDCTBlockSize];
@@ -327,50 +241,15 @@ void OutputImageComponent::_ApplyGlobalQuantization(const int q[kDCTBlockSize]) 
       }
     }
   }
-}
-
-void OutputImageComponent::ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-  ApplyGlobalQuantizationFn gpu = GpuApplyGlobalQuantization();
-  if (gpu != NULL) {
-    const bool check = IsCheckMode();
-    // In check mode keep a copy of the initial state for the CPU run.
-    std::vector<coeff_t> saved_coeffs;
-    std::vector<uint16_t> saved_pixels;
-    if (check) {
-      saved_coeffs = coeffs_;
-      saved_pixels = pixels_;
-    }
-    std::vector<uint8_t> output_idct_gpu(width_in_blocks_ * height_in_blocks_ * kDCTBlockSize);
-    std::vector<uint8_t> output_bool_gpu(width_in_blocks_ * height_in_blocks_);
-    gpu(coeffs_.data(), output_idct_gpu.data(), output_bool_gpu.data(), q, width_in_blocks_, height_in_blocks_);
-    for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
-      for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
-        int bool_offset = block_y * width_in_blocks_ + block_x;
-        if (output_bool_gpu[bool_offset]) {
-          int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-          UpdatePixelsForBlock(block_x, block_y, &output_idct_gpu[offset]);
-        }
-      }
-    }
-    if (check) {
-      // Move GPU result aside, restore the initial state, run CPU; CPU result is kept.
-      std::swap(coeffs_, saved_coeffs);
-      std::swap(pixels_, saved_pixels);
-      _ApplyGlobalQuantization(q);
-      ReportMismatch("ApplyGlobalQuantization coeff", coeffs_, saved_coeffs);
-      ReportMismatch("ApplyGlobalQuantization pixel", pixels_, saved_pixels);
-    }
-  } else
-#endif
-  {
-    _ApplyGlobalQuantization(q);
-  }
-
   memcpy(quant_, q, sizeof(quant_));
 }
 
-OutputImage::OutputImage(int w, int h) : width_(w), height_(h), components_(3, OutputImageComponent(w, h)) {}
+void OutputImageComponent::SetQuant(const int q[kDCTBlockSize]) {
+  memcpy(quant_, q, sizeof(quant_));
+}
+
+OutputImage::OutputImage(int w, int h, IDctOps& ops)
+    : width_(w), height_(h), ops_(&ops), components_(3, OutputImageComponent(w, h)) {}
 
 void OutputImage::CopyFromJpegData(const JPEGData& jpg) {
   for (size_t i = 0; i < jpg.components.size(); ++i) {
@@ -383,7 +262,7 @@ void OutputImage::CopyFromJpegData(const JPEGData& jpg) {
     int factor_x = jpg.max_h_samp_factor / comp.h_samp_factor;
     int factor_y = jpg.max_v_samp_factor / comp.v_samp_factor;
     assert(comp.quant_idx < jpg.quant.size());
-    components_[i].CopyFromJpegComponent(comp, factor_x, factor_y, &jpg.quant[comp.quant_idx].values[0]);
+    ops_->copyFromJpegComponent(components_[i], comp, factor_x, factor_y, &jpg.quant[comp.quant_idx].values[0]);
   }
 }
 
@@ -467,7 +346,7 @@ void OutputImage::Downsample(const DownsampleConfig& cfg) {
 
 void OutputImage::ApplyGlobalQuantization(const int q[3][kDCTBlockSize]) {
   for (int c = 0; c < 3; ++c) {
-    components_[c].ApplyGlobalQuantization(&q[c][0]);
+    ops_->applyGlobalQuantization(components_[c], &q[c][0]);
   }
 }
 
@@ -538,76 +417,9 @@ void OutputImage::SaveToJpegData(JPEGData* jpg) const {
   SaveQuantTables(q, jpg);
 }
 
-void OutputImage::_ToSRGB(std::vector<uint8_t>& rgb, int xmin, int ymin, int xsize, int ysize) const {
-  for (int c = 0; c < 3; ++c) {
-    components_[c].ToPixels(xmin, ymin, xsize, ysize, &rgb[c], 3);
-  }
-  for (size_t p = 0; p < rgb.size(); p += 3) {
-    ColorTransformYCbCrToRGB(&rgb[p]);
-  }
-}
-
 std::vector<uint8_t> OutputImage::ToSRGB(int xmin, int ymin, int xsize, int ysize) const {
   std::vector<uint8_t> rgb(xsize * ysize * 3);
-
-  if (MODE_CPU_OPT == g_mathMode || MODE_CPU == g_mathMode) {
-    _ToSRGB(rgb, xmin, ymin, xsize, ysize);
-  }
-#ifdef __USE_OPENCL__
-  else if (MODE_OPENCL == g_mathMode) {
-    clComponentsToPixels(rgb.data(), xmin, ymin, xsize, ysize, components_);
-  }
-#endif
-#ifdef __USE_CUDA__
-  else if (MODE_CUDA == g_mathMode) {
-    cuComponentsToPixels(rgb.data(), xmin, ymin, xsize, ysize, components_);
-  }
-#endif
-#ifdef __USE_CUDA__
-  else if (MODE_CHECKCUDA == g_mathMode) {
-    std::vector<uint8_t> rgb_gpu(xsize * ysize * 3);
-    //calculate GPU data
-    cuComponentsToPixels(rgb_gpu.data(), xmin, ymin, xsize, ysize, components_);
-    //calculate CPU data
-    _ToSRGB(rgb, xmin, ymin, xsize, ysize);
-
-    int count = 0;
-    for (int i = 0; i < rgb_gpu.size(); i++) {
-      if (rgb[i] != rgb_gpu[i]) {
-        count++;
-      }
-    }
-    if (count > 0) {
-      LogError("CHK %s(%d, %d, %d, %d)(%d) %d:%d\r\n", "OutputImage::ToSRGB", xmin, ymin, xsize, ysize, __LINE__, count,
-               rgb_gpu.size());
-    }
-  }
-#endif
-#ifdef __USE_OPENCL__
-  else if (MODE_CHECKCL == g_mathMode) {
-    std::vector<uint8_t> rgb_gpu(xsize * ysize * 3);
-    //calculate GPU data
-    clComponentsToPixels(rgb_gpu.data(), xmin, ymin, xsize, ysize, components_);
-    //calculate CPU data
-    _ToSRGB(rgb, xmin, ymin, xsize, ysize);
-
-    int count = 0;
-    for (int i = 0; i < rgb_gpu.size(); i++) {
-      if (rgb[i] != rgb_gpu[i]) {
-        count++;
-      }
-    }
-    if (count > 0) {
-      LogError("CHK %s(%d, %d, %d, %d)(%d) %d:%d\r\n", "OutputImage::ToSRGB", xmin, ymin, xsize, ysize, __LINE__, count,
-               rgb_gpu.size());
-    }
-  }
-#endif
-  else {
-    // Any mode without a GPU implementation here (e.g. unresolved MODE_AUTO).
-    _ToSRGB(rgb, xmin, ymin, xsize, ysize);
-  }
-
+  ops_->toSrgb(*this, xmin, ymin, xsize, ysize, rgb);
   return rgb;
 }
 
@@ -635,6 +447,24 @@ std::string OutputImage::FrameTypeStr() const {
       snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factor_x(), component(0).factor_y(),
                component(1).factor_x(), component(1).factor_y(), component(2).factor_x(), component(2).factor_y());
   return std::string(buf, len);
+}
+
+void CpuDctOps::copyFromJpegComponent(OutputImageComponent& c, const JPEGComponent& comp, int factor_x, int factor_y,
+                                      const int* quant) {
+  c.CopyFromJpegComponent(comp, factor_x, factor_y, quant);
+}
+
+void CpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDCTBlockSize]) {
+  c.ApplyGlobalQuantization(q);
+}
+
+void CpuDctOps::toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize, std::vector<uint8_t>& rgb) {
+  for (int c = 0; c < 3; ++c) {
+    img.component(c).ToPixels(xmin, ymin, xsize, ysize, &rgb[c], 3);
+  }
+  for (size_t p = 0; p < rgb.size(); p += 3) {
+    ColorTransformYCbCrToRGB(&rgb[p]);
+  }
 }
 
 }  // namespace guetzli

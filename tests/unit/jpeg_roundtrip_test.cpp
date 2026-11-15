@@ -55,7 +55,8 @@ TEST_CASE("encode, write, read and decode an odd-sized image") {
   CHECK(read.height == h);
   CHECK(read.components.size() == 3);
 
-  const std::vector<uint8_t> decoded = guetzli::DecodeJpegToRGB(read);
+  guetzli::CpuDctOps dct;
+  const std::vector<uint8_t> decoded = guetzli::DecodeJpegToRGB(read, dct);
   REQUIRE(decoded.size() == rgb.size());
   int max_err = 0;
   for (size_t i = 0; i < rgb.size(); ++i) max_err = std::max(max_err, std::abs(decoded[i] - rgb[i]));

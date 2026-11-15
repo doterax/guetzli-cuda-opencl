@@ -42,9 +42,9 @@ bool HasYCbCrColorSpace(const JPEGData& jpg) {
   return (cid0 != 'R' || cid1 != 'G' || cid2 != 'B');
 }
 
-std::vector<uint8_t> DecodeJpegToRGB(const JPEGData& jpg) {
+std::vector<uint8_t> DecodeJpegToRGB(const JPEGData& jpg, IDctOps& dct) {
   if (jpg.components.size() == 3 && HasYCbCrColorSpace(jpg) && (jpg.Is420() || jpg.Is444())) {
-    OutputImage img(jpg.width, jpg.height);
+    OutputImage img(jpg.width, jpg.height, dct);
     img.CopyFromJpegData(jpg);
     return img.ToSRGB();
   }

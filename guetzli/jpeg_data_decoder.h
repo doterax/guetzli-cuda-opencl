@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include "guetzli/dct_ops.h"
 #include "guetzli/jpeg_data.h"
 
 namespace guetzli {
@@ -30,7 +31,7 @@ namespace guetzli {
 // output image will be generated.
 // Only YUV420 and YUV444 sampling factors are supported.
 // Vector will be empty if a decoding error occurred.
-std::vector<uint8_t> DecodeJpegToRGB(const JPEGData& jpg);
+std::vector<uint8_t> DecodeJpegToRGB(const JPEGData& jpg, IDctOps& dct);
 
 // Mimic libjpeg's heuristics to guess jpeg color space.
 // Requires that the jpg has 3 components.

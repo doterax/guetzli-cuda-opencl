@@ -21,6 +21,7 @@
 #include <vector>
 #include <stdexcept>
 
+#include "guetzli/backend.h"
 #include "guetzli/comparator.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/stats.h"
@@ -50,21 +51,22 @@ struct Params {
   bool new_zeroing_model = true;
 };
 
-bool Process(const Params& params, ProcessStats* stats, const std::string& in_data, std::string* out_data);
+bool Process(const Params& params, Backend& backend, ProcessStats* stats, const std::string& in_data,
+             std::string* out_data);
 
 struct GuetzliOutput {
   std::string jpeg_data;
   double score;
 };
 
-bool ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator, GuetzliOutput* out,
-                     ProcessStats* stats);
-bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats, const std::string& data,
+bool ProcessJpegData(const Params& params, Backend& backend, const JPEGData& jpg_in, Comparator* comparator,
+                     GuetzliOutput* out, ProcessStats* stats);
+bool ProcessUnsupportedJpegData(const Params& params, Backend& backend, ProcessStats* stats, const std::string& data,
                                 std::string* jpg_out);
 
 // Sets *out to a jpeg encoded string that will decode to an image that is
 // visually indistinguishable from the input rgb image.
-bool Process(const Params& params, ProcessStats* stats, const std::vector<uint8_t>& rgb, int w, int h,
+bool Process(const Params& params, Backend& backend, ProcessStats* stats, const std::vector<uint8_t>& rgb, int w, int h,
              std::string* out);
 
 }  // namespace guetzli

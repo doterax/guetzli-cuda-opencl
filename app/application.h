@@ -7,6 +7,7 @@
 
 #include "app/exit_codes.h"
 #include "config/config.h"
+#include "guetzli/backend.h"
 #include "logging/logger.h"
 
 namespace guetzli {
@@ -21,8 +22,7 @@ class Application {
  private:
   enum class Result { NotSupported, Failed, Success };
 
-  void selectBackend();
-  [[nodiscard]] Result encode(const std::string& in_data, std::string* out_data);
+  [[nodiscard]] Result encode(Backend& backend, const std::string& in_data, std::string* out_data);
   [[nodiscard]] bool withinMemoryLimit(double pixels) const;
   void logMemoryLimitExceeded();
 

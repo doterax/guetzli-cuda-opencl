@@ -51,8 +51,8 @@ struct QuantData {
 };
 class Processor {
  public:
-  bool ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator, GuetzliOutput* out,
-                       ProcessStats* stats);
+  bool ProcessJpegData(const Params& params, Backend& backend, const JPEGData& jpg_in, Comparator* comparator,
+                       GuetzliOutput* out, ProcessStats* stats);
 
  private:
   void SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask, const double target_mul,
@@ -73,6 +73,7 @@ class Processor {
   void OutputJpeg(const JPEGData& in, std::string* out);
 
   Params params_;
+  Backend* backend_;
   Comparator* comparator_;
   GuetzliOutput* final_output_;
   ProcessStats* stats_;
@@ -841,9 +842,10 @@ bool IsGrayscale(const JPEGData& jpg) {
   return true;
 }
 
-bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator,
+bool Processor::ProcessJpegData(const Params& params, Backend& backend, const JPEGData& jpg_in, Comparator* comparator,
                                 GuetzliOutput* out, ProcessStats* stats) {
   params_ = params;
+  backend_ = &backend;
   comparator_ = comparator;
   final_output_ = out;
   stats_ = stats;
@@ -882,7 +884,7 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in, Co
   {
     JPEGData jpg = jpg_in;
     RemoveOriginalQuantization(&jpg, q_in);
-    OutputImage img(jpg.width, jpg.height);
+    OutputImage img(jpg.width, jpg.height, *backend_->dct);
     img.CopyFromJpegData(jpg);
     comparator_->Compare(img);
   }
@@ -892,7 +894,7 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in, Co
   for (int downsample = force_420; downsample <= try_420; ++downsample) {
     JPEGData jpg = jpg_in;
     RemoveOriginalQuantization(&jpg, q_in);
-    OutputImage img(jpg.width, jpg.height);
+    OutputImage img(jpg.width, jpg.height, *backend_->dct);
     img.CopyFromJpegData(jpg);
     if (downsample) {
       DownsampleImage(&img);
@@ -922,13 +924,14 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in, Co
   return true;
 }
 
-bool ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator, GuetzliOutput* out,
-                     ProcessStats* stats) {
+bool ProcessJpegData(const Params& params, Backend& backend, const JPEGData& jpg_in, Comparator* comparator,
+                     GuetzliOutput* out, ProcessStats* stats) {
   Processor processor;
-  return processor.ProcessJpegData(params, jpg_in, comparator, out, stats);
+  return processor.ProcessJpegData(params, backend, jpg_in, comparator, out, stats);
 }
 
-bool Process(const Params& params, ProcessStats* stats, const std::string& data, std::string* jpg_out) {
+bool Process(const Params& params, Backend& backend, ProcessStats* stats, const std::string& data,
+             std::string* jpg_out) {
   JPEGData jpg;
   if (!ReadJpeg(data, JPEG_READ_ALL, &jpg)) {
     fprintf(stderr, "Can't read jpg data from input file\n");
@@ -940,9 +943,9 @@ bool Process(const Params& params, ProcessStats* stats, const std::string& data,
             "values).\n");
     return false;
   }
-  std::vector<uint8_t> rgb = DecodeJpegToRGB(jpg);
+  std::vector<uint8_t> rgb = DecodeJpegToRGB(jpg, *backend.dct);
   if (rgb.empty()) {
-    return ProcessUnsupportedJpegData(params, stats, data, jpg_out);
+    return ProcessUnsupportedJpegData(params, backend, stats, data, jpg_out);
   }
   GuetzliOutput out;
   ProcessStats dummy_stats;
@@ -957,7 +960,7 @@ bool Process(const Params& params, ProcessStats* stats, const std::string& data,
     comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #endif
   }
-  bool ok = ProcessJpegData(params, jpg, comparator.get(), &out, stats);
+  bool ok = ProcessJpegData(params, backend, jpg, comparator.get(), &out, stats);
   *jpg_out = out.jpeg_data;
   return ok;
 }
@@ -1026,7 +1029,7 @@ static void DecompressJpegTurbo(const std::string& data, std::vector<uint8_t>& o
 }
 #endif
 
-bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats, const std::string& data,
+bool ProcessUnsupportedJpegData(const Params& params, Backend& backend, ProcessStats* stats, const std::string& data,
                                 std::string* jpg_out) {
 #ifdef __SUPPORT_FULL_JPEG__
   tjhandle handler = tjInitDecompress();
@@ -1043,7 +1046,7 @@ bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats, const
     DecompressJpegTurbo(data, output, handler, width, height, jpegColorspace);
   }
   tjDestroy(handler);
-  return Process(params, stats, output, width, height, jpg_out);
+  return Process(params, backend, stats, output, width, height, jpg_out);
 #else
   fprintf(stderr,
           "Unsupported input JPEG file (e.g. unsupported "
@@ -1053,7 +1056,7 @@ bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats, const
 #endif
 }
 
-bool Process(const Params& params, ProcessStats* stats, const std::vector<uint8_t>& rgb, int w, int h,
+bool Process(const Params& params, Backend& backend, ProcessStats* stats, const std::vector<uint8_t>& rgb, int w, int h,
              std::string* jpg_out) {
   JPEGData jpg;
   if (!EncodeRGBToJpeg(rgb, w, h, &jpg)) {
@@ -1073,7 +1076,7 @@ bool Process(const Params& params, ProcessStats* stats, const std::vector<uint8_
     comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #endif
   }
-  bool ok = ProcessJpegData(params, jpg, comparator.get(), &out, stats);
+  bool ok = ProcessJpegData(params, backend, jpg, comparator.get(), &out, stats);
   *jpg_out = out.jpeg_data;
   return ok;
 }

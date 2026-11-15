@@ -57,9 +57,11 @@ include(cmake/Dependencies.cmake)
 file(GLOB GUETZLI_SOURCES CONFIGURE_DEPENDS guetzli/*.cc)
 file(GLOB CLGUETZLI_SOURCES CONFIGURE_DEPENDS clguetzli/*.cpp)
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS config/*.cpp logging/*.cpp core/*/*.cpp)
+file(GLOB BACKEND_SOURCES CONFIGURE_DEPENDS backend/*.cpp backend/*/*.cpp)
 
 add_library(guetzli_objs OBJECT
   ${CORE_SOURCES}
+  ${BACKEND_SOURCES}
   ${GUETZLI_SOURCES}
   ${CLGUETZLI_SOURCES}
   third_party/butteraugli/butteraugli/butteraugli.cc
