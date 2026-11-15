@@ -20,8 +20,6 @@
 
 using std::string;
 
-bool verbose_cl = false;
-
 #ifdef __USE_OPENCL__
 
 void PrintDeviceCapabilities(const Device_Info& deviceInfo);
@@ -52,9 +50,22 @@ string opencl_c_container() {
 //	return devices[best_i];
 //}
 
+namespace {
+// Owned by the OpenCL singleton until contexts become backend-owned objects (modernization phase 4).
+GpuOptions& oclOptions() {
+  static GpuOptions options;
+  return options;
+}
+}  // namespace
+
+void configureOpenCl(const GpuOptions& options) {
+  oclOptions() = options;
+}
+
 ocl_args_d_t& getOcl() {
   static bool bInit = false;
   static ocl_args_d_t ocl;
+  const GpuOptions& options = oclOptions();
 
   if (bInit == true) return ocl;
 
@@ -71,12 +82,12 @@ ocl_args_d_t& getOcl() {
 
   // Select device: use user-specified index if valid, otherwise pick best by flops
   Device_Info best_device;
-  if (g_deviceIndex >= 0 && g_deviceIndex < (int)devices.size()) {
-    best_device = select_device_with_id((uint)g_deviceIndex, devices);
+  if (options.device >= 0 && options.device < (int)devices.size()) {
+    best_device = select_device_with_id((uint)options.device, devices);
   } else {
-    if (g_deviceIndex >= 0) {
+    if (options.device >= 0) {
       fprintf(stderr, "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
-              g_deviceIndex, (int)devices.size());
+              options.device, (int)devices.size());
     }
     best_device = select_device_with_most_flops(devices);
   }
@@ -158,7 +169,7 @@ ocl_args_d_t& getOcl() {
 
   print_info("OpenCL created\n");
 
-  if (verbose_cl) PrintDeviceCapabilities(device.info);
+  if (options.verbose) PrintDeviceCapabilities(device.info);
 
   bInit = true;
   return ocl;

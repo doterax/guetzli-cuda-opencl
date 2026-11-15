@@ -55,10 +55,11 @@ include(cmake/Dependencies.cmake)
 # Library objects (everything except main), shared by the executable and the unit tests
 # ---------------------------------------------------------------------------------------------
 file(GLOB GUETZLI_SOURCES CONFIGURE_DEPENDS guetzli/*.cc)
-list(REMOVE_ITEM GUETZLI_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/guetzli/guetzli.cc")
 file(GLOB CLGUETZLI_SOURCES CONFIGURE_DEPENDS clguetzli/*.cpp)
+file(GLOB CORE_SOURCES CONFIGURE_DEPENDS config/*.cpp logging/*.cpp core/*/*.cpp)
 
 add_library(guetzli_objs OBJECT
+  ${CORE_SOURCES}
   ${GUETZLI_SOURCES}
   ${CLGUETZLI_SOURCES}
   third_party/butteraugli/butteraugli/butteraugli.cc
@@ -105,15 +106,21 @@ endif()
 # ---------------------------------------------------------------------------------------------
 # Executable and tests
 # ---------------------------------------------------------------------------------------------
-add_executable(guetzli guetzli/guetzli.cc)
-target_link_libraries(guetzli PRIVATE guetzli_objs guetzli_link)
+# Application layer (CLI, composition root); main.cpp only in the executable so tests can link the rest.
+add_library(guetzli_app OBJECT app/cli.cpp app/application.cpp)
+target_include_directories(guetzli_app PUBLIC third_party/CLI11)
+target_link_libraries(guetzli_app PUBLIC guetzli_objs)
+
+add_executable(guetzli app/main.cpp)
+target_link_libraries(guetzli PRIVATE guetzli_app guetzli_objs guetzli_link)
 
 enable_testing()
 if(GUETZLI_BUILD_TESTS)
   file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS tests/unit/*.cpp)
   add_executable(guetzli_tests ${UNIT_TEST_SOURCES})
   target_include_directories(guetzli_tests PRIVATE third_party/doctest)
-  target_link_libraries(guetzli_tests PRIVATE guetzli_objs guetzli_link)
+  target_compile_definitions(guetzli_tests PRIVATE GUETZLI_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(guetzli_tests PRIVATE guetzli_app guetzli_objs guetzli_link)
   add_test(NAME unit COMMAND guetzli_tests)
 endif()
 

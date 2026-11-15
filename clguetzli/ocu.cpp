@@ -64,9 +64,22 @@ void enumCudaDevices() {
   fprintf(stdout, "\n");
 }
 
+namespace {
+// Owned by the CUDA singleton until contexts become backend-owned objects (modernization phase 4).
+GpuOptions& ocuOptions() {
+  static GpuOptions options;
+  return options;
+}
+}  // namespace
+
+void configureCuda(const GpuOptions& options) {
+  ocuOptions() = options;
+}
+
 ocu_args_d_t& getOcu(void) {
   static bool bInit = false;
   static ocu_args_d_t ocu;
+  const GpuOptions& options = ocuOptions();
 
   if (bInit == true) return ocu;
 
@@ -85,14 +98,14 @@ ocu_args_d_t& getOcu(void) {
   CUdevice dev = 0;
 
   // Use user-specified device index if valid
-  if (g_deviceIndex >= 0) {
+  if (options.device >= 0) {
     int deviceCount = 0;
     LOG_CU_RESULT(cuDeviceGetCount(&deviceCount));
-    if (g_deviceIndex < deviceCount) {
-      LOG_CU_RESULT(cuDeviceGet(&dev, g_deviceIndex));
+    if (options.device < deviceCount) {
+      LOG_CU_RESULT(cuDeviceGet(&dev, options.device));
     } else {
       fprintf(stderr, "Warning: CUDA device %d not found (only %d devices available), using default device 0\n",
-              g_deviceIndex, deviceCount);
+              options.device, deviceCount);
       LOG_CU_RESULT(cuDeviceGet(&dev, 0));
     }
   } else {

@@ -24,8 +24,7 @@ enum MATH_MODE {
   MODE_AUTO,
 };
 
-extern MATH_MODE g_mathMode;
-extern int g_deviceIndex;
+extern MATH_MODE g_mathMode;  // removed in modernization phase 3 (backend interfaces)
 
 #ifdef __USE_OPENCL__
 

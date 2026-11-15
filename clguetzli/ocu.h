@@ -13,6 +13,7 @@
 #include "cuda_dynload.h"
 #include "ocl.h"
 #include "cumem_pool.h"
+#include "gpu_options.h"
 
 // Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
 #define LOG_CU_RESULT(e)                                                                                       \
@@ -28,6 +29,8 @@ struct ocu_args_d_t;
 
 const char* TranslateCUDAError(CUresult errorCode);
 
+// Device selection for the (lazy) CUDA initialization; call before first use.
+void configureCuda(const GpuOptions& options);
 bool supportsCuda();
 void enumCudaDevices();
 ocu_args_d_t& getOcu(void);

@@ -220,6 +220,7 @@ CXXFLAGS_BASE += -I$(CLGUETZLI_DIR)
 CXXFLAGS_BASE += -I$(OPENCL_INCLUDE_DIR)
 CXXFLAGS_BASE += -I$(OPENCL_WRAPPER_DIR)
 CXXFLAGS_BASE += -I$(MINILZO_DIR)
+CXXFLAGS_BASE += -I$(THIRD_PARTY_DIR)/CLI11
 
 # External dependency includes/libs (from CMake superbuild)
 ifneq ($(wildcard $(EXT_INC)/png.h),)
@@ -490,6 +491,12 @@ EXECUTABLE_OBJECTS += $(patsubst $(CLGUETZLI_DIR)/%.cpp,$(OBJ_TARGET_DIR)/$(CLGU
 EXECUTABLE_OBJECTS += $(patsubst $(BUTTERAUGLI_DIR)/%.cc,$(OBJ_TARGET_DIR)/$(BUTTERAUGLI_DIR)/%.o,$(filter $(BUTTERAUGLI_DIR)/%.cc,$(EXECUTABLE_SOURCES)))
 EXECUTABLE_OBJECTS += $(patsubst $(MINILZO_DIR)/%.c,$(OBJ_TARGET_DIR)/$(MINILZO_DIR)/%.o,$(filter $(MINILZO_DIR)/%.c,$(EXECUTABLE_SOURCES)))
 
+# Modernized tree (config/, logging/, core/, app/); app/main.cpp only goes into the executable.
+MODERN_SOURCES := $(wildcard config/*.cpp logging/*.cpp core/*/*.cpp) app/cli.cpp app/application.cpp
+MODERN_OBJECTS := $(patsubst %.cpp,$(OBJ_TARGET_DIR)/%.o,$(MODERN_SOURCES))
+STATIC_OBJECTS += $(MODERN_OBJECTS)
+EXECUTABLE_OBJECTS += $(MODERN_OBJECTS) $(OBJ_TARGET_DIR)/app/main.o
+
 # CUDA object files (use .cu.o suffix to avoid collision with .cpp → .o)
 CUDA_SOURCES := $(CLGUETZLI_DIR)/clguetzli.cu
 CUDA_OBJECTS := $(patsubst $(CLGUETZLI_DIR)/%.cu,$(OBJ_TARGET_DIR)/$(CLGUETZLI_DIR)/%.cu.o,$(CUDA_SOURCES))
@@ -550,7 +557,13 @@ endif
 $(OBJ_TARGET_DIR)/$(UNIT_TEST_DIR)/%.o: $(UNIT_TEST_DIR)/%.cpp
 	@echo Compiling $<...
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
-	@$(CXX) $(CXXFLAGS) -I$(THIRD_PARTY_DIR)/doctest -MMD -MP -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -I$(THIRD_PARTY_DIR)/doctest -DGUETZLI_SOURCE_DIR=\"$(CURDIR)\" -MMD -MP -c $< -o $@
+
+# Sources of the modernized tree (config/, logging/, core/, app/)
+$(OBJ_TARGET_DIR)/%.o: %.cpp
+	@echo Compiling $<...
+	@$(MKDIR) $(dir $@) 2>/dev/null || true
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Install
 PREFIX ?= /usr/local

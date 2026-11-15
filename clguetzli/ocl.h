@@ -39,6 +39,7 @@ enum KernelName {
 
 #include "utils.h"
 #include "gpu_error.h"
+#include "gpu_options.h"
 #include "clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
@@ -61,6 +62,8 @@ class Device;
 
 const char* TranslateOpenCLError(cl_int errorCode);
 
+// Device selection and verbosity for the (lazy) OpenCL initialization; call before first use.
+void configureOpenCl(const GpuOptions& options);
 bool supportsOpenCl();
 void enumOpenClDevices();
 

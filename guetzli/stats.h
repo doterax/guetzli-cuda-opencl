@@ -17,11 +17,12 @@
 #ifndef GUETZLI_STATS_H_
 #define GUETZLI_STATS_H_
 
-#include <cstdio>
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "logging/logger.h"
 
 namespace guetzli {
 
@@ -32,8 +33,7 @@ static const char* const kNumItersDownCnt = "number of iterations down";
 struct ProcessStats {
   ProcessStats() {}
   std::map<std::string, int> counters;
-  std::string* debug_output = nullptr;
-  FILE* debug_output_file = nullptr;
+  ILogger* logger = nullptr;  // receives the --verbose trace (LogLevel::Debug); may be null
 
   std::string filename;
 };
