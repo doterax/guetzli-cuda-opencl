@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "app/exit_codes.h"
 #include "config/config.h"
 #include "logging/logger.h"
 
@@ -14,7 +15,7 @@ class Application {
  public:
   Application(const Config& config, ILogger& logger) : config_(config), logger_(logger) {}
 
-  // Returns the process exit code: 0 success, 1 I/O error, 2 input not processed.
+  // Returns one of the kExit* codes.
   [[nodiscard]] int run();
 
  private:
@@ -23,6 +24,7 @@ class Application {
   void selectBackend();
   [[nodiscard]] Result encode(const std::string& in_data, std::string* out_data);
   [[nodiscard]] bool withinMemoryLimit(double pixels) const;
+  void logMemoryLimitExceeded();
 
   const Config& config_;
   ILogger& logger_;

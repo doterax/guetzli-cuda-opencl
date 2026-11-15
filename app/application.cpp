@@ -43,6 +43,11 @@ MATH_MODE mathModeFor(const BackendOptions& backend) {
 
 }  // namespace
 
+void Application::logMemoryLimitExceeded() {
+  logger_.log(LogLevel::Error, "Memory limit (%zu MB) would be exceeded. Failing. Use --memlimit or --nomemlimit.\n",
+              *config_.io.memlimit_mb);
+}
+
 bool Application::withinMemoryLimit(double pixels) const {
   if (!config_.io.memlimit_mb) return true;
   const double limit = static_cast<double>(*config_.io.memlimit_mb);
@@ -110,7 +115,7 @@ Application::Result Application::encode(const std::string& in_data, std::string*
 
   if (image) {
     if (!withinMemoryLimit(static_cast<double>(image->width) * image->height)) {
-      logger_.log(LogLevel::Error, "Memory limit would be exceeded. Failing.\n");
+      logMemoryLimitExceeded();
       return Result::Failed;
     }
     if (!Process(params, &stats, image->rgb, image->width, image->height, out_data)) {
@@ -120,14 +125,14 @@ Application::Result Application::encode(const std::string& in_data, std::string*
     return Result::Success;
   }
 
-  // Anything else is tried as JPEG.
+  if (!isJpeg(in_data)) return Result::NotSupported;
   JPEGData jpg_header;
   if (!ReadJpeg(in_data, JPEG_READ_HEADER, &jpg_header)) {
-    logger_.log(LogLevel::Error, "Error reading JPG data from input file\n");
-    return Result::NotSupported;
+    logger_.log(LogLevel::Error, "Error reading JPEG data from input file\n");
+    return Result::Failed;
   }
   if (!withinMemoryLimit(static_cast<double>(jpg_header.width) * jpg_header.height)) {
-    logger_.log(LogLevel::Error, "Memory limit would be exceeded. Failing.\n");
+    logMemoryLimitExceeded();
     return Result::Failed;
   }
   if (!Process(params, &stats, in_data, out_data)) {
@@ -145,7 +150,7 @@ int Application::run() {
     in_data = readFile(config_.io.input);
   } catch (const IoError& e) {
     logger_.log(LogLevel::Error, "%s\n", e.what());
-    return 1;
+    return kExitUsageOrIoError;
   }
 
   std::string out_data;
@@ -166,22 +171,27 @@ int Application::run() {
     }
   }
 
-  if (result != Result::Success) {
-    // Exit code and message as before for every failure (not only unsupported formats).
-    logger_.log(LogLevel::Error, "Unknown file format: %s\n", config_.io.input.string().c_str());
-    return 2;
+  switch (result) {
+    case Result::NotSupported:
+      logger_.log(LogLevel::Error, "Unknown file format: %s (expected PNG, TIFF or JPEG)\n",
+                  config_.io.input.string().c_str());
+      return kExitUnsupportedInput;
+    case Result::Failed:
+      return kExitProcessingFailed;  // the reason was logged where it happened
+    case Result::Success:
+      break;
   }
 
-  logger_.log(LogLevel::Info, "Guetzli process suceeded, writing ... ");
+  logger_.log(LogLevel::Info, "Guetzli process succeeded, writing ... ");
   try {
     writeFile(config_.io.output, out_data);
   } catch (const IoError& e) {
     logger_.log(LogLevel::Error, "%s\n", e.what());
-    return 1;
+    return kExitUsageOrIoError;
   }
   logger_.log(LogLevel::Info, "Done.\n\n");
   logger_.log(LogLevel::Info, "%s", kSupportMessage);
-  return 0;
+  return kExitSuccess;
 }
 
 }  // namespace guetzli

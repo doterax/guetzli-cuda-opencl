@@ -1,6 +1,8 @@
 #include "core/io/image_io.h"
 
+#include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <csetjmp>
 #include <cstdio>
 #include <cstring>
@@ -249,6 +251,10 @@ void tiffEmptyWarningHandler(const char*, const char*, va_list) {}
 
 }  // namespace
 
+bool isJpeg(std::string_view data) {
+  return data.size() >= 2 && static_cast<unsigned char>(data[0]) == 0xFF && static_cast<unsigned char>(data[1]) == 0xD8;
+}
+
 bool isTiff(std::string_view data) {
   static const uint16_t kTIFFMagickBE = TIFF_BIGENDIAN;
   static const uint16_t kTIFFMagickLE = TIFF_LITTLEENDIAN;
@@ -268,13 +274,20 @@ std::optional<RgbImage> decodeTiff(const std::string& data, AlphaBackground back
     return std::nullopt;
   }
 
-  unsigned int width(0), height(0), components(0);
+  uint32_t width = 0, height = 0;
   TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
   TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
-  TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &components);
 
-  const unsigned int npixels = width * height;
-  auto* pixels = static_cast<unsigned int*>(_TIFFmalloc(npixels * sizeof(unsigned int)));
+  const uint64_t npixels = static_cast<uint64_t>(width) * height;
+  uint32_t* pixels = npixels == 0 || npixels > (SIZE_MAX / sizeof(uint32_t))
+                         ? nullptr
+                         : static_cast<uint32_t*>(_TIFFmalloc(static_cast<tmsize_t>(npixels * sizeof(uint32_t))));
+  if (!pixels) {
+    logger.log(LogLevel::Error, "[TIFF] cannot allocate a %ux%u raster\n", static_cast<unsigned>(width),
+               static_cast<unsigned>(height));
+    TIFFClose(tif);
+    return std::nullopt;
+  }
 
   if (!TIFFReadRGBAImageOriented(tif, width, height, pixels, ORIENTATION_TOPLEFT)) {
     logger.log(LogLevel::Error, "[TIFF] TIFFReadRGBAImage failed\n");
@@ -286,26 +299,18 @@ std::optional<RgbImage> decodeTiff(const std::string& data, AlphaBackground back
   RgbImage image;
   image.width = static_cast<int>(width);
   image.height = static_cast<int>(height);
-  image.rgb.resize(3 * image.width * image.height);
+  image.rgb.resize(3 * npixels);
 
-  for (unsigned int y = 0; y < height; ++y) {
-    const unsigned int* row_in = pixels + (y * width);
-    uint8_t* row_out = &image.rgb[3 * y * image.width];
-    for (int x = 0; x < image.width; ++x) {
-      const uint8_t* pixel = reinterpret_cast<const uint8_t*>(&row_in[x]);
-      if (components != 4) {
-        row_out[3 * x + 0] = pixel[0];
-        row_out[3 * x + 1] = pixel[1];
-        row_out[3 * x + 2] = pixel[2];
-      } else {
-        // FIXME: the alpha byte of an ABGR pixel is pixel[3]; pixel[4] is the next pixel's red
-        // (and past the end for the last pixel). Kept as-is because fixing it changes output
-        // (CONTRIBUTING.md); to be fixed in a separate, discussed change.
-        const uint8_t alpha = pixel[4];
-        row_out[3 * x + 0] = blend(background, pixel[0], alpha);
-        row_out[3 * x + 1] = blend(background, pixel[1], alpha);
-        row_out[3 * x + 2] = blend(background, pixel[2], alpha);
-      }
+  // TIFFReadRGBAImage returns 8-bit samples with *premultiplied* alpha (unassociated alpha is
+  // converted; images without alpha get A = 255), packed as TIFFGetR/G/B/A expect. Compositing
+  // a premultiplied pixel: on black it is the sample itself, on white sample + (255 - A).
+  for (uint64_t i = 0; i < npixels; ++i) {
+    const uint32_t p = pixels[i];
+    const uint32_t a = TIFFGetA(p);
+    const uint32_t add = background == AlphaBackground::White ? 255 - a : 0;
+    const uint32_t rgb[3] = {TIFFGetR(p), TIFFGetG(p), TIFFGetB(p)};
+    for (int c = 0; c < 3; ++c) {
+      image.rgb[3 * i + c] = static_cast<uint8_t>(std::min<uint32_t>(255, rgb[c] + add));
     }
   }
 

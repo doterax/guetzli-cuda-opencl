@@ -1,21 +1,14 @@
 // core/io: format detection, PNG decoding and alpha blending, file I/O.
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "core/io/image_io.h"
 #include "doctest.h"
+#include "test_support.h"
 
-#ifndef GUETZLI_SOURCE_DIR
-#error "GUETZLI_SOURCE_DIR must point to the source tree (set by CMake)"
-#endif
-
-namespace {
-
-std::string sourceFile(const char* relative) {
-  return std::string(GUETZLI_SOURCE_DIR) + "/" + relative;
-}
-
-}  // namespace
+using guetzli_test::sourceFile;
 
 TEST_CASE("format detection") {
   const std::string png = guetzli::readFile(sourceFile("tests/regress/input/rgb_150x118.png"));
@@ -59,6 +52,44 @@ TEST_CASE("decodePng: alpha is blended on black or white") {
     any_different |= white->rgb[i] != black->rgb[i];
   }
   CHECK(any_different);
+}
+
+TEST_CASE("decodeTiff matches decodePng for the same RGBA image, on black and on white") {
+  // Same pixels saved as PNG and as TIFF (unassociated alpha, every alpha value 0..255).
+  // libtiff returns premultiplied samples; the result must still equal the PNG compositing
+  // up to rounding.
+  guetzli::NullLogger logger;
+  const std::string png = guetzli::readFile(sourceFile("tests/unit/data/rgba_ramp_64x16.png"));
+  const std::string tif = guetzli::readFile(sourceFile("tests/unit/data/rgba_ramp_64x16.tif"));
+  REQUIRE(guetzli::isTiff(tif));
+  for (const guetzli::AlphaBackground bg : {guetzli::AlphaBackground::Black, guetzli::AlphaBackground::White}) {
+    CAPTURE(bg == guetzli::AlphaBackground::White);
+    const auto from_png = guetzli::decodePng(png, bg);
+    const auto from_tif = guetzli::decodeTiff(tif, bg, logger);
+    REQUIRE(from_png);
+    REQUIRE(from_tif);
+    CHECK(from_tif->width == 64);
+    CHECK(from_tif->height == 16);
+    REQUIRE(from_tif->rgb.size() == from_png->rgb.size());
+    int max_diff = 0;
+    for (size_t i = 0; i < from_png->rgb.size(); ++i) {
+      max_diff = std::max(max_diff, std::abs(from_tif->rgb[i] - from_png->rgb[i]));
+    }
+    CHECK(max_diff <= 1);
+  }
+}
+
+TEST_CASE("decodeTiff of an opaque image ignores the background") {
+  guetzli::NullLogger logger;
+  // The regression TIFF has partial alpha; check opaque pixels via the ramp's alpha == 255 column.
+  const std::string tif = guetzli::readFile(sourceFile("tests/unit/data/rgba_ramp_64x16.tif"));
+  const auto black = guetzli::decodeTiff(tif, guetzli::AlphaBackground::Black, logger);
+  const auto white = guetzli::decodeTiff(tif, guetzli::AlphaBackground::White, logger);
+  REQUIRE(black);
+  REQUIRE(white);
+  // alpha = (x * 4 + y) % 256 == 255 at x = 63, y = 3.
+  const size_t i = 3 * (3 * 64 + 63);
+  for (int c = 0; c < 3; ++c) CHECK(black->rgb[i + c] == white->rgb[i + c]);
 }
 
 TEST_CASE("decodePng rejects truncated data") {

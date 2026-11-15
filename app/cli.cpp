@@ -4,6 +4,7 @@
 #include <string>
 
 #include "CLI11.hpp"
+#include "app/exit_codes.h"
 #include "guetzli/version.h"
 
 namespace guetzli {
@@ -22,6 +23,9 @@ BuildFeatures compiledFeatures() {
 namespace {
 
 constexpr const char* kFooter =
+    "Exit codes: 0 success, 1 usage or I/O error, 2 input is not PNG/TIFF/JPEG,\n"
+    "3 input could not be processed (corrupt data, memory limit, encoder failure).\n"
+    "\n"
     "Support this project: if you find this tool useful, please consider\n"
     "buying me a coffee: https://www.buymeacoffee.com/doterax\n"
     "Your support helps maintain and improve this project!";
@@ -96,11 +100,11 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
     app.parse(argc, argv);
   } catch (const CLI::CallForHelp&) {
     out << app.help();
-    result.exit_code = 0;
+    result.exit_code = kExitSuccess;
     return result;
   } catch (const CLI::ParseError& e) {
     err << "Error: " << e.what() << "\n\n" << app.help();
-    result.exit_code = 1;
+    result.exit_code = kExitUsageOrIoError;
     return result;
   }
 
@@ -125,7 +129,7 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
         config.io.memlimit_mb.reset();  // -1 always meant "no limit"
       } else if (memlimit < 0) {
         err << "Error: --memlimit must not be negative (use --nomemlimit)\n";
-        result.exit_code = 1;
+        result.exit_code = kExitUsageOrIoError;
         return result;
       } else {
         config.io.memlimit_mb = static_cast<std::size_t>(memlimit);
@@ -144,7 +148,7 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
   if (!problems.empty()) {
     for (const std::string& p : problems) err << "Error: " << p << "\n";
     err << "\n" << app.help();
-    result.exit_code = 1;
+    result.exit_code = kExitUsageOrIoError;
     return result;
   }
   result.action = CliResult::Action::Run;

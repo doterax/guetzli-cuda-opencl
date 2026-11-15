@@ -5,23 +5,9 @@
 #include "config/config.h"
 #include "doctest.h"
 #include "logging/logger.h"
+#include "test_support.h"
 
-namespace {
-
-class RecordingLogger final : public guetzli::ILogger {
- public:
-  explicit RecordingLogger(guetzli::LogLevel threshold) : threshold_(threshold) {}
-  [[nodiscard]] bool enabled(guetzli::LogLevel level) const override { return level <= threshold_; }
-  void write(guetzli::LogLevel level, std::string_view message) override {
-    lines.emplace_back(level, std::string(message));
-  }
-  std::vector<std::pair<guetzli::LogLevel, std::string>> lines;
-
- private:
-  guetzli::LogLevel threshold_;
-};
-
-}  // namespace
+using guetzli_test::RecordingLogger;
 
 TEST_CASE("ILogger::log formats and respects the level") {
   RecordingLogger logger(guetzli::LogLevel::Info);

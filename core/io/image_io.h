@@ -34,6 +34,8 @@ enum class AlphaBackground { Black, White };
 
 [[nodiscard]] bool isPng(std::string_view data);
 [[nodiscard]] bool isTiff(std::string_view data);
+// JPEG start-of-image marker; the encoder parses the rest.
+[[nodiscard]] bool isJpeg(std::string_view data);
 
 // nullopt on a decoding error.
 [[nodiscard]] std::optional<RgbImage> decodePng(const std::string& data, AlphaBackground background);
