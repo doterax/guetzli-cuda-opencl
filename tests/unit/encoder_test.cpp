@@ -272,6 +272,10 @@ TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chr
   // Block (bx / 2, by / 2) is not touched.
   const int other = (by / 2) * 4 + bx / 2;
   CHECK(std::equal(&after[other * kDCTBlockSize], &after[(other + 1) * kDCTBlockSize], &before[other * kDCTBlockSize]));
+  // Nothing else changes either; in particular the blocks after (bx, by), which have no candidates.
+  std::vector<coeff_t> expected = before;
+  expected[(by * 4 + bx) * kDCTBlockSize + k] = 0;
+  CHECK(after == expected);
   CHECK(selector.hasOutput());
 }
 
