@@ -39,7 +39,8 @@ struct cu_mem_pool_t
 {
     cu_mem_pool_t();
     ~cu_mem_pool_t();
-    cu_mem allocMem(size_t s, const void *init = NULL);
+    // init != NULL: upload; init == NULL: zero-fill, unless zero == false (contents undefined).
+    cu_mem allocMem(size_t s, const void *init = NULL, bool zero = true);
     void releaseMem(cu_mem mem);
     void drain();
 

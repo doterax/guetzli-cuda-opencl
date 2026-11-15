@@ -7,6 +7,8 @@
 
 #ifdef __USE_CUDA__
 
+#include <map>
+#include <vector>
 #include <cuda.h>
 #include "cuda_dynload.h"
 #include "ocl.h"
@@ -38,6 +40,14 @@ struct ocu_args_d_t
     void releaseMem(cu_mem mem);
     ocu_channels allocMemChannels(size_t s, const void *c0 = NULL, const void *c1 = NULL, const void *c2 = NULL);
     void releaseMemChannels(ocu_channels &rgb);
+    // Contents undefined: only for buffers that are fully overwritten before being read.
+    cu_mem allocMemUninit(size_t s);
+    ocu_channels allocMemChannelsUninit(size_t s);
+
+    // Device-resident constant tables, uploaded once and kept for the context's lifetime.
+    cu_mem getBlurWeights(float sigma, const std::vector<float>& weights);
+    cu_mem getMaskLut(int i, const float* lut512);  // six 512-entry DoMask LUTs
+    cu_mem getSrgbToLinearLut();                     // float of guetzli::Srgb8ToLinearTable()
 
     CUfunction  kernel[KERNEL_COUNT];
     CUstream    commandQueue;
@@ -45,6 +55,13 @@ struct ocu_args_d_t
     CUcontext   ctxt;
     CUdevice    dev;
     cu_mem_pool_t mem_pool;
+
+private:
+    cu_mem uploadConstant(const void* data, size_t s);
+
+    std::map<unsigned int, cu_mem> blurWeights;  // keyed by sigma's bit pattern
+    cu_mem maskLut[6];
+    cu_mem srgbLut;
 };
 
 

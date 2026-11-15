@@ -158,4 +158,10 @@ void cuComponentsToPixels(
 	const int ysize,
 	const std::vector<guetzli::OutputImageComponent> &components /*in*/);
 
+namespace guetzli { class OutputImage; }
+struct CuCompareContext;
+CuCompareContext* cuCompareCreate(const float* r, const float* g, const float* b, int xsize, int ysize);
+void cuCompareDestroy(CuCompareContext* ctx); // never throws
+void cuCompare(CuCompareContext* ctx, const guetzli::OutputImage& img, int step, float* distmap /*out*/);
+
 #endif

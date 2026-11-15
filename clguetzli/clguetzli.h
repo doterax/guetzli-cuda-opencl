@@ -186,6 +186,19 @@ void clComponentsToPixels(
 
 #endif
 
+namespace guetzli { class OutputImage; }
+
+// Per-image device state for ButteraugliComparatorEx::Compare: the original's
+// opsin image stays resident and the output image is converted on the device.
+struct ClCompareContext;
+struct CuCompareContext;
+
+#ifdef __USE_OPENCL__
+ClCompareContext* clCompareCreate(const float* r, const float* g, const float* b, int xsize, int ysize);
+void clCompareDestroy(ClCompareContext* ctx); // never throws
+void clCompare(ClCompareContext* ctx, const guetzli::OutputImage& img, int step, float* distmap /*out*/);
+#endif
+
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
 namespace guetzli {
@@ -198,6 +211,7 @@ class ButteraugliComparatorEx : public ButteraugliComparator
         ButteraugliComparatorEx(const int width, const int height,
             const std::vector<uint8_t>* rgb,
             const float target_distance, ProcessStats* stats);
+        ~ButteraugliComparatorEx() override;
 
         void Compare(const OutputImage& img) override;
         void StartBlockComparisons() override;
@@ -208,6 +222,15 @@ class ButteraugliComparatorEx : public ButteraugliComparator
         std::vector<float> imgOpsinDynamicsBlockList;   // [RR..RRGG..GGBB..BB]:blockCount
         std::vector<float> imgMaskXyzScaleBlockList;    // [RGBRGB..RGBRGB]:blockCount
         std::vector<std::vector<float>> rgb_orig_opsin;
+
+    private:
+        // Computed once per image and reused by every Start/FinishBlockComparisons round.
+        bool block_lists_ready_ = false;
+        std::vector<std::vector<float> > mask_xyz_orig_;
+
+        // Device-resident Compare() state, created on first GPU Compare.
+        ::ClCompareContext* cl_ctx_ = nullptr;
+        ::CuCompareContext* cu_ctx_ = nullptr;
     };
 }
 

@@ -14,6 +14,8 @@
 #include "clguetzli/clguetzli_cu_ptx.h"
 #include "clguetzli/clguetzli.h"
 #include "lzodec.h"
+#include "guetzli/gamma_correct.h"
+#include <cstring>
 
 bool supportsCuda()
 {
@@ -166,6 +168,7 @@ ocu_args_d_t& getOcu(void)
         { KERNEL_COMPONENTSTOPIXELS_EX1, "clComponentsToPixelsEx1" },
         { KERNEL_COMPONENTSTOPIXELS_EX2, "clComponentsToPixelsEx2" },
         { KERNEL_COLORTRANSFORMYCBCRTORGB, "clColorTransformYCbCrToRGB" },
+        { KERNEL_SRGBTOLINEAR, "clSrgbToLinearEx" },
     };
     static_assert(sizeof(kKernels) / sizeof(kKernels[0]) == KERNEL_COUNT, "kernel table out of sync with KernelName");
     for (size_t i = 0; i < sizeof(kKernels) / sizeof(kKernels[0]); i++) {
@@ -194,8 +197,9 @@ ocu_args_d_t::ocu_args_d_t()
     , commandQueue(NULL)
     , mod(NULL)
     , ctxt(NULL)
+    , srgbLut(0)
 {
-
+    for (int i = 0; i < 6; i++) maskLut[i] = 0;
 }
 
 ocu_args_d_t::~ocu_args_d_t()
@@ -203,6 +207,11 @@ ocu_args_d_t::~ocu_args_d_t()
     if (ctxt == NULL) return; // CUDA never initialized (driver entry points may be NULL)
 
     // Teardown order: free device memory, unload module, destroy stream, then context.
+    for (std::map<unsigned int, cu_mem>::iterator it = blurWeights.begin(); it != blurWeights.end(); ++it)
+        cuMemFree(it->second);
+    for (int i = 0; i < 6; i++)
+        if (maskLut[i]) cuMemFree(maskLut[i]);
+    if (srgbLut) cuMemFree(srgbLut);
     mem_pool.drain();
     if (mod) cuModuleUnload(mod);
     if (commandQueue) cuStreamDestroy(commandQueue);
@@ -217,6 +226,68 @@ cu_mem ocu_args_d_t::allocMem(size_t s, const void *init)
 void ocu_args_d_t::releaseMem(cu_mem mem)
 {
     mem_pool.releaseMem(mem);
+}
+
+cu_mem ocu_args_d_t::allocMemUninit(size_t s)
+{
+    return mem_pool.allocMem(s, NULL, false);
+}
+
+ocu_channels ocu_args_d_t::allocMemChannelsUninit(size_t s)
+{
+    ocu_channels img;
+    for (int i = 0; i < 3; i++)
+    {
+        img.ch[i] = allocMemUninit(s);
+    }
+    return img;
+}
+
+cu_mem ocu_args_d_t::uploadConstant(const void* data, size_t s)
+{
+    cu_mem mem = 0;
+    CUresult err = cuMemAlloc(&mem, s);
+    if (err == CUDA_ERROR_OUT_OF_MEMORY) {
+        mem_pool.drain();
+        err = cuMemAlloc(&mem, s);
+    }
+    LOG_CU_RESULT(err);
+    // Synchronous: data may be a caller's local.
+    err = cuMemcpyHtoDAsync(mem, data, s, commandQueue);
+    if (err == CUDA_SUCCESS) err = cuStreamSynchronize(commandQueue);
+    if (err != CUDA_SUCCESS) cuMemFree(mem);
+    LOG_CU_RESULT(err);
+    return mem;
+}
+
+cu_mem ocu_args_d_t::getBlurWeights(float sigma, const std::vector<float>& weights)
+{
+    unsigned int key;
+    memcpy(&key, &sigma, sizeof(key));
+    std::map<unsigned int, cu_mem>::iterator it = blurWeights.find(key);
+    if (it != blurWeights.end()) return it->second;
+
+    cu_mem mem = uploadConstant(weights.data(), weights.size() * sizeof(float));
+    blurWeights[key] = mem;
+    return mem;
+}
+
+cu_mem ocu_args_d_t::getMaskLut(int i, const float* lut512)
+{
+    if (!maskLut[i]) maskLut[i] = uploadConstant(lut512, 512 * sizeof(float));
+    return maskLut[i];
+}
+
+cu_mem ocu_args_d_t::getSrgbToLinearLut()
+{
+    if (srgbLut) return srgbLut;
+
+    // Same values as OutputImage::ToLinearRGB (the double table cast to float).
+    const double* lut = guetzli::Srgb8ToLinearTable();
+    float table[256];
+    for (int i = 0; i < 256; i++) table[i] = static_cast<float>(lut[i]);
+    srgbLut = uploadConstant(table, sizeof(table));
+    return srgbLut;
 }
 
 ocu_channels ocu_args_d_t::allocMemChannels(size_t s, const void *c0, const void *c1, const void *c2)

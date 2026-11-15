@@ -32,6 +32,7 @@ enum KernelName {
 	KERNEL_COMPONENTSTOPIXELS_EX1,
 	KERNEL_COMPONENTSTOPIXELS_EX2,
 	KERNEL_COLORTRANSFORMYCBCRTORGB,
+	KERNEL_SRGBTOLINEAR,
 	KERNEL_COUNT,
 };
 
@@ -40,6 +41,8 @@ enum KernelName {
 #include "clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
+#include <map>
+#include <vector>
 #include "third_party/OpenCL/include/CL/cl.h"
 
 // Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
@@ -66,10 +69,26 @@ struct ocl_args_d_t
 	ocl_args_d_t();
 	~ocl_args_d_t();
 
+	// init != NULL: contents are uploaded from init. init == NULL: zero-filled.
 	cl_mem allocMem(size_t s, const void *init = NULL);
 	ocl_channels allocMemChannels(size_t s, const void *c0 = NULL, const void *c1 = NULL, const void *c2 = NULL);
+	// Contents undefined: only for buffers that are fully overwritten before being read.
+	cl_mem allocMemUninit(size_t s);
+	ocl_channels allocMemChannelsUninit(size_t s);
+	// Returns the buffer to the pool (buffers are reused by size; the in-order
+	// queue orders any later use after the commands already enqueued on it).
 	void releaseMem(cl_mem mem);
-    void releaseMemChannels(ocl_channels &rgb);
+	void releaseMemChannels(ocl_channels &rgb);
+	// Frees all idle pooled buffers.
+	void drainPool();
+
+	// Device-resident constant tables, uploaded once and kept for the context's lifetime.
+	// Gaussian blur weights for sigma (computed by the caller on first use).
+	cl_mem getBlurWeights(float sigma, const std::vector<float>& weights);
+	// Six 512-entry DoMask LUTs (x, y, b, dc_x, dc_y, dc_b).
+	cl_mem getMaskLut(int i, const float* lut512);
+	// 256-entry sRGB8 -> linear table (float of guetzli::Srgb8ToLinearTable()).
+	cl_mem getSrgbToLinearLut();
 
 	// Regular OpenCL objects:
 	cl_context       context;           // hold the context handler
@@ -80,6 +99,15 @@ struct ocl_args_d_t
 	Device*          device;
 
 	int allocations;
+
+private:
+	cl_mem createBuffer(size_t s);
+
+	std::map<size_t, std::vector<cl_mem> > freeBuffers; // idle pooled buffers by size
+	std::map<cl_mem, size_t> bufferSizes;               // every pooled buffer (busy or idle) -> size
+	std::map<unsigned int, cl_mem> blurWeights;         // keyed by sigma's bit pattern
+	cl_mem maskLut[6];
+	cl_mem srgbLut;
 };
 
 #endif

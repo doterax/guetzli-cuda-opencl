@@ -82,6 +82,16 @@ namespace guetzli
         }
     }
 
+    ButteraugliComparatorEx::~ButteraugliComparatorEx()
+    {
+#ifdef __USE_OPENCL__
+        clCompareDestroy(cl_ctx_);
+#endif
+#ifdef __USE_CUDA__
+        cuCompareDestroy(cu_ctx_);
+#endif
+    }
+
     void ButteraugliComparatorEx::Compare(const OutputImage& img)
     {
 		if (MODE_CPU_OPT == g_mathMode)
@@ -98,65 +108,26 @@ namespace guetzli
 #ifdef __USE_OPENCL__
         else if (MODE_OPENCL == g_mathMode)
         {
-            const size_t size = width_ * height_;
-            std::vector<std::vector<float> > rgb1(3, std::vector<float>(size));
-            img.ToLinearRGB(&rgb1);
-
-            const int xsize = width_;
-            const int ysize = height_;
-            std::vector<float>().swap(distmap_);
-            distmap_.resize(size);
-
-            size_t channel_size = size * sizeof(float);
-            ocl_args_d_t &ocl = getOcl();
-            ocl_channels xyb0 = ocl.allocMemChannels(channel_size, rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data());
-            ocl_channels xyb1 = ocl.allocMemChannels(channel_size, rgb1[0].data(), rgb1[1].data(), rgb1[2].data());
-
-            cl_mem mem_result = ocl.allocMem(channel_size);
-
-            clOpsinDynamicsImageEx(xyb1, xsize, ysize);
-            clDiffmapOpsinDynamicsImageEx(mem_result, xyb0, xyb1, xsize, ysize, comparator_.step());
-
-            cl_int err = clEnqueueReadBuffer(ocl.commandQueue, mem_result, false, 0, channel_size, distmap_.data(), 0, NULL, NULL);
-            LOG_CL_RESULT(err);
-            err = clFinish(ocl.commandQueue);
-            LOG_CL_RESULT(err);
-
-            ocl.releaseMem(mem_result);
-            ocl.releaseMemChannels(xyb0);
-            ocl.releaseMemChannels(xyb1);
-
+            // The reference image stays on the device for the comparator's lifetime;
+            // the output image is converted to linear RGB on the device.
+            if (!cl_ctx_)
+            {
+                cl_ctx_ = clCompareCreate(rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data(), width_, height_);
+            }
+            distmap_.resize((size_t)width_ * height_);
+            clCompare(cl_ctx_, img, comparator_.step(), distmap_.data());
             distance_ = ::butteraugli::ButteraugliScoreFromDiffmap(distmap_);
         }
 #endif
 #ifdef __USE_CUDA__
         else if (MODE_CUDA == g_mathMode)
         {
-            std::vector<std::vector<float> > rgb1(3, std::vector<float>(width_ * height_));
-            img.ToLinearRGB(&rgb1);
-
-            const int xsize = width_;
-            const int ysize = height_;
-            std::vector<float>().swap(distmap_);
-            distmap_.resize(xsize * ysize);
-
-            size_t channel_size = xsize * ysize * sizeof(float);
-            ocu_args_d_t &ocu = getOcu();
-            ocu_channels xyb0 = ocu.allocMemChannels(channel_size, rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data());
-            ocu_channels xyb1 = ocu.allocMemChannels(channel_size, rgb1[0].data(), rgb1[1].data(), rgb1[2].data());
-            
-            cu_mem mem_result = ocu.allocMem(channel_size);
-
-            cuOpsinDynamicsImageEx(xyb1, xsize, ysize);
-
-            cuDiffmapOpsinDynamicsImageEx(mem_result, xyb0, xyb1, xsize, ysize, comparator_.step());
-
-            cuMemcpyDtoH(distmap_.data(), mem_result, channel_size);
-
-            ocu.releaseMem(mem_result);
-            ocu.releaseMemChannels(xyb0);
-            ocu.releaseMemChannels(xyb1);
-
+            if (!cu_ctx_)
+            {
+                cu_ctx_ = cuCompareCreate(rgb_orig_opsin[0].data(), rgb_orig_opsin[1].data(), rgb_orig_opsin[2].data(), width_, height_);
+            }
+            distmap_.resize((size_t)width_ * height_);
+            cuCompare(cu_ctx_, img, comparator_.step(), distmap_.data());
             distance_ = ::butteraugli::ButteraugliScoreFromDiffmap(distmap_);
         }
 #endif
@@ -174,8 +145,20 @@ namespace guetzli
             return;
         }
 
-        std::vector<std::vector<float> > dummy(3);
-        ::butteraugli::Mask(rgb_orig_opsin, rgb_orig_opsin, width_, height_, &mask_xyz_, &dummy);
+        // Mask(orig, orig) depends only on the original image: compute it once and
+        // reuse it for every block-comparison round (SelectFrequencyMasking runs 2-3x).
+        if (mask_xyz_orig_.empty())
+        {
+            std::vector<std::vector<float> > dummy(3);
+            ::butteraugli::Mask(rgb_orig_opsin, rgb_orig_opsin, width_, height_, &mask_xyz_orig_, &dummy);
+        }
+        mask_xyz_ = mask_xyz_orig_; // FinishBlockComparisons() clears mask_xyz_
+
+        // The per-block lists only feed the GPU block-zeroing kernel; also built once.
+        if (MODE_CPU_OPT == g_mathMode || block_lists_ready_)
+        {
+            return;
+        }
 
         const int width = width_;
         const int height = height_;
@@ -220,13 +203,12 @@ namespace guetzli
                 imgMaskXyzScaleBlockList[block_ix * 3 + 2] = mask_xyz_[2][ymin * width_ + xmin];
             }
         }
+        block_lists_ready_ = true;
     }
 
     void ButteraugliComparatorEx::FinishBlockComparisons() {
+        // Clears mask_xyz_; the cached mask and block lists are kept for the next round.
         ButteraugliComparator::FinishBlockComparisons();
-
-        imgOpsinDynamicsBlockList.clear();
-        imgMaskXyzScaleBlockList.clear();
     }
     
     double ButteraugliComparatorEx::CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block, const int comp_mask) const

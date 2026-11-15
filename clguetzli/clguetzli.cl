@@ -269,6 +269,24 @@ __device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 									 const int image_width,
 									 const int image_height,
 									 const int factor);
+__device__ int ChannelUsesCandidate(const channel_info mayout_channel[3], const int c, const int factor);
+__device__ void ComputeChannelYUV(const channel_info mayout_channel[3],
+								  __private const coeff_t *candidate_block,
+								  const int c,
+								  const int block_x,
+								  const int block_y,
+								  const int image_width,
+								  const int image_height,
+								  const int factor,
+								  __private uchar *yuv);
+__device__ float CompareBlockFromYUV(__private uchar *yuv,
+									 const int block_x,
+									 const int block_y,
+									 __global const float *orig_image_batch,
+									 __global const float *mask_scale,
+									 const int image_width,
+									 const int image_height,
+									 const int factor);
 
 __device__ void floatcopy(__private float *dst, __private const float *src, const int size);
 __device__ void coeffcopy(__private coeff_t *dst, const coeff_t *src, int size);
@@ -1119,6 +1137,24 @@ __kernel void clComputeBlockZeroingOrderEx(
 
 	int count = MakeInputOrderEx(mayout_block, orig_block, &input_order);
 
+	// YUV block of the current state of mayout_block (what CompareBlockFactor would
+	// build). A candidate zeroes one coefficient, which changes at most the YUV of its
+	// own channel, so each candidate only redecodes that channel (and nothing at all
+	// for channels decoded from the output image's coefficients).
+	const int yuv_size = factor == 1 ? 3 * 8 * 8 : 3 * 16 * 16;
+	uchar yuv_base[3 * 16 * 16];
+	if (input_order.size > 0)
+	{
+		for (int i = 0; i < yuv_size; i++)
+		{
+			yuv_base[i] = 0;
+		}
+		for (int c = 0; c < 3; c++)
+		{
+			ComputeChannelYUV(mayout_channel, mayout_block, c, block_x, block_y, image_width, image_height, factor, yuv_base);
+		}
+	}
+
 	while (input_order.size > 0)
 	{
 		float best_err = 1e17f;
@@ -1126,18 +1162,27 @@ __kernel void clComputeBlockZeroingOrderEx(
 		for (int i = 0; i < _min_i(3, input_order.size); i++)
 		{
 			const int idx = input_order.pData[i].idx;
+			const int c = idx / kBlockSize;
 			coeff_t old_coeff = mayout_block[idx];
 			mayout_block[idx] = 0;
 
-			float max_err = CompareBlockFactor(mayout_channel,
-											   mayout_block,
-											   block_x,
-											   block_y,
-											   orig_image_batch,
-											   mask_scale,
-											   image_width,
-											   image_height,
-											   factor);
+			uchar yuv[3 * 16 * 16];
+			for (int k = 0; k < yuv_size; k++)
+			{
+				yuv[k] = yuv_base[k];
+			}
+			if (ChannelUsesCandidate(mayout_channel, c, factor))
+			{
+				ComputeChannelYUV(mayout_channel, mayout_block, c, block_x, block_y, image_width, image_height, factor, yuv);
+			}
+			float max_err = CompareBlockFromYUV(yuv,
+												block_x,
+												block_y,
+												orig_image_batch,
+												mask_scale,
+												image_width,
+												image_height,
+												factor);
 			if (max_err < best_err)
 			{
 				best_err = max_err;
@@ -1153,6 +1198,13 @@ __kernel void clComputeBlockZeroingOrderEx(
 		int idx = input_order.pData[best_i].idx;
 		mayout_block[idx] = 0;
 		list_erase(&input_order, best_i);
+		{
+			const int c = idx / kBlockSize;
+			if (ChannelUsesCandidate(mayout_channel, c, factor))
+			{
+				ComputeChannelYUV(mayout_channel, mayout_block, c, block_x, block_y, image_width, image_height, factor, yuv_base);
+			}
+		}
 
 		list_push_back(&output_order, idx, best_err);
 	}
@@ -1362,6 +1414,25 @@ __kernel void clColorTransformYCbCrToRGB(
 		return;
 
 	ColorTransformYCbCrToRGB(&rgb[block_x * 3]);
+}
+
+// Interleaved 8-bit sRGB -> three linear float planes (OutputImage::ToLinearRGB on device).
+// lut is uploaded by the host so the values match the CPU table exactly.
+__kernel void clSrgbToLinearEx(
+	__global const uchar *rgb,
+	__global float *r,
+	__global float *g,
+	__global float *b,
+	__global const float *lut,
+	const int size) // number of pixels
+{
+	const int i = get_global_id(0);
+	if (i >= size)
+		return;
+
+	r[i] = lut[rgb[3 * i]];
+	g[i] = lut[rgb[3 * i + 1]];
+	b[i] = lut[rgb[3 * i + 2]];
 }
 
 __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
@@ -3603,7 +3674,7 @@ __device__ void BlurEx(__private const float *r, const int xsize, const int ysiz
 
 	int dxsize = (xsize + xstep - 1) / xstep;
 
-	__private float tmp[8 * 8] = {0};
+	__private float tmp[8 * 8]; // fully written by the first pass
 	Convolution(xsize, ysize, xstep, expn_size, diff, expn, r, border_ratio, tmp);
 	Convolution(ysize, dxsize, ystep, expn_size, diff, expn, tmp,
 				border_ratio, output);
@@ -3749,21 +3820,11 @@ __device__ float ComputeImage8x8Block(__private float rgb0_c[3][kDCTBlockSize], 
 								 rgb1_c[0], rgb1_c[1], rgb1_c[2],
 								 8, 8);
 
-	float b0[3 * kDCTBlockSize];
-	float b1[3 * kDCTBlockSize];
-	for (int c = 0; c < 3; ++c)
-	{
-		for (int ix = 0; ix < kDCTBlockSize; ++ix)
-		{
-			b0[c * kDCTBlockSize + ix] = rgb0[c][ix];
-			b1[c * kDCTBlockSize + ix] = rgb1[c][ix];
-		}
-	}
-
+	// rgb0 / rgb1 are contiguous [3][64] arrays: same layout ButteraugliBlockDiff expects.
 	__private float diff_xyz_dc[3] = {0.0};
 	__private float diff_xyz_ac[3] = {0.0};
 	__private float diff_xyz_edge_dc[3] = {0.0};
-	ButteraugliBlockDiff(b0, b1, diff_xyz_dc, diff_xyz_ac, diff_xyz_edge_dc);
+	ButteraugliBlockDiff(&rgb0[0][0], &rgb1[0][0], diff_xyz_dc, diff_xyz_ac, diff_xyz_edge_dc);
 
 	float diff = 0.0f;
 	float diff_edge = 0.0f;
@@ -3974,8 +4035,92 @@ __device__ float Factor2(const channel_info mayout_channel[3],
 	return max_err;
 }
 
-__device__ float CompareBlockFactor(const channel_info mayout_channel[3],
-									 __private const coeff_t *candidate_block,
+// Whether channel c of the YUV block built for a candidate depends on the candidate's
+// coefficients. If not, it is decoded from the output image's (global) coefficients
+// and is the same for every candidate of the block.
+__device__ int ChannelUsesCandidate(const channel_info mayout_channel[3], const int c, const int factor)
+{
+	return factor == 1 ? (mayout_channel[c].factor == 1) : (mayout_channel[c].factor != 1);
+}
+
+// Writes channel c of the interleaved YUV block that is compared for a candidate:
+// 3*8*8 bytes when factor == 1, 3*16*16 bytes otherwise. Only channel c's bytes
+// (stride 3, offset c) are written, so channels can be computed independently.
+__device__ void ComputeChannelYUV(const channel_info mayout_channel[3],
+								  __private const coeff_t *candidate_block,
+								  const int c,
+								  const int block_x,
+								  const int block_y,
+								  const int image_width,
+								  const int image_height,
+								  const int factor,
+								  __private uchar *yuv)
+{
+	if (mayout_channel[c].factor == 1)
+	{
+		if (factor == 1)
+		{
+			CoeffToYUV8x8(&candidate_block[c * 8 * 8], &yuv[c]);
+		}
+		else
+		{
+			uchar yuv8x8[3 * 8 * 8]; // scratch: offset-0 slots only
+			for (int iy = 0; iy < factor; ++iy)
+			{
+				for (int ix = 0; ix < factor; ++ix)
+				{
+					int block_xx = block_x * factor + ix;
+					int block_yy = block_y * factor + iy;
+
+					if (block_xx >= mayout_channel[c].block_width ||
+						block_yy >= mayout_channel[c].block_height)
+					{
+						continue; // quadrant keeps the caller's zero fill
+					}
+					int block_8x8idx = block_yy * mayout_channel[c].block_width + block_xx;
+					__global const coeff_t *coeff_block = mayout_channel[c].coeff + block_8x8idx * 8 * 8;
+					CoeffToYUV8x8_g(coeff_block, yuv8x8);
+
+					// copy YUV8x8 to YUV1616 corner
+					Copy8x8To16x16(yuv8x8, &yuv[c], ix, iy);
+				}
+			}
+		}
+	}
+	else
+	{
+		if (factor == 1)
+		{
+			int block_xx = block_x / mayout_channel[c].factor;
+			int block_yy = block_y / mayout_channel[c].factor;
+			int ix = block_x % mayout_channel[c].factor;
+			int iy = block_y % mayout_channel[c].factor;
+
+			int block_16x16idx = block_yy * mayout_channel[c].block_width + block_xx;
+			__global const coeff_t *coeff_block = mayout_channel[c].coeff + block_16x16idx * 8 * 8;
+
+			uchar yuv16x16[3 * 16 * 16]; // scratch: offset-0 slots only
+			CoeffToYUV16x16_g(coeff_block, yuv16x16,
+							  mayout_channel[c].pixel, block_xx, block_yy,
+							  image_width,
+							  image_height);
+
+			// copy YUV16x16 corner to YUV8x8
+			Copy16x16To8x8(yuv16x16, &yuv[c], ix, iy);
+		}
+		else
+		{
+			CoeffToYUV16x16(&candidate_block[c * 8 * 8], &yuv[c],
+							mayout_channel[c].pixel, block_x, block_y,
+							image_width,
+							image_height);
+		}
+	}
+}
+
+// Error of a candidate given its YUV block (as built by ComputeChannelYUV).
+// yuv is converted in place.
+__device__ float CompareBlockFromYUV(__private uchar *yuv,
 									 const int block_x,
 									 const int block_y,
 									 __global const float *orig_image_batch,
@@ -3984,81 +4129,6 @@ __device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 									 const int image_height,
 									 const int factor)
 {
-	__private const coeff_t *candidate_channel[3];
-	for (int c = 0; c < 3; c++)
-	{
-		candidate_channel[c] = &candidate_block[c * 8 * 8];
-	}
-
-	uchar yuv16x16[3 * 16 * 16] = {0}; // factor 2 mode output image
-	uchar yuv8x8[3 * 8 * 8] = {0};	   // factor 1 mode output image
-
-	for (int c = 0; c < 3; c++)
-	{
-		if (mayout_channel[c].factor == 1)
-		{
-			if (factor == 1)
-			{
-				__private const coeff_t *coeff_block = candidate_channel[c];
-				CoeffToYUV8x8(coeff_block, &yuv8x8[c]);
-			}
-			else
-			{
-				for (int iy = 0; iy < factor; ++iy)
-				{
-					for (int ix = 0; ix < factor; ++ix)
-					{
-						int block_xx = block_x * factor + ix;
-						int block_yy = block_y * factor + iy;
-
-						/// if (ix != off_x || iy != off_y) continue;
-						if (block_xx >= mayout_channel[c].block_width ||
-							block_yy >= mayout_channel[c].block_height)
-						{
-							continue;
-						}
-						int block_8x8idx = block_yy * mayout_channel[c].block_width + block_xx;
-						__global const coeff_t *coeff_block = mayout_channel[c].coeff + block_8x8idx * 8 * 8;
-						CoeffToYUV8x8_g(coeff_block, &yuv8x8[c]);
-
-						// copy YUV8x8 to YUV1616 corner
-						Copy8x8To16x16(&yuv8x8[c], &yuv16x16[c], ix, iy);
-					}
-				}
-			}
-		}
-		else
-		{
-			if (factor == 1)
-			{
-				int block_xx = block_x / mayout_channel[c].factor;
-				int block_yy = block_y / mayout_channel[c].factor;
-				int ix = block_x % mayout_channel[c].factor;
-				;
-				int iy = block_y % mayout_channel[c].factor;
-
-				int block_16x16idx = block_yy * mayout_channel[c].block_width + block_xx;
-				__global const coeff_t *coeff_block = mayout_channel[c].coeff + block_16x16idx * 8 * 8;
-
-				CoeffToYUV16x16_g(coeff_block, &yuv16x16[c],
-								  mayout_channel[c].pixel, block_xx, block_yy,
-								  image_width,
-								  image_height);
-
-				// copy YUV16x16 corner to YUV8x8
-				Copy16x16To8x8(&yuv16x16[c], &yuv8x8[c], ix, iy);
-			}
-			else
-			{
-				__private const coeff_t *coeff_block = candidate_channel[c];
-				CoeffToYUV16x16(coeff_block, &yuv16x16[c],
-								mayout_channel[c].pixel, block_x, block_y,
-								image_width,
-								image_height);
-			}
-		}
-	}
-
 	if (factor == 1)
 	{
 		float rgb0_c[3][kDCTBlockSize];
@@ -4068,7 +4138,7 @@ __device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 		int inside_y = block_y * 8 + 8 > image_height ? image_height - block_y * 8 : 8;
 		float rgb1_c[3][kDCTBlockSize];
 
-		YUVToImage(yuv8x8, rgb1_c[0], rgb1_c[1], rgb1_c[2], 8, 8, inside_x, inside_y);
+		YUVToImage(yuv, rgb1_c[0], rgb1_c[1], rgb1_c[2], 8, 8, inside_x, inside_y);
 
 		return ComputeImage8x8Block(rgb0_c, rgb1_c, mask_scale + block_8x8idx * 3);
 	}
@@ -4078,7 +4148,7 @@ __device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 		int inside_y = block_y * 16 + 16 > image_height ? image_height - block_y * 16 : 16;
 
 		float rgb16x16[3][16 * 16];
-		YUVToImage(yuv16x16, rgb16x16[0], rgb16x16[1], rgb16x16[2], 16, 16, inside_x, inside_y);
+		YUVToImage(yuv, rgb16x16[0], rgb16x16[1], rgb16x16[2], 16, 16, inside_x, inside_y);
 
 		float max_err = 0;
 		for (int iy = 0; iy < factor; ++iy)
@@ -4105,6 +4175,29 @@ __device__ float CompareBlockFactor(const channel_info mayout_channel[3],
 		}
 		return max_err;
 	}
+}
+
+__device__ float CompareBlockFactor(const channel_info mayout_channel[3],
+									 __private const coeff_t *candidate_block,
+									 const int block_x,
+									 const int block_y,
+									 __global const float *orig_image_batch,
+									 __global const float *mask_scale,
+									 const int image_width,
+									 const int image_height,
+									 const int factor)
+{
+	const int yuv_size = factor == 1 ? 3 * 8 * 8 : 3 * 16 * 16;
+	uchar yuv[3 * 16 * 16];
+	for (int i = 0; i < yuv_size; i++)
+	{
+		yuv[i] = 0;
+	}
+	for (int c = 0; c < 3; c++)
+	{
+		ComputeChannelYUV(mayout_channel, candidate_block, c, block_x, block_y, image_width, image_height, factor, yuv);
+	}
+	return CompareBlockFromYUV(yuv, block_x, block_y, orig_image_batch, mask_scale, image_width, image_height, factor);
 }
 
 __device__ coeff_t Quantize(coeff_t raw_coeff, int quant)

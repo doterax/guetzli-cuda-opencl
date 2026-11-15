@@ -29,7 +29,7 @@ cu_mem_pool_t::~cu_mem_pool_t()
 
 }
 
-cu_mem cu_mem_pool_t::allocMem(size_t s, const void *init)
+cu_mem cu_mem_pool_t::allocMem(size_t s, const void *init, bool zero)
 {
     alloc_count++;
     total_mem_request += s;
@@ -75,7 +75,7 @@ cu_mem cu_mem_pool_t::allocMem(size_t s, const void *init)
     {
         LOG_CU_RESULT(cuMemcpyHtoDAsync(mem, init, s, commandQueue));
     }
-    else
+    else if (zero)
     {
         LOG_CU_RESULT(cuMemsetD8Async(mem, 0, s, commandQueue));
     }

@@ -13,6 +13,7 @@
 #include "clguetzli/clguetzli.h"
 #include "clguetzli/clguetzli_cl_src.h"
 #include "lzodec.h"
+#include "guetzli/gamma_correct.h"
 //#define LOG
 //#define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
@@ -153,6 +154,8 @@ ocl_args_d_t& getOcl()
 	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
 	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_SRGBTOLINEAR] = clCreateKernel(ocl.program, "clSrgbToLinearEx", &err);
+	LOG_CL_RESULT(err);
 
 	print_info("OpenCL created\n");
 
@@ -259,11 +262,16 @@ ocl_args_d_t::ocl_args_d_t() :
 	device(NULL),
 	program(NULL),
 	allocations(0),
-	isAmd(false)
+	isAmd(false),
+	srgbLut(NULL)
 {
 	for (int i = 0; i < KERNEL_COUNT; i++)
 	{
 		kernel[i] = NULL;
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		maskLut[i] = NULL;
 	}
 }
 
@@ -284,6 +292,15 @@ ocl_args_d_t::~ocl_args_d_t()
 		LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
 	}
 
+	// Constant tables and pooled buffers. Never throw from here.
+	for (std::map<unsigned int, cl_mem>::iterator it = blurWeights.begin(); it != blurWeights.end(); ++it)
+		clReleaseMemObject(it->second);
+	for (int i = 0; i < 6; i++)
+		if (maskLut[i]) clReleaseMemObject(maskLut[i]);
+	if (srgbLut) clReleaseMemObject(srgbLut);
+	for (std::map<cl_mem, size_t>::iterator it = bufferSizes.begin(); it != bufferSizes.end(); ++it)
+		clReleaseMemObject(it->first);
+
 	//not needed, owned by wrapper
 	//if (program)
 	//{
@@ -303,40 +320,63 @@ ocl_args_d_t::~ocl_args_d_t()
 	//}
 }
 
-cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
+cl_mem ocl_args_d_t::createBuffer(size_t s)
 {
-	cl_int err = 0;
+	cl_int err = CL_SUCCESS;
 	cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
-	if (CL_SUCCESS != (err)) {
+	if (err == CL_MEM_OBJECT_ALLOCATION_FAILURE || err == CL_OUT_OF_RESOURCES) {
+		// Idle pooled buffers still hold device memory: free them and retry once.
+		drainPool();
+		mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
+	}
+	if (CL_SUCCESS != err) {
 		LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
 	}
-    LOG_CL_RESULT(err);
-    if (!mem) return NULL;
-    
-    // init memory
-    if (init)
-    {
-        err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_FALSE, 0, s, init, 0, NULL, NULL);
+	LOG_CL_RESULT(err);
+	return mem;
+}
+
+cl_mem ocl_args_d_t::allocMemUninit(size_t s)
+{
+	cl_mem mem = NULL;
+	std::map<size_t, std::vector<cl_mem> >::iterator it = freeBuffers.find(s);
+	if (it != freeBuffers.end() && !it->second.empty()) {
+		mem = it->second.back();
+		it->second.pop_back();
+	}
+	else {
+		mem = createBuffer(s);
+		bufferSizes[mem] = s;
+	}
+	++allocations;
+	return mem;
+}
+
+cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
+{
+	cl_mem mem = allocMemUninit(s);
+
+	cl_int err;
+	if (init)
+	{
+		// Blocking: the caller's host buffer may go away right after this call.
+		err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_TRUE, 0, s, init, 0, NULL, NULL);
 		if (CL_SUCCESS != (err)) {
 			LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
 		}
-        LOG_CL_RESULT(err);
-        err = clFinish(this->commandQueue);
-        LOG_CL_RESULT(err);
-    }
-    else
-    {
-        cl_char cc = 0;
-        err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
+		LOG_CL_RESULT(err);
+	}
+	else
+	{
+		cl_char cc = 0;
+		err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
 		if (CL_SUCCESS != (err)) {
 			LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
 		}
-        LOG_CL_RESULT(err);
-        // No clFinish: the pattern is copied at enqueue time and the in-order queue
-        // orders the fill before any later use of the buffer.
-    }
-
-	++allocations;
+		LOG_CL_RESULT(err);
+		// No clFinish: the pattern is copied at enqueue time and the in-order queue
+		// orders the fill before any later use of the buffer.
+	}
 
 	return mem;
 }
@@ -346,18 +386,87 @@ void ocl_args_d_t::releaseMem(cl_mem mem) {
 		LogError("called releaseMem(NULL)\n");
 		return;
 	}
-	cl_int err = clReleaseMemObject(mem);
-
-	if (CL_SUCCESS != (err)) {
-		LogError("Failed to clReleaseMemObject(...)\n");
+	std::map<cl_mem, size_t>::iterator it = bufferSizes.find(mem);
+	if (it == bufferSizes.end()) {
+		LogError("releaseMem: buffer not from the pool\n");
+		LOG_CL_RESULT(clReleaseMemObject(mem));
+	}
+	else {
+		// Back to the pool. No clFinish needed: the queue is in-order, so any command
+		// that later reuses the buffer runs after the ones already enqueued on it.
+		freeBuffers[it->second].push_back(mem);
 	}
 
-	LOG_CL_RESULT(err);
-	// No clFinish: the runtime defers the actual release until enqueued commands
-	// using the buffer have completed.
-
 	--allocations;
+}
 
+void ocl_args_d_t::drainPool()
+{
+	for (std::map<size_t, std::vector<cl_mem> >::iterator it = freeBuffers.begin(); it != freeBuffers.end(); ++it)
+	{
+		for (size_t i = 0; i < it->second.size(); i++)
+		{
+			bufferSizes.erase(it->second[i]);
+			clReleaseMemObject(it->second[i]);
+		}
+	}
+	freeBuffers.clear();
+}
+
+ocl_channels ocl_args_d_t::allocMemChannelsUninit(size_t s)
+{
+	ocl_channels img;
+	for (int i = 0; i < 3; i++)
+	{
+		img.ch[i] = allocMemUninit(s);
+	}
+	return img;
+}
+
+cl_mem ocl_args_d_t::getBlurWeights(float sigma, const std::vector<float>& weights)
+{
+	unsigned int key;
+	memcpy(&key, &sigma, sizeof(key));
+	std::map<unsigned int, cl_mem>::iterator it = blurWeights.find(key);
+	if (it != blurWeights.end()) return it->second;
+
+	const size_t s = weights.size() * sizeof(float);
+	cl_mem mem = createBuffer(s);
+	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, weights.data(), 0, NULL, NULL);
+	if (CL_SUCCESS != err) clReleaseMemObject(mem);
+	LOG_CL_RESULT(err);
+	blurWeights[key] = mem;
+	return mem;
+}
+
+cl_mem ocl_args_d_t::getMaskLut(int i, const float* lut512)
+{
+	if (maskLut[i]) return maskLut[i];
+
+	const size_t s = 512 * sizeof(float);
+	cl_mem mem = createBuffer(s);
+	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, lut512, 0, NULL, NULL);
+	if (CL_SUCCESS != err) clReleaseMemObject(mem);
+	LOG_CL_RESULT(err);
+	maskLut[i] = mem;
+	return mem;
+}
+
+cl_mem ocl_args_d_t::getSrgbToLinearLut()
+{
+	if (srgbLut) return srgbLut;
+
+	// Same values as OutputImage::ToLinearRGB (the double table cast to float).
+	const double* lut = guetzli::Srgb8ToLinearTable();
+	float table[256];
+	for (int i = 0; i < 256; i++) table[i] = static_cast<float>(lut[i]);
+
+	cl_mem mem = createBuffer(sizeof(table));
+	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, sizeof(table), table, 0, NULL, NULL);
+	if (CL_SUCCESS != err) clReleaseMemObject(mem);
+	LOG_CL_RESULT(err);
+	srgbLut = mem;
+	return mem;
 }
 
 ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void *c0, const void *c1, const void *c2)
