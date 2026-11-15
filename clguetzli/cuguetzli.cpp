@@ -51,27 +51,6 @@ void cuOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize
   ocu.releaseMemChannels(rgb);
 }
 
-void cuDiffmapOpsinDynamicsImage(float* result, const float* r, const float* g, const float* b, const float* r2,
-                                 const float* g2, const float* b2, const unsigned int xsize, const unsigned int ysize,
-                                 const unsigned int step) {
-  size_t channel_size = xsize * ysize * sizeof(float);
-
-  ocu_args_d_t& ocu = getOcu();
-  ocu_channels xyb0 = ocu.allocMemChannels(channel_size, r, g, b);
-  ocu_channels xyb1 = ocu.allocMemChannels(channel_size, r2, g2, b2);
-
-  cu_mem mem_result = ocu.allocMem(channel_size, result);
-
-  cuDiffmapOpsinDynamicsImageEx(mem_result, xyb0, xyb1, xsize, ysize, step);
-
-  LOG_CU_RESULT(cuMemcpyDtoH(result, mem_result, channel_size));
-
-  ocu.releaseMemChannels(xyb1);
-  ocu.releaseMemChannels(xyb0);
-
-  ocu.releaseMem(mem_result);
-}
-
 void cuComputeBlockZeroingOrder(guetzli::CoeffData* output_order_batch, const channel_info orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, const int image_width,
                                 const int image_height, const channel_info mayout_channel[3], const int factor,
@@ -228,23 +207,6 @@ void cuDiffmapOpsinDynamicsImageEx(cu_mem result, ocu_channels xyb0, ocu_channel
   ocu.releaseMem(edge_detector_map);
   ocu.releaseMem(block_diff_dc);
   ocu.releaseMem(block_diff_ac);
-}
-
-void cuConvolutionEx(cu_mem result /*out*/, const cu_mem inp, unsigned int xsize, unsigned int ysize,
-                     const cu_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio) {
-  ocu_args_d_t& ocu = getOcu();
-
-  unsigned int oxsize = (xsize + xstep - 1) / xstep;
-
-  CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTION];
-  const int oxsize_arg = (int)oxsize, ysize_arg = (int)ysize;
-  const void* args[] = {&result, &inp,    &xsize,        &multipliers, &len,
-                        &xstep,  &offset, &border_ratio, &oxsize_arg,  &ysize_arg};
-
-  // 2D blocks with bounds guard in the kernel (was 1x1-thread blocks).
-  CUresult err = cuLaunchKernel(kernel, BLOCK_COUNT_X(oxsize, 32), BLOCK_COUNT_Y(ysize, 8), 1, 32, 8, 1, 0,
-                                ocu.commandQueue, (void**)args, NULL);
-  LOG_CU_RESULT(err);
 }
 
 // Scale table for a convolution with the (constant, cached) weights buffer

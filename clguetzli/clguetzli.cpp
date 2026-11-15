@@ -87,29 +87,6 @@ void clOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize
   ocl.releaseMemChannels(rgb);
 }
 
-void clDiffmapOpsinDynamicsImage(float* result, const float* r, const float* g, const float* b, const float* r2,
-                                 const float* g2, const float* b2, const unsigned int xsize, const unsigned int ysize,
-                                 const unsigned int step) {
-  size_t channel_size = xsize * ysize * sizeof(float);
-
-  ocl_args_d_t& ocl = getOcl();
-  ocl_channels xyb0 = ocl.allocMemChannels(channel_size, r, g, b);
-
-  ocl_channels xyb1 = ocl.allocMemChannels(channel_size, r2, g2, b2);
-
-  cl_mem mem_result = ocl.allocMem(channel_size, result);
-
-  clDiffmapOpsinDynamicsImageEx(mem_result, xyb0, xyb1, xsize, ysize, step);
-
-  LOG_CL_RESULT(clEnqueueReadBuffer(ocl.commandQueue, mem_result, false, 0, channel_size, result, 0, NULL, NULL));
-  cl_int err = clFinish(ocl.commandQueue);
-
-  ocl.releaseMemChannels(xyb1);
-  ocl.releaseMemChannels(xyb0);
-
-  ocl.releaseMem(mem_result);
-}
-
 void clComputeBlockZeroingOrder(guetzli::CoeffData* output_order_batch, const channel_info orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, const int image_width,
                                 const int image_height, const channel_info mayout_channel[3], const int factor,
@@ -271,21 +248,6 @@ void clDiffmapOpsinDynamicsImageEx(cl_mem result, ocl_channels xyb0, ocl_channel
   ocl.releaseMem(block_diff_dc);
   ocl.releaseMem(block_diff_ac);
 }
-void clConvolutionEx(cl_mem result /*out*/, const cl_mem inp, unsigned int xsize, unsigned int ysize,
-                     const cl_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio) {
-  ocl_args_d_t& ocl = getOcl();
-
-  size_t oxsize = (xsize + xstep - 1) / xstep;
-
-  cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTION];
-  const int oxsize_arg = (int)oxsize, ysize_arg = (int)ysize;
-  clSetKernelArgEx(kernel, &result, &inp, &xsize, &multipliers, &len, &xstep, &offset, &border_ratio, &oxsize_arg,
-                   &ysize_arg);
-
-  cl_int err = clEnqueueRange2D(kernel, oxsize, ysize);
-  LOG_CL_RESULT(err);
-}
-
 // Scale table for a convolution with the (constant, cached) weights buffer
 // multipliers over n samples: clConvolutionScaleEx is run once per
 // {multipliers, n, step, border_ratio} and the result kept on the device.

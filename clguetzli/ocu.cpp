@@ -151,7 +151,6 @@ ocu_args_d_t& getOcu(void) {
     KernelName id;
     const char* name;
   } kKernels[] = {
-      {KERNEL_CONVOLUTION, "clConvolutionEx"},
       {KERNEL_CONVOLUTIONX, "clConvolutionXEx"},
       {KERNEL_CONVOLUTIONY, "clConvolutionYEx"},
       {KERNEL_SQUARESAMPLE, "clSquareSampleEx"},

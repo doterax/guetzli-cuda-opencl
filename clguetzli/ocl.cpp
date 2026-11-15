@@ -111,9 +111,6 @@ ocl_args_d_t& getOcl() {
 
   cl_int err = 0;
 
-  ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
-  LOG_CL_RESULT(err);
-
   ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
   LOG_CL_RESULT(err);
   ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);

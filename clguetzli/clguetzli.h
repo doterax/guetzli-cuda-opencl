@@ -17,10 +17,6 @@
 
 void clOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize, const unsigned int ysize);
 
-void clDiffmapOpsinDynamicsImage(float* result, const float* r, const float* g, const float* b, const float* r2,
-                                 const float* g2, const float* b2, const unsigned int xsize, const unsigned int ysize,
-                                 const unsigned int step);
-
 void clComputeBlockZeroingOrder(guetzli::CoeffData* output_order_batch, const channel_info orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, const int image_width,
                                 const int image_height, const channel_info mayout_channel[3], const int factor,
@@ -32,9 +28,6 @@ void clMask(float* mask_r, float* mask_g, float* mask_b, float* maskdc_r, float*
 
 void clDiffmapOpsinDynamicsImageEx(cl_mem result, ocl_channels xyb0, ocl_channels xyb1, const unsigned int xsize,
                                    const unsigned int ysize, const unsigned int step);
-
-void clConvolutionEx(cl_mem result /*out*/, const cl_mem inp, unsigned int xsize, unsigned int ysize,
-                     const cl_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio);
 
 void clConvolutionXEx(cl_mem result /*out*/, const cl_mem inp, unsigned int xsize, unsigned int ysize,
                       const cl_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio);

@@ -14,10 +14,6 @@
 
 void cuOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize, const unsigned int ysize);
 
-void cuDiffmapOpsinDynamicsImage(float* result, const float* r, const float* g, const float* b, const float* r2,
-                                 const float* g2, const float* b2, const unsigned int xsize, const unsigned int ysize,
-                                 const unsigned int step);
-
 void cuComputeBlockZeroingOrder(guetzli::CoeffData* output_order_batch, const channel_info orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, const int image_width,
                                 const int image_height, const channel_info mayout_channel[3], const int factor,
