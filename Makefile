@@ -584,7 +584,7 @@ else
 	@$(MKDIR) $(OBJ_TARGET_DIR) 2>/dev/null || true
 endif
 
-# Prevent Make's implicit %: %.cpp rule from trying to compile .cl.cpp -> .cl
+# The kernel source is not a make target (no implicit rule should try to build it)
 $(CLGUETZLI_DIR)/clguetzli.cl: ;
 
 # Build minilzoc tool (needed for LZO compression of embedded GPU kernels)

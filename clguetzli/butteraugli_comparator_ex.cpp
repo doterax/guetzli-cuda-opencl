@@ -1,59 +1,22 @@
 /*
-* OpenCL/CUDA edition implementation of ButteraugliComparator.
-*
-* Author: strongtu@tencent.com
-*         ianhuang@tencent.com
-*         chriskzhou@tencent.com
-*/
+ * OpenCL/CUDA edition implementation of ButteraugliComparator.
+ *
+ * Author: strongtu@tencent.com
+ *         ianhuang@tencent.com
+ *         chriskzhou@tencent.com
+ */
 #include <algorithm>
 #include <stdint.h>
 #include <vector>
-#include "utils.h"
-
-
 
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
-using namespace std;
-
-int g_idvec[10] = { 0 };
-int g_sizevec[10] = { 0 };
-
-int get_global_id(int dim) {
-    return g_idvec[dim];
-}
-int get_global_size(int dim) {
-    return g_sizevec[dim];
-}
-
-void set_global_id(int dim, int id){
-    g_idvec[dim] = id;
-}
-void set_global_size(int dim, int size){
-    g_sizevec[dim] = size;
-}
-
-#define __checkcl
 #include "clguetzli.h"
+#include "opsin_block.h"
 #ifdef __USE_CUDA__
 #include "cuguetzli.h"
 #include "ocu.h"
 #endif
-#define abs(exper)    fabs((exper))
-
-// Re-define kernel qualifiers that clguetzli.cl.h #undef'd.  The .cl kernel
-// source below uses these as type specifiers (e.g. __global const float *).
-// In C++ they must expand to nothing; in real OpenCL/CUDA they are keywords.
-#if !defined(__OPENCL_VERSION__) && !defined(__CUDACC__)
-#define __kernel
-#define __private
-#define __global
-#define __constant
-#define __constant_ex
-#define __device__
-#endif
-
-#include "clguetzli.cl"
 
 namespace guetzli
 {
@@ -69,7 +32,7 @@ namespace guetzli
             rgb_orig_opsin[1].resize(width * height);
             rgb_orig_opsin[2].resize(width * height);
 
-            const float* lut = kSrgb8ToLinearTable;
+            const float* lut = Srgb8ToLinearTableF();
             
             for (int c = 0; c < 3; ++c) {
                 for (int y = 0, ix = 0; y < height_; ++y) {
@@ -169,7 +132,7 @@ namespace guetzli
         const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
         const int num_blocks = block_width * block_height;
 
-        const float* lut = kSrgb8ToLinearTable;
+        const float* lut = Srgb8ToLinearTableF();
 
         imgOpsinDynamicsBlockList.resize(num_blocks * 3 * kDCTBlockSize);
         imgMaskXyzScaleBlockList.resize(num_blocks * 3);
@@ -193,7 +156,7 @@ namespace guetzli
                     }
                 }
 
-                CalcOpsinDynamicsImage((float(*)[64])curR);
+                OpsinDynamicsBlock8x8((float(*)[kOpsinBlockSize])curR);
 
                 int xmin = block_x * 8;
                 int ymin = block_y * 8;
