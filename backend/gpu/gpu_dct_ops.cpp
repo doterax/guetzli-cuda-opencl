@@ -13,8 +13,8 @@ void GpuDctOps::copyFromJpegComponent(OutputImageComponent& c, const JPEGCompone
   const int bw = c.width_in_blocks();
   const int bh = c.height_in_blocks();
   std::vector<uint8_t> idct(static_cast<size_t>(bw) * bh * kDCTBlockSize);
-  kernels_.copy_from_jpeg_component(c.mutable_coeffs(), idct.data(), comp.coeffs.data(), quant, comp.width_in_blocks,
-                                    comp.height_in_blocks, bw, bh, c.width(), c.height());
+  kernels_->copyFromJpegComponent(c.mutable_coeffs(), idct.data(), comp.coeffs.data(), quant, comp.width_in_blocks,
+                                  comp.height_in_blocks, bw, bh, c.width(), c.height());
   for (int block_y = 0; block_y < bh; ++block_y) {
     for (int block_x = 0; block_x < bw; ++block_x) {
       const int offset = (block_y * bw + block_x) * kDCTBlockSize;
@@ -29,7 +29,7 @@ void GpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDC
   const int bh = c.height_in_blocks();
   std::vector<uint8_t> idct(static_cast<size_t>(bw) * bh * kDCTBlockSize);
   std::vector<uint8_t> changed(static_cast<size_t>(bw) * bh);
-  kernels_.apply_global_quantization(c.mutable_coeffs(), idct.data(), changed.data(), q, bw, bh);
+  kernels_->applyGlobalQuantization(c.mutable_coeffs(), idct.data(), changed.data(), q, bw, bh);
   for (int block_y = 0; block_y < bh; ++block_y) {
     for (int block_x = 0; block_x < bw; ++block_x) {
       const int block_ix = block_y * bw + block_x;
@@ -42,7 +42,7 @@ void GpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDC
 }
 
 void GpuDctOps::toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize, std::vector<uint8_t>& rgb) {
-  kernels_.components_to_pixels(rgb.data(), xmin, ymin, xsize, ysize, img.components());
+  kernels_->componentsToPixels(rgb.data(), xmin, ymin, xsize, ysize, img.components());
 }
 
 }  // namespace guetzli

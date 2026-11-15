@@ -7,7 +7,7 @@
 
 #include "app/application.h"
 #include "app/cli.h"
-#include "backend/opencl/opencl_kernels.h"
+#include "backend/factory.h"
 #include "guetzli/version.h"
 #include "logging/logger.h"
 #ifdef __USE_GPERFTOOLS__
@@ -35,12 +35,7 @@ void terminateHandler() {
 
 int showVersion() {
   std::fprintf(stdout, "Guetzli JPEG compressor (%s) - CUDA/OpenCL Optimized\n\n", guetzli::kVersion);
-#ifdef __USE_CUDA__
-  enumCudaDevices();
-#endif
-#ifdef __USE_OPENCL__
-  enumOpenClDevices();
-#endif
+  guetzli::printGpuDevices();
   return 0;
 }
 

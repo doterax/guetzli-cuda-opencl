@@ -1,73 +1,142 @@
-/*
-* CUDA Manager
-*
-* Author: strongtu@tencent.com
-*/
-#pragma once
+// CUDA device context: driver, device context, module, kernels, stream, memory pool and constant tables of one
+// backend instance.
+//
+// Author: strongtu@tencent.com
+#ifndef GUETZLI_BACKEND_CUDA_CUDA_CONTEXT_H_
+#define GUETZLI_BACKEND_CUDA_CUDA_CONTEXT_H_
 
 #ifdef __USE_CUDA__
 
-#include <map>
-#include <vector>
 #include <cuda.h>
+
+#include <cstddef>
+
 #include "backend/cuda/cuda_driver.h"
-#include "backend/opencl/opencl_context.h"
 #include "backend/cuda/cuda_memory_pool.h"
+#include "backend/gpu/constant_cache.h"
 #include "backend/gpu/gpu_options.h"
+#include "backend/gpu/kernel_names.h"
+#include "backend/gpu_error.h"
+#include "clguetzli/clguetzli.cl.h"
+#include "logging/logger.h"
 
-// Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
-#define LOG_CU_RESULT(e)                                                                                       \
-  do {                                                                                                         \
-    const CUresult _cu_res = (e);                                                                              \
-    if (CUDA_SUCCESS != _cu_res) {                                                                             \
-      LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateCUDAError(_cu_res));            \
-      throw GpuError(std::string("CUDA call failed in ") + __FUNCTION__ + ": " + TranslateCUDAError(_cu_res)); \
-    }                                                                                                          \
-  } while (0)
-
-struct ocu_args_d_t;
+namespace guetzli {
 
 const char* TranslateCUDAError(CUresult errorCode);
 
-// Device selection for the (lazy) CUDA initialization; call before first use.
-void configureCuda(const GpuOptions& options);
-bool supportsCuda();
-void enumCudaDevices();
-ocu_args_d_t& getOcu(void);
+// Throws GpuError("CUDA call failed in <where>: <error>").
+[[noreturn]] void throwCudaError(CUresult err, const char* where);
 
-struct ocu_args_d_t {
-  ocu_args_d_t();
-  ~ocu_args_d_t();
+// Evaluates e once; on failure throws GpuError (Application falls back to the CPU).
+#define CU_CHECK(e)                                          \
+  do {                                                       \
+    const CUresult cu_check_result_ = (e);                   \
+    if (CUDA_SUCCESS != cu_check_result_) {                  \
+      ::guetzli::throwCudaError(cu_check_result_, __func__); \
+    }                                                        \
+  } while (0)
 
-  cu_mem allocMem(size_t s, const void* init = NULL);
-  void releaseMem(cu_mem mem);
-  ocu_channels allocMemChannels(size_t s, const void* c0 = NULL, const void* c1 = NULL, const void* c2 = NULL);
-  void releaseMemChannels(ocu_channels& rgb);
-  // Contents undefined: only for buffers that are fully overwritten before being read.
-  cu_mem allocMemUninit(size_t s);
-  ocu_channels allocMemChannelsUninit(size_t s);
+// A device buffer from the context's pool; returned to the pool when destroyed. The single stream orders any later
+// reuse of the buffer after the work already queued on it.
+class CuBuffer {
+ public:
+  CuBuffer() = default;
+  CuBuffer(CuBuffer&& other) noexcept;
+  CuBuffer& operator=(CuBuffer&& other) noexcept;
+  CuBuffer(const CuBuffer&) = delete;
+  CuBuffer& operator=(const CuBuffer&) = delete;
+  ~CuBuffer();
 
-  // Device-resident constant tables, uploaded once and kept for the context's lifetime.
-  cu_mem getBlurWeights(float sigma, const std::vector<float>& weights);
-  cu_mem getMaskLut(int i, const float* lut512);  // six 512-entry DoMask LUTs
-  cu_mem getSrgbToLinearLut();                    // float of guetzli::Srgb8ToLinearTable()
-  // Convolution scale tables (clConvolutionScaleEx), keyed by {weights buffer, n, step,
-  // border_ratio bits}; filled by cuguetzli.cpp, freed with the context.
-  std::map<std::vector<size_t>, cu_mem> convScales;
-
-  CUfunction kernel[KERNEL_COUNT];
-  CUstream commandQueue;
-  CUmodule mod;
-  CUcontext ctxt;
-  CUdevice dev;
-  cu_mem_pool_t mem_pool;
+  // A reference, so that &buffer.get() can be passed as a kernel argument.
+  [[nodiscard]] const cu_mem& get() const { return mem_; }
 
  private:
-  cu_mem uploadConstant(const void* data, size_t s);
+  friend class CudaContext;
+  CuBuffer(CudaMemoryPool* pool, cu_mem mem) : pool_(pool), mem_(mem) {}
 
-  std::map<unsigned int, cu_mem> blurWeights;  // keyed by sigma's bit pattern
-  cu_mem maskLut[6];
-  cu_mem srgbLut;
+  CudaMemoryPool* pool_ = nullptr;
+  cu_mem mem_ = 0;
 };
 
-#endif
+// Three planes from the pool; view() gives the handles to pass to the launchers.
+struct CuChannels {
+  CuBuffer ch[3];
+  [[nodiscard]] ocu_channels view() const {
+    ocu_channels v;
+    for (int i = 0; i < 3; i++) v.ch[i] = ch[i].get();
+    return v;
+  }
+};
+
+// A device allocation outside the pool (constant tables); freed when destroyed.
+class CuMemory {
+ public:
+  CuMemory(const CudaDriver& driver, cu_mem mem) : driver_(&driver), mem_(mem) {}
+  CuMemory(CuMemory&& other) noexcept : driver_(other.driver_), mem_(other.mem_) { other.mem_ = 0; }
+  CuMemory& operator=(CuMemory&&) = delete;
+  CuMemory(const CuMemory&) = delete;
+  CuMemory& operator=(const CuMemory&) = delete;
+  ~CuMemory() {
+    if (mem_) driver_->memFree(mem_);
+  }
+
+  [[nodiscard]] cu_mem get() const { return mem_; }
+
+ private:
+  const CudaDriver* driver_;
+  cu_mem mem_;
+};
+
+class CudaContext {
+ public:
+  // Creates a context on the selected device (options.device, else device 0), JIT-compiles the embedded PTX and
+  // looks up the kernels. Throws GpuError.
+  CudaContext(const CudaDriver& driver, const GpuOptions& options, ILogger& logger);
+  ~CudaContext();
+  CudaContext(const CudaContext&) = delete;
+  CudaContext& operator=(const CudaContext&) = delete;
+
+  [[nodiscard]] const CudaDriver& driver() const { return driver_; }
+  [[nodiscard]] CUstream stream() const { return stream_; }
+  [[nodiscard]] CUfunction kernel(KernelName name) const { return kernels_[name]; }
+  // Launches f on a gx x gy grid of bx x by blocks on the stream.
+  void launch(CUfunction f, unsigned int gx, unsigned int gy, unsigned int bx, unsigned int by, const void* args[]);
+  // Waits for all queued work.
+  void finish();
+
+  // Pooled buffers of `bytes` bytes.
+  [[nodiscard]] CuBuffer zeroed(size_t bytes);
+  // Contents undefined: only for buffers that are fully overwritten before being read.
+  [[nodiscard]] CuBuffer uninitialized(size_t bytes);
+  // Queued upload from pageable host memory (staged before the call returns).
+  [[nodiscard]] CuBuffer upload(size_t bytes, const void* data);
+  [[nodiscard]] CuChannels zeroedChannels(size_t bytes);
+  [[nodiscard]] CuChannels uninitializedChannels(size_t bytes);
+  [[nodiscard]] CuChannels uploadChannels(size_t bytes, const void* c0, const void* c1, const void* c2);
+
+  // Unpooled allocations for constant tables.
+  [[nodiscard]] CuMemory allocateMemory(size_t bytes);
+  [[nodiscard]] CuMemory uploadMemory(size_t bytes, const void* data);  // synchronous
+  [[nodiscard]] ConstantCache<CuMemory>& constants() { return constants_; }
+
+ private:
+  void destroy() noexcept;
+
+  CudaDriver driver_;
+  ILogger& logger_;
+  CUcontext context_ = nullptr;
+  CUmodule module_ = nullptr;
+  CUstream stream_ = nullptr;
+  CUfunction kernels_[KERNEL_COUNT] = {};
+  CudaMemoryPool pool_;
+  ConstantCache<CuMemory> constants_;
+};
+
+// Prints the CUDA devices with their indices for --version (stdout).
+void enumCudaDevices();
+
+}  // namespace guetzli
+
+#endif  // __USE_CUDA__
+
+#endif  // GUETZLI_BACKEND_CUDA_CUDA_CONTEXT_H_

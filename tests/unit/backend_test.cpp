@@ -81,14 +81,15 @@ TEST_CASE("auto tries CUDA, then OpenCL, then falls back to the CPU") {
 
 TEST_CASE("makeBackend: the CPU backend provides every capability; Auto must be resolved first") {
   RecordingLogger logger;
+  guetzli::GpuDevices devices(guetzli::BackendOptions{}, logger);  // CPU backends never touch them
   for (bool check : {false, true}) {
-    const guetzli::Backend backend = guetzli::makeBackend(BackendKind::Cpu, check, logger);
+    const guetzli::Backend backend = guetzli::makeBackend(BackendKind::Cpu, check, devices, logger);
     CHECK(backend.kind == BackendKind::Cpu);
     CHECK(backend.comparators != nullptr);
     CHECK(backend.block_zeroing != nullptr);
     CHECK(backend.dct != nullptr);
   }
-  CHECK_THROWS_AS((void)guetzli::makeBackend(BackendKind::Auto, false, logger), std::logic_error);
+  CHECK_THROWS_AS((void)guetzli::makeBackend(BackendKind::Auto, false, devices, logger), std::logic_error);
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -1,28 +1,22 @@
-// Butteraugli on a GPU. OpenCL and CUDA differ only in the kernel launchers and the device-resident
-// Compare() state, which the leaf classes in backend/opencl and backend/cuda provide.
+// Butteraugli on a GPU. OpenCL and CUDA differ only in the kernel launchers (GpuButteraugliKernels).
 #ifndef GUETZLI_BACKEND_GPU_GPU_COMPARATOR_H_
 #define GUETZLI_BACKEND_GPU_GPU_COMPARATOR_H_
 
+#include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
+#include "backend/gpu/gpu_kernels.h"
 #include "guetzli/butteraugli_comparator.h"
 
 namespace guetzli {
-
-// The cl*/cu* launchers for the image operations (clguetzli.h, cuguetzli.h).
-struct GpuButteraugliKernels {
-  void (*opsin_dynamics_image)(float* r, float* g, float* b, unsigned int xsize, unsigned int ysize);
-  void (*mask)(float* mask_r, float* mask_g, float* mask_b, float* maskdc_r, float* maskdc_g, float* maskdc_b,
-               unsigned int xsize, unsigned int ysize, const float* r, const float* g, const float* b, const float* r2,
-               const float* g2, const float* b2);
-};
 
 // Images larger than 100x100 run on the device; smaller ones, and MaskHighIntensityChange, use the
 // reference code in butteraugli.h.
 class GpuButteraugliOps final : public ButteraugliOps {
  public:
-  explicit GpuButteraugliOps(const GpuButteraugliKernels& kernels) : kernels_(kernels) {}
+  explicit GpuButteraugliOps(std::shared_ptr<GpuButteraugliKernels> kernels) : kernels_(std::move(kernels)) {}
 
   void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) override;
   void Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
@@ -32,27 +26,40 @@ class GpuButteraugliOps final : public ButteraugliOps {
                                std::vector<std::vector<float>>& xyb1) override;
 
  private:
-  GpuButteraugliKernels kernels_;
+  std::shared_ptr<GpuButteraugliKernels> kernels_;
 };
 
-class GpuButteraugliComparator : public ButteraugliComparator {
+class GpuButteraugliComparator final : public ButteraugliComparator {
  public:
-  using ButteraugliComparator::ButteraugliComparator;
+  GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
+                           ProcessStats* stats, ButteraugliOps& ops, std::shared_ptr<GpuButteraugliKernels> kernels);
+  ~GpuButteraugliComparator() override;
 
   // The original image stays on the device; the output image is converted to linear RGB there.
-  void Compare(const OutputImage& img) final;
+  void Compare(const OutputImage& img) override;
   // Also builds the per-block lists for the device block-zeroing search (once per image).
-  void StartBlockComparisons() final;
-  std::optional<BlockReferenceData> blockReferenceData() const final;
-
- protected:
-  // Computes the distance map of img against rgb_orig_opsin_ (width_ * height_ values) on the device.
-  virtual void compareOnDevice(const OutputImage& img, float* distmap) = 0;
+  void StartBlockComparisons() override;
+  std::optional<BlockReferenceData> blockReferenceData() const override;
 
  private:
+  std::shared_ptr<GpuButteraugliKernels> kernels_;
+  std::unique_ptr<GpuCompareSession> session_;  // created on the first Compare()
   bool block_lists_ready_ = false;
   std::vector<float> opsin_blocks_;       // [RR..RRGG..GGBB..BB] per block
   std::vector<float> mask_scale_blocks_;  // [RGB] per block
+};
+
+class GpuComparatorFactory final : public IComparatorFactory {
+ public:
+  explicit GpuComparatorFactory(const std::shared_ptr<GpuButteraugliKernels>& kernels)
+      : kernels_(kernels), ops_(kernels) {}
+
+  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
+                                     ProcessStats* stats) override;
+
+ private:
+  std::shared_ptr<GpuButteraugliKernels> kernels_;
+  GpuButteraugliOps ops_;
 };
 
 }  // namespace guetzli

@@ -1,150 +1,62 @@
-/*
- * Dynamic loading of CUDA driver API (nvcuda.dll / libcuda.so)
- *
- * This avoids a hard link-time dependency on the CUDA driver library,
- * allowing the binary to start on systems without NVIDIA drivers
- * (e.g. AMD-only machines) and gracefully fall back to OpenCL or CPU.
- *
- * Usage:
- *   #include <cuda.h>          // still needed for type definitions
- *   #include "backend/cuda/cuda_driver.h"  // redefines API calls to function pointers
- *
- * Call cudaDynloadInit() once at startup. Returns true if nvcuda loaded.
- */
-#pragma once
+// The CUDA driver API (nvcuda.dll / libcuda.so), loaded at runtime.
+//
+// This avoids a link-time dependency on the driver library, so the binary starts on systems without NVIDIA
+// drivers (e.g. AMD-only machines) and falls back to OpenCL or the CPU. cuda.h is still needed for the types.
+#ifndef GUETZLI_BACKEND_CUDA_CUDA_DRIVER_H_
+#define GUETZLI_BACKEND_CUDA_CUDA_DRIVER_H_
 
 #ifdef __USE_CUDA__
 
 #include <cuda.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <optional>
+#include <string>
 
-/* --- Function pointer typedefs for every CUDA Driver API function we use --- */
+#include "logging/logger.h"
 
-typedef CUresult(CUDAAPI* PFN_cuInit)(unsigned int Flags);
-typedef CUresult(CUDAAPI* PFN_cuCtxCreate)(CUcontext* pctx, unsigned int flags, CUdevice dev);
-typedef CUresult(CUDAAPI* PFN_cuCtxDestroy)(CUcontext ctx);
-typedef CUresult(CUDAAPI* PFN_cuCtxSetCacheConfig)(CUfunc_cache config);
-typedef CUresult(CUDAAPI* PFN_cuDeviceGetAttribute)(int* pi, CUdevice_attribute attrib, CUdevice dev);
-typedef CUresult(CUDAAPI* PFN_cuDeviceGetCount)(int* count);
-typedef CUresult(CUDAAPI* PFN_cuDeviceGet)(CUdevice* device, int ordinal);
-typedef CUresult(CUDAAPI* PFN_cuDeviceGetName)(char* name, int len, CUdevice dev);
-typedef CUresult(CUDAAPI* PFN_cuMemAlloc)(CUdeviceptr* dptr, size_t bytesize);
-typedef CUresult(CUDAAPI* PFN_cuMemFree)(CUdeviceptr dptr);
-typedef CUresult(CUDAAPI* PFN_cuMemcpyDtoH)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount);
-typedef CUresult(CUDAAPI* PFN_cuMemcpyDtoHAsync)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount,
-                                                 CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuMemcpyHtoDAsync)(CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount,
-                                                 CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuMemcpyDtoD)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount);
-typedef CUresult(CUDAAPI* PFN_cuMemcpyDtoDAsync)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount,
-                                                 CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuMemsetD8Async)(CUdeviceptr dstDevice, unsigned char uc, size_t N, CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuModuleLoadDataEx)(CUmodule* module, const void* image, unsigned int numOptions,
-                                                  CUjit_option* options, void** optionValues);
-typedef CUresult(CUDAAPI* PFN_cuModuleUnload)(CUmodule hmod);
-typedef CUresult(CUDAAPI* PFN_cuModuleGetFunction)(CUfunction* hfunc, CUmodule hmod, const char* name);
-typedef CUresult(CUDAAPI* PFN_cuStreamCreate)(CUstream* phStream, unsigned int Flags);
-typedef CUresult(CUDAAPI* PFN_cuStreamSynchronize)(CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuStreamDestroy)(CUstream hStream);
-typedef CUresult(CUDAAPI* PFN_cuLaunchKernel)(CUfunction f, unsigned int gridDimX, unsigned int gridDimY,
-                                              unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY,
-                                              unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream,
-                                              void** kernelParams, void** extra);
+namespace guetzli {
 
-/* --- Extern function pointer declarations --- */
+// The driver entry points this program uses. A plain value: copying it copies the function pointers.
+struct CudaDriver {
+  // Loads the driver library and resolves every entry point. Returns nullopt if the library is not installed (silent)
+  // or an entry point is missing (logged). The library stays loaded for the rest of the process: unloading the
+  // driver while it may still run threads is not safe.
+  [[nodiscard]] static std::optional<CudaDriver> load(ILogger& logger);
 
-extern PFN_cuInit dynCuInit;
-extern PFN_cuCtxCreate dynCuCtxCreate;
-extern PFN_cuCtxDestroy dynCuCtxDestroy;
-extern PFN_cuCtxSetCacheConfig dynCuCtxSetCacheConfig;
-extern PFN_cuDeviceGetAttribute dynCuDeviceGetAttribute;
-extern PFN_cuDeviceGetCount dynCuDeviceGetCount;
-extern PFN_cuDeviceGet dynCuDeviceGet;
-extern PFN_cuDeviceGetName dynCuDeviceGetName;
-extern PFN_cuMemAlloc dynCuMemAlloc;
-extern PFN_cuMemFree dynCuMemFree;
-extern PFN_cuMemcpyDtoH dynCuMemcpyDtoH;
-extern PFN_cuMemcpyDtoHAsync dynCuMemcpyDtoHAsync;
-extern PFN_cuMemcpyHtoDAsync dynCuMemcpyHtoDAsync;
-extern PFN_cuMemcpyDtoD dynCuMemcpyDtoD;
-extern PFN_cuMemcpyDtoDAsync dynCuMemcpyDtoDAsync;
-extern PFN_cuMemsetD8Async dynCuMemsetD8Async;
-extern PFN_cuModuleLoadDataEx dynCuModuleLoadDataEx;
-extern PFN_cuModuleUnload dynCuModuleUnload;
-extern PFN_cuModuleGetFunction dynCuModuleGetFunction;
-extern PFN_cuStreamCreate dynCuStreamCreate;
-extern PFN_cuStreamSynchronize dynCuStreamSynchronize;
-extern PFN_cuStreamDestroy dynCuStreamDestroy;
-extern PFN_cuLaunchKernel dynCuLaunchKernel;
+  CUresult(CUDAAPI* init)(unsigned int Flags) = nullptr;
+  CUresult(CUDAAPI* ctxCreate)(CUcontext* pctx, unsigned int flags, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* ctxDestroy)(CUcontext ctx) = nullptr;
+  CUresult(CUDAAPI* ctxSetCacheConfig)(CUfunc_cache config) = nullptr;
+  CUresult(CUDAAPI* deviceGetAttribute)(int* pi, CUdevice_attribute attrib, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* deviceGetCount)(int* count) = nullptr;
+  CUresult(CUDAAPI* deviceGet)(CUdevice* device, int ordinal) = nullptr;
+  CUresult(CUDAAPI* deviceGetName)(char* name, int len, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* memAlloc)(CUdeviceptr* dptr, size_t bytesize) = nullptr;
+  CUresult(CUDAAPI* memFree)(CUdeviceptr dptr) = nullptr;
+  CUresult(CUDAAPI* memcpyDtoH)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount) = nullptr;
+  CUresult(CUDAAPI* memcpyDtoHAsync)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount,
+                                     CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* memcpyHtoDAsync)(CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount,
+                                     CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* memcpyDtoD)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount) = nullptr;
+  CUresult(CUDAAPI* memcpyDtoDAsync)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount,
+                                     CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* memsetD8Async)(CUdeviceptr dstDevice, unsigned char uc, size_t N, CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* moduleLoadDataEx)(CUmodule* module, const void* image, unsigned int numOptions,
+                                      CUjit_option* options, void** optionValues) = nullptr;
+  CUresult(CUDAAPI* moduleUnload)(CUmodule hmod) = nullptr;
+  CUresult(CUDAAPI* moduleGetFunction)(CUfunction* hfunc, CUmodule hmod, const char* name) = nullptr;
+  CUresult(CUDAAPI* streamCreate)(CUstream* phStream, unsigned int Flags) = nullptr;
+  CUresult(CUDAAPI* streamSynchronize)(CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* streamDestroy)(CUstream hStream) = nullptr;
+  CUresult(CUDAAPI* launchKernel)(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
+                                  unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
+                                  unsigned int sharedMemBytes, CUstream hStream, void** kernelParams,
+                                  void** extra) = nullptr;
+};
 
-/* --- Runtime loader --- */
+}  // namespace guetzli
 
-/*
- * Attempt to load nvcuda.dll (Windows) or libcuda.so.1 (Linux/macOS).
- * Returns true if the library was loaded and all function pointers resolved.
- * Safe to call multiple times — subsequent calls return the cached result.
- */
-bool cudaDynloadInit();
+#endif  // __USE_CUDA__
 
-/* Returns true if cudaDynloadInit() has already succeeded. */
-bool cudaDynloadAvailable();
-
-#ifdef __cplusplus
-}
-#endif
-
-/* --- Redirect standard CUDA API names to our function pointers --- */
-/* This allows existing code to call cuInit(...) etc. without changes. */
-
-#undef cuInit
-#undef cuCtxCreate
-#undef cuCtxDestroy
-#undef cuCtxSetCacheConfig
-#undef cuDeviceGetAttribute
-#undef cuDeviceGetCount
-#undef cuDeviceGet
-#undef cuDeviceGetName
-#undef cuMemAlloc
-#undef cuMemFree
-#undef cuMemcpyDtoH
-#undef cuMemcpyDtoHAsync
-#undef cuMemcpyHtoDAsync
-#undef cuMemcpyDtoD
-#undef cuMemcpyDtoDAsync
-#undef cuMemsetD8Async
-#undef cuModuleLoadDataEx
-#undef cuModuleUnload
-#undef cuModuleGetFunction
-#undef cuStreamCreate
-#undef cuStreamSynchronize
-#undef cuStreamDestroy
-#undef cuLaunchKernel
-
-#define cuInit dynCuInit
-#define cuCtxCreate dynCuCtxCreate
-#define cuCtxDestroy dynCuCtxDestroy
-#define cuCtxSetCacheConfig dynCuCtxSetCacheConfig
-#define cuDeviceGetAttribute dynCuDeviceGetAttribute
-#define cuDeviceGetCount dynCuDeviceGetCount
-#define cuDeviceGet dynCuDeviceGet
-#define cuDeviceGetName dynCuDeviceGetName
-#define cuMemAlloc dynCuMemAlloc
-#define cuMemFree dynCuMemFree
-#define cuMemcpyDtoH dynCuMemcpyDtoH
-#define cuMemcpyDtoHAsync dynCuMemcpyDtoHAsync
-#define cuMemcpyHtoDAsync dynCuMemcpyHtoDAsync
-#define cuMemcpyDtoD dynCuMemcpyDtoD
-#define cuMemcpyDtoDAsync dynCuMemcpyDtoDAsync
-#define cuMemsetD8Async dynCuMemsetD8Async
-#define cuModuleLoadDataEx dynCuModuleLoadDataEx
-#define cuModuleUnload dynCuModuleUnload
-#define cuModuleGetFunction dynCuModuleGetFunction
-#define cuStreamCreate dynCuStreamCreate
-#define cuStreamSynchronize dynCuStreamSynchronize
-#define cuStreamDestroy dynCuStreamDestroy
-#define cuLaunchKernel dynCuLaunchKernel
-
-#endif /* __USE_CUDA__ */
+#endif  // GUETZLI_BACKEND_CUDA_CUDA_DRIVER_H_

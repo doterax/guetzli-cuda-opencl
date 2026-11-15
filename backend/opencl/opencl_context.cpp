@@ -1,82 +1,66 @@
-/*
-* OpenCL Manager
-*
-* Author: strongtu@tencent.com
-*         ianhuang@tencent.com
-*/
-
-#include <string.h>
-#include <string>
-#include <vector>
-#include <stdexcept>
-#include "backend/opencl/opencl_context.h"
-#include "backend/opencl/opencl_kernels.h"
-#include "clguetzli/clguetzli_cl_src.h"
-#include "clguetzli/lzodec.h"
-#include "guetzli/gamma_correct.h"
-//#define LOG
-//#define UTILITIES_FILE
-#include "third_party/OpenCL-Wrapper/opencl.hpp"
-
-using std::string;
-
+// OpenCL device context.
+//
+// Author: strongtu@tencent.com
+//         ianhuang@tencent.com
 #ifdef __USE_OPENCL__
 
-void PrintDeviceCapabilities(const Device_Info& deviceInfo);
+#include "backend/opencl/opencl_context.h"
 
-string opencl_c_container() {
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "clguetzli/clguetzli_cl_src.h"
+#include "clguetzli/lzodec.h"
+#include "third_party/OpenCL-Wrapper/opencl.hpp"
+
+namespace guetzli {
+
+namespace {
+
+std::string openClSource() {
   LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
   if (!decompressed.isValid()) {
     throw GpuError("failed to decompress embedded OpenCL source");
   }
-  return string((char*)decompressed.getData(), decompressed.getSize());
+  return std::string((char*)decompressed.getData(), decompressed.getSize());
 }
 
-//inline Device_Info select_device_oclgrind_or_with_most_flops(const vector<Device_Info>& devices = get_devices()) { // returns device with best floating-point performance
-//	string simulator = "Oclgrind Simulator";
-//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
-//		if (devices[i].name.find(simulator) != std::string::npos) {
-//			return devices[i];
-//		}
-//	}
-//	float best_value = 0.0f;
-//	uint best_i = 0u;
-//	for (uint i = 0u; i < (uint)devices.size(); i++) { // find device with highest (estimated) floating point performance
-//		if (devices[i].tflops > best_value) {
-//			best_value = devices[i].tflops;
-//			best_i = i;
-//		}
-//	}
-//	return devices[best_i];
-//}
-
-namespace {
-// Owned by the OpenCL singleton until contexts become backend-owned objects (modernization phase 4).
-GpuOptions& oclOptions() {
-  static GpuOptions options;
-  return options;
-}
 }  // namespace
 
-void configureOpenCl(const GpuOptions& options) {
-  oclOptions() = options;
+void throwOpenClError(cl_int err, const char* where) {
+  throw GpuError(std::string("OpenCL call failed in ") + where + ": " + TranslateOpenCLError(err));
 }
 
-ocl_args_d_t& getOcl() {
-  static bool bInit = false;
-  static ocl_args_d_t ocl;
-  const GpuOptions& options = oclOptions();
+ClBuffer::ClBuffer(ClBuffer&& other) noexcept : owner_(other.owner_), mem_(other.mem_) {
+  other.owner_ = nullptr;
+  other.mem_ = nullptr;
+}
 
-  if (bInit == true) return ocl;
+ClBuffer& ClBuffer::operator=(ClBuffer&& other) noexcept {
+  if (this != &other) {
+    if (owner_) owner_->release(mem_);
+    owner_ = std::exchange(other.owner_, nullptr);
+    mem_ = std::exchange(other.mem_, nullptr);
+  }
+  return *this;
+}
 
+ClBuffer::~ClBuffer() {
+  if (owner_) owner_->release(mem_);
+}
+
+ClMemory::~ClMemory() {
+  if (mem_) clReleaseMemObject(mem_);
+}
+
+OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logger_(logger) {
   MaybeInjectGpuFailure("OpenCL");
 
-  // bInit is set only after successful initialization: on failure a GpuError
-  // propagates and nothing half-initialized is handed out later.
-  vector<Device_Info> devices = get_devices(true);
-
+  std::vector<Device_Info> devices = get_devices(true);
   if (devices.empty()) {
-    LogError("No OpenCL devices found");
     throw GpuError("No OpenCL devices found");
   }
 
@@ -86,96 +70,140 @@ ocl_args_d_t& getOcl() {
     best_device = select_device_with_id((uint)options.device, devices);
   } else {
     if (options.device >= 0) {
-      fprintf(stderr, "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
-              options.device, (int)devices.size());
+      logger_.log(LogLevel::Warning,
+                  "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
+                  options.device, (int)devices.size());
     }
     best_device = select_device_with_most_flops(devices);
   }
 
-  // Check if device is AMD for optimization
-  bool isAmd =
-      contains(to_lower(best_device.vendor), "amd") || contains(to_lower(best_device.vendor), "advanced micro devices");
-
-  string opencl_source = opencl_c_container();
+  const std::string source = openClSource();
   Clock clock;
-  static Device device(best_device, opencl_source);
-  std::string info = "OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n";
-  print_info(info);
+  device_ = std::make_unique<Device>(best_device, source);
+  print_info("OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n");
 
-  ocl.isAmd = isAmd;
+  queue_ = device_->get_cl_queue().get();
+  context_ = device_->get_cl_context().get();
+  const cl_program program = device_->get_cl_program().get();
 
-  ocl.program = device.get_cl_program().get();
-  ocl.commandQueue = device.get_cl_queue().get();
-  ocl.context = device.get_cl_context().get();
-  ocl.device = &device;
-
-  cl_int err = 0;
-
-  ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_SQUARESAMPLE] = clCreateKernel(ocl.program, "clSquareSampleEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_OPSINDYNAMICSIMAGE] = clCreateKernel(ocl.program, "clOpsinDynamicsImageEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_MASKHIGHINTENSITYCHANGE] = clCreateKernel(ocl.program, "clMaskHighIntensityChangeEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_EDGEDETECTOR] = clCreateKernel(ocl.program, "clEdgeDetectorMapEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_BLOCKDIFFMAP] = clCreateKernel(ocl.program, "clBlockDiffMapEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_EDGEDETECTORLOWFREQ] = clCreateKernel(ocl.program, "clEdgeDetectorLowFreqEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_DIFFPRECOMPUTE] = clCreateKernel(ocl.program, "clDiffPrecomputeEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_APPLYGLOBALQUANTIZATION] = clCreateKernel(ocl.program, "clApplyGlobalQuantizationEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COMPONENTSTOPIXELS] = clCreateKernel(ocl.program, "clComponentsToPixels", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_SRGBTOLINEAR] = clCreateKernel(ocl.program, "clSrgbToLinearEx", &err);
-  LOG_CL_RESULT(err);
-  ocl.kernel[KERNEL_CONVOLUTIONSCALE] = clCreateKernel(ocl.program, "clConvolutionScaleEx", &err);
-  LOG_CL_RESULT(err);
+  for (int i = 0; i < KERNEL_COUNT; i++) {
+    cl_int err = CL_SUCCESS;
+    kernels_[i] = clCreateKernel(program, kKernelEntryPoints[i], &err);
+    CL_CHECK(err);
+  }
 
   print_info("OpenCL created\n");
 
-  if (options.verbose) PrintDeviceCapabilities(device.info);
-
-  bInit = true;
-  return ocl;
+  if (logger_.enabled(LogLevel::Debug)) printDeviceCapabilities();
 }
 
-/*
-* Print detailed device capabilities and information
-*/
-void PrintDeviceCapabilities(const Device_Info& deviceInfo) {
+OpenClContext::~OpenClContext() {
+  for (cl_kernel kernel : kernels_) {
+    if (kernel) clReleaseKernel(kernel);
+  }
+  // Pooled buffers; constants_ and device_ (context, queue, program) are released by their destructors.
+  for (const auto& [mem, size] : buffer_sizes_) clReleaseMemObject(mem);
+}
+
+size_t OpenClContext::maxWorkGroupSize(cl_kernel kernel) {
+  auto it = max_work_group_.find(kernel);
+  if (it != max_work_group_.end()) return it->second;
+
+  cl_device_id dev = nullptr;
+  CL_CHECK(clGetCommandQueueInfo(queue_, CL_QUEUE_DEVICE, sizeof(dev), &dev, nullptr));
+  size_t wg = 0;
+  CL_CHECK(clGetKernelWorkGroupInfo(kernel, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(wg), &wg, nullptr));
+  if (wg == 0) wg = 1;
+  max_work_group_[kernel] = wg;
+  return wg;
+}
+
+cl_mem OpenClContext::createBuffer(size_t bytes) {
+  cl_int err = CL_SUCCESS;
+  cl_mem mem = clCreateBuffer(context_, CL_MEM_READ_WRITE, bytes, nullptr, &err);
+  if (err == CL_MEM_OBJECT_ALLOCATION_FAILURE || err == CL_OUT_OF_RESOURCES) {
+    // Idle pooled buffers still hold device memory: free them and retry once.
+    drainPool();
+    mem = clCreateBuffer(context_, CL_MEM_READ_WRITE, bytes, nullptr, &err);
+  }
+  CL_CHECK(err);
+  return mem;
+}
+
+ClBuffer OpenClContext::uninitialized(size_t bytes) {
+  cl_mem mem = nullptr;
+  auto it = free_buffers_.find(bytes);
+  if (it != free_buffers_.end() && !it->second.empty()) {
+    mem = it->second.back();
+    it->second.pop_back();
+  } else {
+    mem = createBuffer(bytes);
+    buffer_sizes_[mem] = bytes;
+  }
+  return ClBuffer(this, mem);
+}
+
+ClBuffer OpenClContext::zeroed(size_t bytes) {
+  ClBuffer buffer = uninitialized(bytes);
+  const cl_char zero = 0;
+  // No clFinish: the pattern is copied at enqueue time and the in-order queue orders the fill before any later use.
+  CL_CHECK(clEnqueueFillBuffer(queue_, buffer.get(), &zero, sizeof(zero), 0, bytes, 0, nullptr, nullptr));
+  return buffer;
+}
+
+ClBuffer OpenClContext::upload(size_t bytes, const void* data) {
+  ClBuffer buffer = uninitialized(bytes);
+  CL_CHECK(clEnqueueWriteBuffer(queue_, buffer.get(), CL_TRUE, 0, bytes, data, 0, nullptr, nullptr));
+  return buffer;
+}
+
+ClChannels OpenClContext::zeroedChannels(size_t bytes) {
+  ClChannels c;
+  for (ClBuffer& b : c.ch) b = zeroed(bytes);
+  return c;
+}
+
+ClChannels OpenClContext::uninitializedChannels(size_t bytes) {
+  ClChannels c;
+  for (ClBuffer& b : c.ch) b = uninitialized(bytes);
+  return c;
+}
+
+ClChannels OpenClContext::uploadChannels(size_t bytes, const void* c0, const void* c1, const void* c2) {
+  ClChannels c;
+  c.ch[0] = upload(bytes, c0);
+  c.ch[1] = upload(bytes, c1);
+  c.ch[2] = upload(bytes, c2);
+  return c;
+}
+
+void OpenClContext::release(cl_mem mem) noexcept {
+  auto it = buffer_sizes_.find(mem);
+  if (it != buffer_sizes_.end()) free_buffers_[it->second].push_back(mem);
+}
+
+void OpenClContext::drainPool() noexcept {
+  for (auto& [size, idle] : free_buffers_) {
+    for (cl_mem mem : idle) {
+      buffer_sizes_.erase(mem);
+      clReleaseMemObject(mem);
+    }
+  }
+  free_buffers_.clear();
+}
+
+ClMemory OpenClContext::createMemory(size_t bytes) {
+  return ClMemory(createBuffer(bytes));
+}
+
+ClMemory OpenClContext::uploadMemory(size_t bytes, const void* data) {
+  ClMemory memory = createMemory(bytes);
+  CL_CHECK(clEnqueueWriteBuffer(queue_, memory.get(), CL_TRUE, 0, bytes, data, 0, nullptr, nullptr));
+  return memory;
+}
+
+void OpenClContext::printDeviceCapabilities() const {
+  const Device_Info& deviceInfo = device_->info;
   // Get platform information from the device's context
   cl_platform_id platform = nullptr;
   cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
@@ -229,241 +257,37 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo) {
   clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
 
   // Print comprehensive device report
-  LogError("=== OpenCL Device Capabilities Report ===\n");
-  LogError("Platform: %s\n", platformName.c_str());
-  LogError("Platform Version: %s\n", platformVersion.c_str());
-  LogError("Platform Vendor: %s\n", platformVendor.c_str());
-  LogError("Device: %s\n", deviceInfo.name.c_str());
-  LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
-  LogError("Device Version: %s\n", deviceVersion);
-  LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
-  LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
-  LogError("\n=== Memory Information ===\n");
-  LogError("Global Memory Size: %u MB\n", deviceInfo.memory);
-  LogError("Local Memory Size: %u KB\n", deviceInfo.local_cache);
-  LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
-  LogError("\n=== Compute Capabilities ===\n");
-  LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
-  LogError("Max Work Group Size: %zu\n", maxWorkGroupSize);
-  LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
-  LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
-  LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
-  LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
-  LogError("Double Precision Support: %s\n",
-           fpConfig != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
-  LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
-  LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
-  LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
-  LogError("Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
-  LogError("Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
-  LogError("Execution Capabilities: %s%s%s\n", (execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
-           (execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
-  LogError("==========================================\n\n");
-}
-
-ocl_args_d_t::ocl_args_d_t()
-    : context(NULL), commandQueue(NULL), device(NULL), program(NULL), allocations(0), isAmd(false), srgbLut(NULL) {
-  for (int i = 0; i < KERNEL_COUNT; i++) {
-    kernel[i] = NULL;
-  }
-  for (int i = 0; i < 6; i++) {
-    maskLut[i] = NULL;
-  }
-}
-
-ocl_args_d_t::~ocl_args_d_t() {
-  cl_int err = CL_SUCCESS;
-  for (int i = 0; i < KERNEL_COUNT; i++) {
-    if (kernel[i] == NULL) continue;  // never created (init failed or not used)
-    err = clReleaseKernel(kernel[i]);
-    if (CL_SUCCESS != err) {
-      LogError("Error: clReleaseKernel returned '%s'.\n", TranslateOpenCLError(err));
-    }
-  }
-
-  if (allocations != 0) {
-    LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
-  }
-
-  // Constant tables and pooled buffers. Never throw from here.
-  for (std::map<unsigned int, cl_mem>::iterator it = blurWeights.begin(); it != blurWeights.end(); ++it)
-    clReleaseMemObject(it->second);
-  for (int i = 0; i < 6; i++)
-    if (maskLut[i]) clReleaseMemObject(maskLut[i]);
-  if (srgbLut) clReleaseMemObject(srgbLut);
-  for (std::map<std::vector<size_t>, cl_mem>::iterator it = convScales.begin(); it != convScales.end(); ++it)
-    clReleaseMemObject(it->second);
-  for (std::map<cl_mem, size_t>::iterator it = bufferSizes.begin(); it != bufferSizes.end(); ++it)
-    clReleaseMemObject(it->first);
-
-  //not needed, owned by wrapper
-  //if (program)
-  //{
-  //	err = clReleaseProgram(program);
-  //	if (CL_SUCCESS != err)
-  //	{
-  //		LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
-  //	}
-  //}
-  //if (commandQueue)
-  //{
-  //	err = clReleaseCommandQueue(commandQueue);
-  //	if (CL_SUCCESS != err)
-  //	{
-  //		LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
-  //	}
-  //}
-}
-
-cl_mem ocl_args_d_t::createBuffer(size_t s) {
-  cl_int err = CL_SUCCESS;
-  cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
-  if (err == CL_MEM_OBJECT_ALLOCATION_FAILURE || err == CL_OUT_OF_RESOURCES) {
-    // Idle pooled buffers still hold device memory: free them and retry once.
-    drainPool();
-    mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
-  }
-  if (CL_SUCCESS != err) {
-    LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
-  }
-  LOG_CL_RESULT(err);
-  return mem;
-}
-
-cl_mem ocl_args_d_t::allocMemUninit(size_t s) {
-  cl_mem mem = NULL;
-  std::map<size_t, std::vector<cl_mem>>::iterator it = freeBuffers.find(s);
-  if (it != freeBuffers.end() && !it->second.empty()) {
-    mem = it->second.back();
-    it->second.pop_back();
-  } else {
-    mem = createBuffer(s);
-    bufferSizes[mem] = s;
-  }
-  ++allocations;
-  return mem;
-}
-
-cl_mem ocl_args_d_t::allocMem(size_t s, const void* init) {
-  cl_mem mem = allocMemUninit(s);
-
-  cl_int err;
-  if (init) {
-    // Blocking: the caller's host buffer may go away right after this call.
-    err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_TRUE, 0, s, init, 0, NULL, NULL);
-    if (CL_SUCCESS != (err)) {
-      LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
-    }
-    LOG_CL_RESULT(err);
-  } else {
-    cl_char cc = 0;
-    err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
-    if (CL_SUCCESS != (err)) {
-      LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
-    }
-    LOG_CL_RESULT(err);
-    // No clFinish: the pattern is copied at enqueue time and the in-order queue
-    // orders the fill before any later use of the buffer.
-  }
-
-  return mem;
-}
-
-void ocl_args_d_t::releaseMem(cl_mem mem) {
-  if (!mem) {
-    LogError("called releaseMem(NULL)\n");
-    return;
-  }
-  std::map<cl_mem, size_t>::iterator it = bufferSizes.find(mem);
-  if (it == bufferSizes.end()) {
-    LogError("releaseMem: buffer not from the pool\n");
-    LOG_CL_RESULT(clReleaseMemObject(mem));
-  } else {
-    // Back to the pool. No clFinish needed: the queue is in-order, so any command
-    // that later reuses the buffer runs after the ones already enqueued on it.
-    freeBuffers[it->second].push_back(mem);
-  }
-
-  --allocations;
-}
-
-void ocl_args_d_t::drainPool() {
-  for (std::map<size_t, std::vector<cl_mem>>::iterator it = freeBuffers.begin(); it != freeBuffers.end(); ++it) {
-    for (size_t i = 0; i < it->second.size(); i++) {
-      bufferSizes.erase(it->second[i]);
-      clReleaseMemObject(it->second[i]);
-    }
-  }
-  freeBuffers.clear();
-}
-
-ocl_channels ocl_args_d_t::allocMemChannelsUninit(size_t s) {
-  ocl_channels img;
-  for (int i = 0; i < 3; i++) {
-    img.ch[i] = allocMemUninit(s);
-  }
-  return img;
-}
-
-cl_mem ocl_args_d_t::getBlurWeights(float sigma, const std::vector<float>& weights) {
-  unsigned int key;
-  memcpy(&key, &sigma, sizeof(key));
-  std::map<unsigned int, cl_mem>::iterator it = blurWeights.find(key);
-  if (it != blurWeights.end()) return it->second;
-
-  const size_t s = weights.size() * sizeof(float);
-  cl_mem mem = createBuffer(s);
-  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, weights.data(), 0, NULL, NULL);
-  if (CL_SUCCESS != err) clReleaseMemObject(mem);
-  LOG_CL_RESULT(err);
-  blurWeights[key] = mem;
-  return mem;
-}
-
-cl_mem ocl_args_d_t::getMaskLut(int i, const float* lut512) {
-  if (maskLut[i]) return maskLut[i];
-
-  const size_t s = 512 * sizeof(float);
-  cl_mem mem = createBuffer(s);
-  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, lut512, 0, NULL, NULL);
-  if (CL_SUCCESS != err) clReleaseMemObject(mem);
-  LOG_CL_RESULT(err);
-  maskLut[i] = mem;
-  return mem;
-}
-
-cl_mem ocl_args_d_t::getSrgbToLinearLut() {
-  if (srgbLut) return srgbLut;
-
-  // Same values as OutputImage::ToLinearRGB (the double table cast to float).
-  const double* lut = guetzli::Srgb8ToLinearTable();
-  float table[256];
-  for (int i = 0; i < 256; i++) table[i] = static_cast<float>(lut[i]);
-
-  cl_mem mem = createBuffer(sizeof(table));
-  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, sizeof(table), table, 0, NULL, NULL);
-  if (CL_SUCCESS != err) clReleaseMemObject(mem);
-  LOG_CL_RESULT(err);
-  srgbLut = mem;
-  return mem;
-}
-
-ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void* c0, const void* c1, const void* c2) {
-  const void* c[3] = {c0, c1, c2};
-
-  ocl_channels img;
-  for (int i = 0; i < 3; i++) {
-    img.ch[i] = allocMem(s, c[i]);
-  }
-
-  return img;
-}
-
-void ocl_args_d_t::releaseMemChannels(ocl_channels& rgb) {
-  for (int i = 0; i < 3; i++) {
-    releaseMem(rgb.ch[i]);
-    rgb.ch[i] = NULL;
-  }
+  logger_.log(LogLevel::Debug, "=== OpenCL Device Capabilities Report ===\n");
+  logger_.log(LogLevel::Debug, "Platform: %s\n", platformName.c_str());
+  logger_.log(LogLevel::Debug, "Platform Version: %s\n", platformVersion.c_str());
+  logger_.log(LogLevel::Debug, "Platform Vendor: %s\n", platformVendor.c_str());
+  logger_.log(LogLevel::Debug, "Device: %s\n", deviceInfo.name.c_str());
+  logger_.log(LogLevel::Debug, "Device Vendor: %s\n", deviceInfo.vendor.c_str());
+  logger_.log(LogLevel::Debug, "Device Version: %s\n", deviceVersion);
+  logger_.log(LogLevel::Debug, "OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
+  logger_.log(LogLevel::Debug, "Driver Version: %s\n", deviceInfo.driver_version.c_str());
+  logger_.log(LogLevel::Debug, "\n=== Memory Information ===\n");
+  logger_.log(LogLevel::Debug, "Global Memory Size: %u MB\n", deviceInfo.memory);
+  logger_.log(LogLevel::Debug, "Local Memory Size: %u KB\n", deviceInfo.local_cache);
+  logger_.log(LogLevel::Debug, "Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
+  logger_.log(LogLevel::Debug, "\n=== Compute Capabilities ===\n");
+  logger_.log(LogLevel::Debug, "Max Compute Units: %u\n", deviceInfo.compute_units);
+  logger_.log(LogLevel::Debug, "Max Work Group Size: %zu\n", maxWorkGroupSize);
+  logger_.log(LogLevel::Debug, "Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1],
+              maxWorkItemSizes[2]);
+  logger_.log(LogLevel::Debug, "Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
+  logger_.log(LogLevel::Debug, "Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Double Precision Support: %s\n",
+              fpConfig != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
+  logger_.log(LogLevel::Debug, "FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
+  logger_.log(LogLevel::Debug, "Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
+  logger_.log(LogLevel::Debug, "Execution Capabilities: %s%s%s\n", (execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+              (execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
+  logger_.log(LogLevel::Debug, "==========================================\n\n");
 }
 
 const char* TranslateOpenCLError(cl_int errorCode) {
@@ -594,57 +418,8 @@ const char* TranslateOpenCLError(cl_int errorCode) {
   }
 }
 
-/*
-* Check whether an OpenCL platform is the required platform
-* (based on the platform's name)
-*/
-bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredPlatform) {
-  size_t stringLength = 0;
-  cl_int err = CL_SUCCESS;
-  bool match = false;
-
-  // In order to read the platform's name, we first read the platform's name string length (param_value is NULL).
-  // The value returned in stringLength
-  err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &stringLength);
-  if (CL_SUCCESS != err) {
-    LogError("Error: clGetPlatformInfo() to get CL_PLATFORM_NAME length returned '%s'.\n", TranslateOpenCLError(err));
-    return false;
-  }
-
-  // Now, that we know the platform's name string length, we can allocate enough space before read it
-  std::vector<char> platformName(stringLength);
-
-  // Read the platform's name string
-  // The read value returned in platformName
-  err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, stringLength, &platformName[0], NULL);
-  if (CL_SUCCESS != err) {
-    LogError("Error: clGetplatform_ids() to get CL_PLATFORM_NAME returned %s.\n", TranslateOpenCLError(err));
-    return false;
-  }
-
-  // Now check if the platform's name is the required one
-  if (strstr(&platformName[0], preferredPlatform) != 0) {
-    // The checked platform is the one we're looking for
-    match = true;
-  }
-
-  return match;
-}
-
-bool supportsOpenCl() {
-  // Full initialization (device selection, kernel compile, kernel creation), so a
-  // compile failure is detected here rather than mid-run. The result is reused.
-  try {
-    getOcl();
-  } catch (const std::exception& e) {
-    LogError("OpenCL not usable: %s\n", e.what());
-    return false;
-  }
-  return true;
-}
-
 void enumOpenClDevices() {
-  vector<cl::Platform> cl_platforms;
+  std::vector<cl::Platform> cl_platforms;
   cl::Platform::get(&cl_platforms);
 
   if (cl_platforms.empty()) {
@@ -655,14 +430,14 @@ void enumOpenClDevices() {
   fprintf(stdout, "OpenCL:\n");
   uint id = 0;
   for (uint i = 0; i < (uint)cl_platforms.size(); i++) {
-    vector<cl::Device> cl_devices;
+    std::vector<cl::Device> cl_devices;
     cl_platforms[i].getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
     for (uint j = 0; j < (uint)cl_devices.size(); j++) {
-      string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
+      std::string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
       // trim whitespace
       size_t start = name.find_first_not_of(" \t\r\n");
       size_t end = name.find_last_not_of(" \t\r\n");
-      if (start != string::npos) name = name.substr(start, end - start + 1);
+      if (start != std::string::npos) name = name.substr(start, end - start + 1);
       fprintf(stdout, "  %u: %s\n", id, name.c_str());
       id++;
     }
@@ -670,4 +445,6 @@ void enumOpenClDevices() {
   fprintf(stdout, "\n");
 }
 
-#endif
+}  // namespace guetzli
+
+#endif  // __USE_OPENCL__

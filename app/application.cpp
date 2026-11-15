@@ -92,8 +92,9 @@ Application::Result Application::encode(Backend& backend, const std::string& in_
 }
 
 int Application::run() {
-  configureGpuBackends(config_.backend, logger_);
-  BackendKind kind = resolveBackendKind(config_.backend.kind, compiledInProbes(), logger_);
+  // Owns the GPU devices for the whole run; released when run() returns.
+  GpuDevices devices(config_.backend, logger_);
+  BackendKind kind = resolveBackendKind(config_.backend.kind, devices.probes(), logger_);
 
   std::string in_data;
   try {
@@ -107,7 +108,7 @@ int Application::run() {
   Result result = Result::Failed;
   for (int attempt = 0; attempt < 2; ++attempt) {
     try {
-      Backend backend = makeBackend(kind, config_.backend.check_against_cpu, logger_);
+      Backend backend = makeBackend(kind, config_.backend.check_against_cpu, devices, logger_);
       result = encode(backend, in_data, &out_data);
       break;
     } catch (const std::bad_alloc&) {

@@ -1,102 +1,107 @@
-/*
-* CUDA edition implementation of guetzli.
-*
-* Author: strongtu@tencent.com
-*         ianhuang@tencent.com
-*         chriskzhou@tencent.com
-*/
-#pragma once
-#include "guetzli/processor.h"
-#include "clguetzli/clguetzli.cl.h"
-#include "backend/cuda/cuda_context.h"
+// The CUDA device of one run: kernel launchers for every pipeline stage (GpuKernels). The driver is loaded and the
+// context created on first use (or by probe()) and owned here.
+//
+// Author: strongtu@tencent.com
+//         ianhuang@tencent.com
+//         chriskzhou@tencent.com
+#ifndef GUETZLI_BACKEND_CUDA_CUDA_KERNELS_H_
+#define GUETZLI_BACKEND_CUDA_CUDA_KERNELS_H_
 
 #ifdef __USE_CUDA__
 
-void cuOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize, const unsigned int ysize);
+#include <memory>
+#include <vector>
 
-void cuComputeBlockZeroingOrder(guetzli::CoeffData* output_order_batch, const channel_info orig_channel[3],
-                                const float* orig_image_batch, const float* mask_scale, const int image_width,
-                                const int image_height, const channel_info mayout_channel[3], const int factor,
-                                const int comp_mask, const float BlockErrorLimit);
-
-void cuMask(float* mask_r, float* mask_g, float* mask_b, float* maskdc_r, float* maskdc_g, float* maskdc_b,
-            const unsigned int xsize, const unsigned int ysize, const float* r, const float* g, const float* b,
-            const float* r2, const float* g2, const float* b2);
-
-void cuDiffmapOpsinDynamicsImageEx(cu_mem result, ocu_channels xyb0, ocu_channels xyb1, const unsigned int xsize,
-                                   const unsigned int ysize, const unsigned int step);
-
-void cuConvolutionXEx(cu_mem result /*out*/, const cu_mem inp, unsigned int xsize, unsigned int ysize,
-                      const cu_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio);
-
-void cuConvolutionYEx(cu_mem result /*out*/, const cu_mem inp, unsigned int xsize, unsigned int ysize,
-                      const cu_mem multipliers, unsigned int len, int xstep, int offset, float border_ratio);
-
-void cuSquareSampleEx(cu_mem result /*out*/, const cu_mem image, unsigned int xsize, unsigned int ysize,
-                      unsigned int xstep, unsigned int ystep);
-
-void cuBlurEx(cu_mem image /*out, opt*/, const unsigned int xsize, const unsigned int ysize, const float sigma,
-              const float border_ratio, cu_mem result = NULL /*out, opt*/);
-
-void cuOpsinDynamicsImageEx(ocu_channels& rgb, const unsigned int xsize, const unsigned int ysize);
-
-void cuMaskHighIntensityChangeEx(ocu_channels& xyb0 /*in,out*/, ocu_channels& xyb1 /*in,out*/, const unsigned int xsize,
-                                 const unsigned int ysize);
-
-void cuEdgeDetectorMapEx(cu_mem result /*out*/, const ocu_channels& rgb, const ocu_channels& rgb2,
-                         const unsigned int xsize, const unsigned int ysize, const unsigned int step);
-
-void cuBlockDiffMapEx(cu_mem block_diff_dc /*out*/, cu_mem block_diff_ac /*out*/, const ocu_channels& rgb,
-                      const ocu_channels& rgb2, const unsigned int xsize, const unsigned int ysize,
-                      const unsigned int step);
-
-void cuEdgeDetectorLowFreqEx(cu_mem block_diff_ac /*in,out*/, const ocu_channels& rgb, const ocu_channels& rgb2,
-                             const unsigned int xsize, const unsigned int ysize, const unsigned int step);
-
-void cuDiffPrecomputeEx(ocu_channels& mask /*out*/, const ocu_channels& xyb0, const ocu_channels& xyb1,
-                        const unsigned int xsize, const unsigned int ysize);
-
-void cuScaleImageEx(cu_mem img /*in, out*/, unsigned int size, float w);
-
-void cuAverage5x5Ex(cu_mem img /*in,out*/, const unsigned int xsize, const unsigned int ysize);
-
-void cuMinSquareValEx(cu_mem img /*in,out*/, const unsigned int xsize, const unsigned int ysize,
-                      const unsigned int square_size, const unsigned int offset);
-
-void cuMaskEx(ocu_channels mask /*out*/, ocu_channels mask_dc /*out*/, const ocu_channels& rgb,
-              const ocu_channels& rgb2, const unsigned int xsize, const unsigned int ysize);
-
-void cuCombineChannelsEx(cu_mem result /*out*/, const ocu_channels& mask, const ocu_channels& mask_dc,
-                         const unsigned int xsize, const unsigned int ysize, const cu_mem block_diff_dc,
-                         const cu_mem block_diff_ac, const cu_mem edge_detector_map, const unsigned int res_xsize,
-                         const unsigned int step);
-
-void cuUpsampleSquareRootEx(cu_mem diffmap, const unsigned int xsize, const unsigned int ysize, const int step);
-
-void cuRemoveBorderEx(cu_mem out, const cu_mem in, const unsigned int xsize, const unsigned int ysize, const int step);
-
-void cuAddBorderEx(cu_mem out, const unsigned int xsize, const unsigned int ysize, const int step, const cu_mem in);
-
-void cuCalculateDiffmapEx(cu_mem diffmap /*in,out*/, const unsigned int xsize, const unsigned int ysize,
-                          const int step);
-
-void cuCopyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint8_t* output_idct /*in,out*/,
-                             const coeff_t* jpeg_batch /*in*/, const int* quant, const int jpeg_block_width,
-                             const int jpeg_block_height, const int output_block_width, const int output_block_height,
-                             const int output_width, const int output_height);
-
-void cuApplyGlobalQuantization(coeff_t* output_batch /*in,out*/, uchar* output_idct /*out*/, uchar* output_bool /*out*/,
-                               const int* q /*in*/, const int block_width, const int block_height);
-void cuComponentsToPixels(uchar* rgb, /*out*/
-                          const int xmin, const int ymin, const int xsize, const int ysize,
-                          const std::vector<guetzli::OutputImageComponent>& components /*in*/);
+#include "backend/cuda/cuda_context.h"
+#include "backend/cuda/cuda_driver.h"
+#include "backend/gpu/gpu_kernels.h"
+#include "backend/gpu/gpu_options.h"
+#include "logging/logger.h"
 
 namespace guetzli {
-class OutputImage;
-}
-struct CuCompareContext;
-CuCompareContext* cuCompareCreate(const float* r, const float* g, const float* b, int xsize, int ysize);
-void cuCompareDestroy(CuCompareContext* ctx);  // never throws
-void cuCompare(CuCompareContext* ctx, const guetzli::OutputImage& img, int step, float* distmap /*out*/);
 
-#endif
+class CudaKernels final : public GpuKernels {
+ public:
+  CudaKernels(const GpuOptions& options, ILogger& logger);
+  ~CudaKernels() override;
+
+  // Loads the driver and creates the context now. Returns false if CUDA is not usable (logged, unless the driver is
+  // simply not installed).
+  [[nodiscard]] bool probe();
+
+  void opsinDynamicsImage(float* r, float* g, float* b, unsigned int xsize, unsigned int ysize) override;
+  void mask(float* mask_r, float* mask_g, float* mask_b, float* maskdc_r, float* maskdc_g, float* maskdc_b,
+            unsigned int xsize, unsigned int ysize, const float* r, const float* g, const float* b, const float* r2,
+            const float* g2, const float* b2) override;
+  std::unique_ptr<GpuCompareSession> startCompare(const float* r, const float* g, const float* b, int xsize,
+                                                  int ysize) override;
+
+  void copyFromJpegComponent(coeff_t* output_batch, uint8_t* output_idct, const coeff_t* jpeg_batch, const int* quant,
+                             int jpeg_block_width, int jpeg_block_height, int output_block_width,
+                             int output_block_height, int output_width, int output_height) override;
+  void applyGlobalQuantization(coeff_t* output_batch, uint8_t* output_idct, uint8_t* output_bool, const int* q,
+                               int block_width, int block_height) override;
+  void componentsToPixels(uint8_t* rgb, int xmin, int ymin, int xsize, int ysize,
+                          const std::vector<OutputImageComponent>& components) override;
+
+  void computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+                                const float* orig_image_batch, const float* mask_scale, int image_width,
+                                int image_height, const channel_info mayout_channel[3], int factor, int comp_mask,
+                                float block_error_limit) override;
+
+ private:
+  class CompareSession;
+
+  CudaContext& context();
+  void createContext(const CudaDriver& driver);
+
+  // Launchers of the butteraugli pipeline on device buffers.
+  void diffmapOpsinDynamicsImage(cu_mem result, ocu_channels xyb0, ocu_channels xyb1, unsigned int xsize,
+                                 unsigned int ysize, unsigned int step);
+  cu_mem convolutionScale(cu_mem multipliers, int len, int n, int step, int offset, float border_ratio);
+  void convolutionX(cu_mem result, cu_mem inp, unsigned int xsize, unsigned int ysize, cu_mem multipliers,
+                    unsigned int len, int xstep, int offset, float border_ratio);
+  void convolutionY(cu_mem result, cu_mem inp, unsigned int xsize, unsigned int ysize, cu_mem multipliers,
+                    unsigned int len, int xstep, int offset, float border_ratio);
+  void squareSample(cu_mem result, cu_mem image, unsigned int xsize, unsigned int ysize, unsigned int xstep,
+                    unsigned int ystep);
+  // result == 0: in place.
+  void blur(cu_mem image, unsigned int xsize, unsigned int ysize, float sigma, float border_ratio, cu_mem result = 0);
+  void opsinDynamicsOnDevice(const ocu_channels& rgb, unsigned int xsize, unsigned int ysize);
+  void maskHighIntensityChange(const ocu_channels& xyb0, const ocu_channels& xyb1, unsigned int xsize,
+                               unsigned int ysize);
+  void edgeDetectorMap(cu_mem result, const ocu_channels& rgb, const ocu_channels& rgb2, unsigned int xsize,
+                       unsigned int ysize, unsigned int step);
+  void blockDiffMap(cu_mem block_diff_dc, cu_mem block_diff_ac, const ocu_channels& rgb, const ocu_channels& rgb2,
+                    unsigned int xsize, unsigned int ysize, unsigned int step);
+  void edgeDetectorLowFreq(cu_mem block_diff_ac, const ocu_channels& rgb, const ocu_channels& rgb2, unsigned int xsize,
+                           unsigned int ysize, unsigned int step);
+  void diffPrecompute(const ocu_channels& mask, const ocu_channels& xyb0, const ocu_channels& xyb1, unsigned int xsize,
+                      unsigned int ysize);
+  void scaleImage(cu_mem img, unsigned int size, float w);
+  void average5x5(cu_mem img, unsigned int xsize, unsigned int ysize);
+  void minSquareVal(cu_mem img, unsigned int xsize, unsigned int ysize, unsigned int square_size, unsigned int offset);
+  void doMask(ocu_channels mask, ocu_channels mask_dc, unsigned int xsize, unsigned int ysize);
+  void maskOnDevice(ocu_channels mask, ocu_channels mask_dc, const ocu_channels& rgb, const ocu_channels& rgb2,
+                    unsigned int xsize, unsigned int ysize);
+  void combineChannels(cu_mem result, const ocu_channels& mask, const ocu_channels& mask_dc, unsigned int xsize,
+                       unsigned int ysize, cu_mem block_diff_dc, cu_mem block_diff_ac, cu_mem edge_detector_map,
+                       unsigned int res_xsize, unsigned int step);
+  void upsampleSquareRoot(cu_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
+  void removeBorder(cu_mem out, cu_mem in, unsigned int xsize, unsigned int ysize, int step);
+  void addBorder(cu_mem out, unsigned int xsize, unsigned int ysize, int step, cu_mem in);
+  void calculateDiffmap(cu_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
+  void componentsToPixelsDevice(cu_mem out, const cu_mem pixels[3], int xmin, int ymin, int xsize, int ysize,
+                                const OutputImageComponent* const components[3]);
+  void compare(const ocu_channels& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap);
+
+  GpuOptions options_;
+  ILogger& logger_;
+  std::unique_ptr<CudaContext> context_;
+};
+
+}  // namespace guetzli
+
+#endif  // __USE_CUDA__
+
+#endif  // GUETZLI_BACKEND_CUDA_CUDA_KERNELS_H_

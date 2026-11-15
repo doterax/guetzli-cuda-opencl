@@ -37,8 +37,9 @@ std::vector<CoeffData> GpuBlockZeroingSearch::run(const BlockZeroingInput& in) {
   }
 
   std::vector<CoeffData> output_order(static_cast<size_t>(num_blocks) * kBlockZeroingBlockSize);
-  kernel_(output_order.data(), orig_channel, reference->opsin.data(), reference->mask_scale.data(), width, height,
-          mayout_channel, factor_x, in.comp_mask, in.comparator.BlockErrorLimit());
+  kernel_->computeBlockZeroingOrder(output_order.data(), orig_channel, reference->opsin.data(),
+                                    reference->mask_scale.data(), width, height, mayout_channel, factor_x, in.comp_mask,
+                                    in.comparator.BlockErrorLimit());
   return output_order;
 }
 

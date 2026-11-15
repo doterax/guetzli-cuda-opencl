@@ -1,6 +1,7 @@
 #include "backend/gpu/gpu_comparator.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "butteraugli/butteraugli.h"
 #include "guetzli/opsin_block.h"
@@ -13,7 +14,7 @@ constexpr size_t kMinDeviceSize = 100;  // both dimensions must be larger
 
 void GpuButteraugliOps::OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
   if (xsize > kMinDeviceSize && ysize > kMinDeviceSize) {
-    kernels_.opsin_dynamics_image(rgb[0].data(), rgb[1].data(), rgb[2].data(), xsize, ysize);
+    kernels_->opsinDynamicsImage(rgb[0].data(), rgb[1].data(), rgb[2].data(), xsize, ysize);
   } else {
     ::butteraugli::OpsinDynamicsImage(xsize, ysize, rgb);
   }
@@ -29,9 +30,9 @@ void GpuButteraugliOps::Mask(const std::vector<std::vector<float>>& xyb0, const 
       (*mask)[i].resize(xsize * ysize);
       (*mask_dc)[i].resize(xsize * ysize);
     }
-    kernels_.mask((*mask)[0].data(), (*mask)[1].data(), (*mask)[2].data(), (*mask_dc)[0].data(), (*mask_dc)[1].data(),
-                  (*mask_dc)[2].data(), xsize, ysize, xyb0[0].data(), xyb0[1].data(), xyb0[2].data(), xyb1[0].data(),
-                  xyb1[1].data(), xyb1[2].data());
+    kernels_->mask((*mask)[0].data(), (*mask)[1].data(), (*mask)[2].data(), (*mask_dc)[0].data(), (*mask_dc)[1].data(),
+                   (*mask_dc)[2].data(), xsize, ysize, xyb0[0].data(), xyb0[1].data(), xyb0[2].data(), xyb1[0].data(),
+                   xyb1[1].data(), xyb1[2].data());
   } else {
     ::butteraugli::Mask(xyb0, xyb1, xsize, ysize, mask, mask_dc);
   }
@@ -44,9 +45,20 @@ void GpuButteraugliOps::MaskHighIntensityChange(size_t xsize, size_t ysize, cons
   ::butteraugli::MaskHighIntensityChange(xsize, ysize, c0, c1, xyb0, xyb1);
 }
 
+GpuButteraugliComparator::GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb,
+                                                   float target_distance, ProcessStats* stats, ButteraugliOps& ops,
+                                                   std::shared_ptr<GpuButteraugliKernels> kernels)
+    : ButteraugliComparator(width, height, rgb, target_distance, stats, ops), kernels_(std::move(kernels)) {}
+
+GpuButteraugliComparator::~GpuButteraugliComparator() = default;
+
 void GpuButteraugliComparator::Compare(const OutputImage& img) {
+  if (!session_) {
+    session_ = kernels_->startCompare(rgb_orig_opsin_[0].data(), rgb_orig_opsin_[1].data(), rgb_orig_opsin_[2].data(),
+                                      width_, height_);
+  }
   distmap_.resize(static_cast<size_t>(width_) * height_);
-  compareOnDevice(img, distmap_.data());
+  session_->compare(img, kButteraugliStep, distmap_.data());
   distance_ = ::butteraugli::ButteraugliScoreFromDiffmap(distmap_);
 }
 
@@ -96,6 +108,11 @@ void GpuButteraugliComparator::StartBlockComparisons() {
 std::optional<BlockReferenceData> GpuButteraugliComparator::blockReferenceData() const {
   if (!block_lists_ready_) return std::nullopt;
   return BlockReferenceData{opsin_blocks_, mask_scale_blocks_};
+}
+
+std::unique_ptr<Comparator> GpuComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,
+                                                         float target_distance, ProcessStats* stats) {
+  return std::make_unique<GpuButteraugliComparator>(width, height, rgb, target_distance, stats, ops_, kernels_);
 }
 
 }  // namespace guetzli

@@ -1,0 +1,129 @@
+// The shared GPU code in backend/gpu, with fake launchers instead of a device.
+#include <memory>
+#include <vector>
+
+#include "backend/gpu/constant_cache.h"
+#include "backend/gpu/gpu_backend.h"
+#include "backend/gpu/gpu_kernels.h"
+#include "doctest.h"
+#include "guetzli/output_image.h"
+#include "guetzli/stats.h"
+
+namespace {
+
+// A fake device allocation: counts live instances.
+struct FakeMemory {
+  static inline int live = 0;
+  int id;
+  explicit FakeMemory(int i) : id(i) { ++live; }
+  FakeMemory(FakeMemory&& other) noexcept : id(other.id) {
+    other.id = -1;
+    ++live;
+  }
+  FakeMemory(const FakeMemory&) = delete;
+  FakeMemory& operator=(const FakeMemory&) = delete;
+  FakeMemory& operator=(FakeMemory&&) = delete;
+  ~FakeMemory() { --live; }
+  [[nodiscard]] int get() const { return id; }
+};
+
+struct Calls {
+  int start_compare = 0;
+  int compare = 0;
+  int opsin = 0;
+  int mask = 0;
+};
+
+class FakeSession final : public guetzli::GpuCompareSession {
+ public:
+  explicit FakeSession(Calls& calls) : calls_(calls) {}
+  void compare(const guetzli::OutputImage& img, int /*step*/, float* distmap) override {
+    ++calls_.compare;
+    const size_t n = static_cast<size_t>(img.width()) * img.height();
+    for (size_t i = 0; i < n; ++i) distmap[i] = (i == 5) ? 0.75f : 0.25f;
+  }
+
+ private:
+  Calls& calls_;
+};
+
+class FakeKernels final : public guetzli::GpuKernels {
+ public:
+  Calls calls;
+
+  void opsinDynamicsImage(float*, float*, float*, unsigned int, unsigned int) override { ++calls.opsin; }
+  void mask(float*, float*, float*, float*, float*, float*, unsigned int, unsigned int, const float*, const float*,
+            const float*, const float*, const float*, const float*) override {
+    ++calls.mask;
+  }
+  std::unique_ptr<guetzli::GpuCompareSession> startCompare(const float*, const float*, const float*, int,
+                                                           int) override {
+    ++calls.start_compare;
+    return std::make_unique<FakeSession>(calls);
+  }
+  void copyFromJpegComponent(guetzli::coeff_t*, uint8_t*, const guetzli::coeff_t*, const int*, int, int, int, int, int,
+                             int) override {}
+  void applyGlobalQuantization(guetzli::coeff_t*, uint8_t*, uint8_t*, const int*, int, int) override {}
+  void componentsToPixels(uint8_t*, int, int, int, int, const std::vector<guetzli::OutputImageComponent>&) override {}
+  void computeBlockZeroingOrder(guetzli::CoeffData*, const channel_info[3], const float*, const float*, int, int,
+                                const channel_info[3], int, int, float) override {}
+};
+
+}  // namespace
+
+TEST_CASE("ConstantCache: each table is made once per key and released by clear()") {
+  guetzli::ConstantCache<FakeMemory> cache;
+  int made = 0;
+  const auto make = [&made] { return FakeMemory(++made); };
+
+  CHECK(cache.blurWeights(1.5f, make) == 1);
+  CHECK(cache.blurWeights(1.5f, make) == 1);
+  CHECK(cache.blurWeights(2.0f, make) == 2);
+  CHECK(cache.maskLut(3, make) == 3);
+  CHECK(cache.maskLut(3, make) == 3);
+  CHECK(cache.srgbToLinear(make) == 4);
+  CHECK(cache.srgbToLinear(make) == 4);
+  CHECK(cache.convolutionScale({1, 2, 3, 4}, make) == 5);
+  CHECK(cache.convolutionScale({1, 2, 3, 5}, make) == 6);
+  CHECK(cache.convolutionScale({1, 2, 3, 4}, make) == 5);
+  CHECK(made == 6);
+  CHECK(FakeMemory::live == 6);
+
+  cache.clear();
+  CHECK(FakeMemory::live == 0);
+  CHECK(cache.srgbToLinear(make) == 7);  // made again after clear()
+  cache.clear();
+}
+
+TEST_CASE("GPU backend: one device behind every part; the comparator keeps one compare session per image") {
+  auto device = std::make_shared<FakeKernels>();
+  guetzli::Backend backend = guetzli::makeGpuBackend(guetzli::BackendKind::OpenCl, device);
+  CHECK(backend.kind == guetzli::BackendKind::OpenCl);
+  REQUIRE(backend.comparators != nullptr);
+  CHECK(backend.block_zeroing != nullptr);
+  CHECK(backend.dct != nullptr);
+  CHECK(device.use_count() > 1);  // shared by the parts
+
+  // 16x16: below the device threshold, so the image operations use the reference code.
+  const int w = 16, h = 16;
+  std::vector<uint8_t> rgb(static_cast<size_t>(w) * h * 3, 128);
+  guetzli::ProcessStats stats;
+  std::unique_ptr<guetzli::Comparator> comparator = backend.comparators->create(w, h, &rgb, 1.0f, &stats);
+  CHECK(device->calls.opsin == 0);
+  CHECK(device->calls.mask == 0);
+
+  guetzli::CpuDctOps dct;
+  guetzli::OutputImage img(w, h, dct);
+  comparator->Compare(img);
+  comparator->Compare(img);
+  CHECK(device->calls.start_compare == 1);
+  CHECK(device->calls.compare == 2);
+  CHECK(comparator->distmap().size() == static_cast<size_t>(w) * h);
+  CHECK(comparator->distmap()[5] == 0.75f);
+  CHECK(comparator->distmap_aggregate() > 0.0f);
+
+  // The parts keep the device alive.
+  comparator.reset();
+  backend = guetzli::Backend{};
+  CHECK(device.use_count() == 1);
+}

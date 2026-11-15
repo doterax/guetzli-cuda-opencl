@@ -3,27 +3,23 @@
 #ifndef GUETZLI_BACKEND_GPU_GPU_BLOCK_ZEROING_H_
 #define GUETZLI_BACKEND_GPU_GPU_BLOCK_ZEROING_H_
 
+#include <memory>
+#include <utility>
 #include <vector>
 
-#include "clguetzli/clguetzli.cl.h"
+#include "backend/gpu/gpu_kernels.h"
 #include "guetzli/block_zeroing.h"
 
 namespace guetzli {
 
-// clComputeBlockZeroingOrder / cuComputeBlockZeroingOrder.
-using GpuBlockZeroingKernel = void (*)(CoeffData* output_order_batch, const channel_info orig_channel[3],
-                                       const float* orig_image_batch, const float* mask_scale, int image_width,
-                                       int image_height, const channel_info mayout_channel[3], int factor,
-                                       int comp_mask, float block_error_limit);
-
 class GpuBlockZeroingSearch final : public IBlockZeroingSearch {
  public:
-  explicit GpuBlockZeroingSearch(GpuBlockZeroingKernel kernel) : kernel_(kernel) {}
+  explicit GpuBlockZeroingSearch(std::shared_ptr<GpuBlockZeroingKernel> kernel) : kernel_(std::move(kernel)) {}
 
   std::vector<CoeffData> run(const BlockZeroingInput& in) override;
 
  private:
-  GpuBlockZeroingKernel kernel_;
+  std::shared_ptr<GpuBlockZeroingKernel> kernel_;
 };
 
 }  // namespace guetzli

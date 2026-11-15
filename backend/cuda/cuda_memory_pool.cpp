@@ -1,107 +1,86 @@
-/*
- * Memory Pool for CUDA
- *
- * Author: ianhuang@tencent.com
- */
+// Memory pool for CUDA.
+//
+// Author: ianhuang@tencent.com
+#ifdef __USE_CUDA__
 
 #include "backend/cuda/cuda_memory_pool.h"
+
 #include "backend/cuda/cuda_context.h"
-#include <string>
 
-#ifdef __USE_CUDA__
-#include "backend/cuda/cuda_driver.h"
+namespace guetzli {
 
-bool compare_size(const cu_mem_block_t& first, const cu_mem_block_t& second) {
-  return (first.size < second.size);
+CudaMemoryPool::~CudaMemoryPool() {
+  // Busy blocks cannot exist here (every buffer returns its block when destroyed); free everything regardless.
+  for (const Block& block : blocks_) driver_.memFree(block.mem);
 }
 
-cu_mem_pool_t::cu_mem_pool_t() : commandQueue(NULL), alloc_count(0), total_mem_request(0) {}
-
-cu_mem_pool_t::~cu_mem_pool_t() {}
-
-cu_mem cu_mem_pool_t::allocMem(size_t s, const void* init, bool zero) {
-  alloc_count++;
-  total_mem_request += s;
-  cu_mem_block_t* block_candidate = NULL;
-  for (std::list<cu_mem_block_t>::iterator iter = mem_pool.begin(); iter != mem_pool.end(); iter++) {
-    cu_mem_block_t* block = &(*iter);
-    if (block->status == MBS_IDLE && block->size >= s) {
-      block_candidate = block;
+CUdeviceptr CudaMemoryPool::allocate(size_t s, const void* init, bool zero) {
+  alloc_count_++;
+  total_mem_request_ += s;
+  Block* candidate = nullptr;
+  for (Block& block : blocks_) {
+    if (block.status == Status::Idle && block.size >= s) {
+      candidate = &block;
       break;
     }
   }
-  cu_mem mem = NULL;
-  if (block_candidate != NULL) {
-    block_candidate->status = MBS_BUSY;
-    block_candidate->used = s;
-
-    mem = block_candidate->mem;
+  CUdeviceptr mem = 0;
+  if (candidate != nullptr) {
+    candidate->status = Status::Busy;
+    candidate->used = s;
+    mem = candidate->mem;
   } else {
-    cu_mem new_mem = 0;
-    CUresult err = cuMemAlloc(&new_mem, s);
+    CUdeviceptr new_mem = 0;
+    CUresult err = driver_.memAlloc(&new_mem, s);
     if (err == CUDA_ERROR_OUT_OF_MEMORY) {
       // Idle pooled blocks are only freed at shutdown; release them and retry once.
       drain();
-      err = cuMemAlloc(&new_mem, s);
+      err = driver_.memAlloc(&new_mem, s);
     }
     if (err != CUDA_SUCCESS) {
-      LogError("Error: cuMemAlloc(%zu) returned %s.\n", s, TranslateCUDAError(err));
-      throw GpuError(std::string("CUDA allocation failed: ") + TranslateCUDAError(err));
+      throw GpuError("CUDA allocation of " + std::to_string(s) + " bytes failed: " + TranslateCUDAError(err));
     }
-    cu_mem_block_t mem_block;
-    mem_block.size = s;
-    mem_block.used = s;
-    mem_block.mem = new_mem;
-    mem_block.status = MBS_BUSY;
-    mem_pool.push_back(mem_block);
-    mem_pool.sort(compare_size);
-
+    blocks_.push_back(Block{Status::Busy, s, s, new_mem});
+    blocks_.sort([](const Block& a, const Block& b) { return a.size < b.size; });
     mem = new_mem;
   }
   if (init) {
-    LOG_CU_RESULT(cuMemcpyHtoDAsync(mem, init, s, commandQueue));
+    CU_CHECK(driver_.memcpyHtoDAsync(mem, init, s, stream_));
   } else if (zero) {
-    LOG_CU_RESULT(cuMemsetD8Async(mem, 0, s, commandQueue));
+    CU_CHECK(driver_.memsetD8Async(mem, 0, s, stream_));
   }
-
   return mem;
 }
 
-void cu_mem_pool_t::releaseMem(cu_mem mem) {
-  cu_mem_block_t* block_candidate = NULL;
-  for (std::list<cu_mem_block_t>::iterator iter = mem_pool.begin(); iter != mem_pool.end(); iter++) {
-    cu_mem_block_t* block = &(*iter);
-    if (block->mem == mem) {
-      block_candidate = block;
-      break;
+void CudaMemoryPool::release(CUdeviceptr mem) noexcept {
+  for (Block& block : blocks_) {
+    if (block.mem == mem) {
+      block.status = Status::Idle;
+      block.used = 0;
+      return;
     }
-  }
-  if (block_candidate != NULL) {
-    block_candidate->status = MBS_IDLE;
-    block_candidate->used = 0;
-  } else {
-    cuMemFree(mem);
-    LogError("mem_pool release mem:%lld can not be found.\r\n", mem);
   }
 }
 
-void cu_mem_pool_t::drain() {
+void CudaMemoryPool::drain() noexcept {
   size_t total_mem = 0;
-  size_t total_block = mem_pool.size();
-  cu_mem_block_t* block_candidate = NULL;
-  for (std::list<cu_mem_block_t>::iterator iter = mem_pool.begin(); iter != mem_pool.end();) {
-    if (iter->status == MBS_IDLE) {
-      total_mem += iter->size;
-      cuMemFree(iter->mem);
-      iter = mem_pool.erase(iter);
+  const size_t total_block = blocks_.size();
+  for (auto it = blocks_.begin(); it != blocks_.end();) {
+    if (it->status == Status::Idle) {
+      total_mem += it->size;
+      driver_.memFree(it->mem);
+      it = blocks_.erase(it);
     } else {
-      iter++;
+      ++it;
     }
   }
 
-  LogError(
-      "mem_pool has %u blocks, and total pool memory is:%f kb, total memory request:%f kb, total alloc count:%d.\r\n",
-      total_block, (float)(total_mem) / 1024, (float)(total_mem_request) / 1024, alloc_count);
+  logger_.log(LogLevel::Debug,
+              "mem_pool has %zu blocks, and total pool memory is:%f kb, total memory request:%f kb, total alloc "
+              "count:%zu.\n",
+              total_block, (float)(total_mem) / 1024, (float)(total_mem_request_) / 1024, alloc_count_);
 }
 
-#endif
+}  // namespace guetzli
+
+#endif  // __USE_CUDA__
