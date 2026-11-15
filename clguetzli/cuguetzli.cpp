@@ -8,6 +8,9 @@
 */
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <map>
+#include <vector>
 #include "cuguetzli.h"
 #include "ocu.h"
 
@@ -15,24 +18,22 @@
 #include "cuda_dynload.h"
 
 #define cuFinish cuStreamSynchronize
-#define BLOCK_SIZE 96
+#define BLOCK_SIZE 128 // 1D launches
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 #define BLOCK_COUNT_X(size, x)    ((size + x - 1) / x)
 #define BLOCK_COUNT_Y(size, y)    ((size + y - 1) / y)
 
+// Block shape for a width x height 2D launch (grid = ceil; every kernel bounds-checks).
+// Fixed 32x8 = 256 threads: full warps along x for coalescing. Short ranges trade
+// height for width. (Was: the 96-thread shape that minimised padding -- 96x1,
+// 48x2, ..., 3x32 -- i.e. partial warps and poor coalescing for most sizes.)
 void calcBlock(int width, int height, int &x, int &y)
 {
-	unsigned long long thread = 0;
-	for (int i = BLOCK_SIZE, j = 1; i > 1; i /= 2, j *= 2)
-	{
-		unsigned long long temp = BLOCK_COUNT_X(width, i) * BLOCK_COUNT_Y(height, j) * i * j;
-		if (thread > temp || thread == 0) {
-			thread = temp;
-			x = i;
-			y = j;
-		}
-	}
+	(void)width;
+	y = 8;
+	while (y > 1 && y / 2 >= height) y /= 2;
+	x = 256 / y;
 }
 
 void cuOpsinDynamicsImage(float *r, float *g, float *b, const unsigned int xsize, const unsigned int ysize)
@@ -140,8 +141,9 @@ void cuComputeBlockZeroingOrder(
         &BlockErrorLimit,
         &mem_output_order_batch };
 
-	int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
-	calcBlock(blockf_width, blockf_height, x, y);
+	// Heavy per-thread state (registers + local memory) limits occupancy anyway: use
+	// one-warp blocks so small images (few blocks) still spread across all SMs.
+	int x = 8, y = 4;
     CUresult err = cuLaunchKernel(kernel,
         BLOCK_COUNT_X(blockf_width, x), BLOCK_COUNT_Y(blockf_height, y), 1,
         x, y, 1,
@@ -262,6 +264,43 @@ void cuConvolutionEx(
 }
 
 
+// Scale table for a convolution with the (constant, cached) weights buffer
+// multipliers over n samples: clConvolutionScaleEx is run once per
+// {multipliers, n, step, border_ratio} and the result kept on the device.
+static cu_mem cuGetConvolutionScale(const cu_mem multipliers, int len, int n, int step, int offset, float border_ratio)
+{
+    ocu_args_d_t &ocu = getOcu();
+
+    unsigned int br_bits;
+    memcpy(&br_bits, &border_ratio, sizeof(br_bits));
+    std::vector<size_t> key(4);
+    key[0] = (size_t)multipliers;
+    key[1] = (size_t)n;
+    key[2] = (size_t)step;
+    key[3] = (size_t)br_bits;
+    std::map<std::vector<size_t>, cu_mem>::iterator it = ocu.convScales.find(key);
+    if (it != ocu.convScales.end()) return it->second;
+
+    const int count = (n + step - 1) / step;
+    cu_mem scale = 0;
+    CUresult err = cuMemAlloc(&scale, count * sizeof(float));
+    if (err == CUDA_ERROR_OUT_OF_MEMORY) {
+        ocu.mem_pool.drain();
+        err = cuMemAlloc(&scale, count * sizeof(float));
+    }
+    LOG_CU_RESULT(err);
+    ocu.convScales[key] = scale; // owned by the context from here on
+
+    CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTIONSCALE];
+    const void *args[] = { &scale, &n, &multipliers, &len, &step, &offset, &border_ratio, &count };
+    LOG_CU_RESULT(cuLaunchKernel(kernel,
+        BLOCK_COUNT_X(count, 64), 1, 1,
+        64, 1, 1,
+        0,
+        ocu.commandQueue, (void**)args, NULL));
+    return scale;
+}
+
 void cuConvolutionXEx(
     cu_mem result/*out*/,
     const cu_mem inp, unsigned int xsize, unsigned int ysize,
@@ -270,8 +309,10 @@ void cuConvolutionXEx(
 {
     ocu_args_d_t &ocu = getOcu();
 
+    cu_mem scale = cuGetConvolutionScale(multipliers, len, xsize, xstep, offset, border_ratio);
+
 	CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTIONX];
-    const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio };
+    const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &scale };
 
 	unsigned int x_count = (xsize + xstep - 1) / xstep;
 	int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
@@ -292,8 +333,10 @@ void cuConvolutionYEx(
 {
     ocu_args_d_t &ocu = getOcu();
 
+    cu_mem scale = cuGetConvolutionScale(multipliers, len, ysize, xstep, offset, border_ratio);
+
 	CUfunction kernel = ocu.kernel[KERNEL_CONVOLUTIONY];
-    const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio };
+    const void *args[] = { &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &scale };
 
 	unsigned int x_count = (xsize + xstep - 1) / xstep;
 	unsigned int y_count = (ysize + xstep - 1) / xstep;
@@ -1062,9 +1105,11 @@ static void cuComponentsToPixelsDevice(
 				&xmin, &ymin, &xsize, &ysize, &c,
 				&width, &height };
 
+			int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
+			calcBlock(xend1 - xend0, yend0 - ymin, x, y);
 			CUresult err = cuLaunchKernel(kernel,
-				xend1 - xend0, BLOCK_COUNT_Y(yend0 - ymin, BLOCK_SIZE), 1,
-				1, BLOCK_SIZE, 1,
+				BLOCK_COUNT_X(xend1 - xend0, x), BLOCK_COUNT_Y(yend0 - ymin, y), 1,
+				x, y, 1,
 				0,
 				ocu.commandQueue, (void**)args, NULL);
 			LOG_CU_RESULT(err);

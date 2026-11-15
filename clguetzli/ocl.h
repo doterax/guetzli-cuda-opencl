@@ -33,6 +33,7 @@ enum KernelName {
 	KERNEL_COMPONENTSTOPIXELS_EX2,
 	KERNEL_COLORTRANSFORMYCBCRTORGB,
 	KERNEL_SRGBTOLINEAR,
+	KERNEL_CONVOLUTIONSCALE,
 	KERNEL_COUNT,
 };
 
@@ -89,6 +90,9 @@ struct ocl_args_d_t
 	cl_mem getMaskLut(int i, const float* lut512);
 	// 256-entry sRGB8 -> linear table (float of guetzli::Srgb8ToLinearTable()).
 	cl_mem getSrgbToLinearLut();
+	// Convolution scale tables (clConvolutionScaleEx), keyed by {weights buffer, n, step,
+	// border_ratio bits}; filled by clguetzli.cpp, freed with the context.
+	std::map<std::vector<size_t>, cl_mem> convScales;
 
 	// Regular OpenCL objects:
 	cl_context       context;           // hold the context handler

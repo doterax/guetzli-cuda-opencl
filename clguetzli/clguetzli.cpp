@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <vector>
 #include <set>
+#include <map>
+#include <string.h>
 #include "clguetzli.h"
 #include "cl.hpp"
 #define LOG
@@ -121,56 +123,53 @@ public:
 extern MATH_MODE g_mathMode = MODE_AUTO;
 extern int g_deviceIndex = -1;
 
-// Helper function to calculate optimal workgroup size for AMD GPUs
-void calculateOptimalWorkgroupSize(size_t globalSize[2], size_t localSize[2], bool isAMD)
+#ifdef __USE_OPENCL__
+// Largest work-group the kernel can be launched with on our device (cached per kernel).
+static size_t clKernelMaxWorkGroup(cl_kernel kernel)
 {
-	if (isAMD)
-	{
-		// For AMD GPUs, prefer multiples of 64 (wavefront size)
-		// But ensure the global size is divisible by local size
-		localSize[0] = 64;
-		localSize[1] = 1;
+	static std::map<cl_kernel, size_t> cache;
+	std::map<cl_kernel, size_t>::iterator it = cache.find(kernel);
+	if (it != cache.end()) return it->second;
 
-		// Adjust local size if global size is not divisible
-		if (globalSize[0] % localSize[0] != 0)
-		{
-			// Find the largest divisor of globalSize[0] that is <= 64
-			for (int i = 64; i >= 1; i--)
-			{
-				if (globalSize[0] % i == 0)
-				{
-					localSize[0] = i;
-					break;
-				}
-			}
-		}
-
-		// Handle edge case where globalSize[0] is very small
-		if (globalSize[0] < localSize[0])
-		{
-			localSize[0] = globalSize[0];
-		}
-
-		// Ensure we don't exceed maximum workgroup size
-		if (localSize[0] > 256)
-			localSize[0] = 256;
-		if (localSize[1] > 256)
-			localSize[1] = 256;
-
-		// If we can't find a good divisor, let OpenCL choose
-		if (localSize[0] == 0)
-		{
-			localSize[0] = 0;
-			localSize[1] = 0;
-		}
-	}
-	else
-	{
-		// For non-AMD GPUs, use NULL (let OpenCL choose)
-		localSize[0] = 0;
-		localSize[1] = 0;
-	}
+	cl_device_id dev = NULL;
+	LOG_CL_RESULT(clGetCommandQueueInfo(getOcl().commandQueue, CL_QUEUE_DEVICE, sizeof(dev), &dev, NULL));
+	size_t wg = 0;
+	LOG_CL_RESULT(clGetKernelWorkGroupInfo(kernel, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(wg), &wg, NULL));
+	if (wg == 0) wg = 1;
+	cache[kernel] = wg;
+	return wg;
 }
+
+static size_t roundUp(size_t v, size_t m) { return (v + m - 1) / m * m; }
+
+// Enqueues a w x h range padded up to whole lx x ly work-groups. Every kernel
+// bounds-checks its global id, so padding threads just return. (Was: NULL local
+// size, which lets drivers pick tiny groups for odd sizes -- a prime width gives
+// groups of one -- or an AMD-only divisor search.)
+static cl_int clEnqueueRange2D(cl_kernel kernel, size_t w, size_t h, size_t lx = 16, size_t ly = 16)
+{
+	if (w == 0 || h == 0) return CL_SUCCESS;
+	const size_t max_wg = clKernelMaxWorkGroup(kernel);
+	while (lx * ly > max_wg && ly > 1) ly /= 2;
+	while (lx * ly > max_wg && lx > 1) lx /= 2;
+	// Short ranges (e.g. a few rows): trade group height for width.
+	while (ly > 1 && ly / 2 >= h) { ly /= 2; lx *= 2; }
+	size_t global[2] = { roundUp(w, lx), roundUp(h, ly) };
+	size_t local[2] = { lx, ly };
+	return clEnqueueNDRangeKernel(getOcl().commandQueue, kernel, 2, NULL, global, local, 0, NULL, NULL);
+}
+
+static cl_int clEnqueueRange1D(cl_kernel kernel, size_t n, size_t l = 256)
+{
+	if (n == 0) return CL_SUCCESS;
+	const size_t max_wg = clKernelMaxWorkGroup(kernel);
+	while (l > max_wg && l > 1) l /= 2;
+	size_t global[1] = { roundUp(n, l) };
+	size_t local[1] = { l };
+	return clEnqueueNDRangeKernel(getOcl().commandQueue, kernel, 1, NULL, global, local, 0, NULL, NULL);
+}
+#endif
+
 #ifdef __USE_OPENCL__
 
 void clOpsinDynamicsImage(
@@ -323,25 +322,9 @@ void clComputeBlockZeroingOrder(
 					 &BlockErrorLimit,
 					 &mem_output_order_batch);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(blockf_width), static_cast<size_t>(blockf_height)};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
-
-	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching kernel with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching kernel with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-	}
+	// Heavy per-thread state limits occupancy anyway: one-warp groups so small
+	// images (few blocks) still spread across all compute units.
+	cl_int err = clEnqueueRange2D(kernel, blockf_width, blockf_height, 8, 4);
 	LOG_CL_RESULT(err);
 
 	LOG_CL_RESULT(clEnqueueReadBuffer(ocl.commandQueue, mem_output_order_batch, false, 0, output_order_batch_size, output_order_batch, 0, NULL, NULL));
@@ -463,26 +446,37 @@ void clConvolutionEx(
 	const int oxsize_arg = (int)oxsize, ysize_arg = (int)ysize;
 	clSetKernelArgEx(kernel, &result, &inp, &xsize, &multipliers, &len, &xstep, &offset, &border_ratio, &oxsize_arg, &ysize_arg);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(oxsize), static_cast<size_t>(ysize)};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
-
-	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionEx with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-	}
+	cl_int err = clEnqueueRange2D(kernel, oxsize, ysize);
 	LOG_CL_RESULT(err);
+}
+
+// Scale table for a convolution with the (constant, cached) weights buffer
+// multipliers over n samples: clConvolutionScaleEx is run once per
+// {multipliers, n, step, border_ratio} and the result kept on the device.
+static cl_mem clGetConvolutionScale(const cl_mem multipliers, int len, int n, int step, int offset, float border_ratio)
+{
+	ocl_args_d_t &ocl = getOcl();
+
+	unsigned int br_bits;
+	memcpy(&br_bits, &border_ratio, sizeof(br_bits));
+	std::vector<size_t> key(4);
+	key[0] = (size_t)multipliers;
+	key[1] = (size_t)n;
+	key[2] = (size_t)step;
+	key[3] = (size_t)br_bits;
+	std::map<std::vector<size_t>, cl_mem>::iterator it = ocl.convScales.find(key);
+	if (it != ocl.convScales.end()) return it->second;
+
+	const int count = (n + step - 1) / step;
+	cl_int err = CL_SUCCESS;
+	cl_mem scale = clCreateBuffer(ocl.context, CL_MEM_READ_WRITE, count * sizeof(float), NULL, &err);
+	LOG_CL_RESULT(err);
+	ocl.convScales[key] = scale; // owned by the context from here on
+
+	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTIONSCALE];
+	clSetKernelArgEx(kernel, &scale, &n, &multipliers, &len, &step, &offset, &border_ratio, &count);
+	LOG_CL_RESULT(clEnqueueRange1D(kernel, count, 64));
+	return scale;
 }
 
 void clConvolutionXEx(
@@ -494,32 +488,14 @@ void clConvolutionXEx(
 	Perf clk("clConvolutionXEx");
 	ocl_args_d_t &ocl = getOcl();
 
+	cl_mem scale = clGetConvolutionScale(multipliers, len, xsize, xstep, offset, border_ratio);
+
 	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTIONX];
-	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio);
+	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &scale);
 
 	size_t x_count = (xsize + xstep - 1) / xstep;
-	size_t globalWorkSize[2] = {static_cast<size_t>(x_count), static_cast<size_t>(ysize)};
-	size_t localWorkSize[2];
-	calculateOptimalWorkgroupSize(globalWorkSize, localWorkSize, ocl.isAmd);
-
-	cl_int err;
-	if (localWorkSize[0] > 0 && localWorkSize[1] > 0)
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionXEx with workgroup size: [%zu, %zu], global size: [%zu, %zu]\n",
-					localWorkSize[0], localWorkSize[1], globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-		LOG_CL_RESULT(err);
-	}
-	else
-	{
-		if (verbose_cl)
-			LogInfo("Launching clConvolutionXEx with auto workgroup size, global size: [%zu, %zu]\n",
-					globalWorkSize[0], globalWorkSize[1]);
-		err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-		LOG_CL_RESULT(err);
-	}
-
+	cl_int err = clEnqueueRange2D(kernel, x_count, ysize);
+	LOG_CL_RESULT(err);
 }
 
 void clConvolutionYEx(
@@ -531,13 +507,14 @@ void clConvolutionYEx(
 	Perf clk("clConvolutionYEx");
 	ocl_args_d_t &ocl = getOcl();
 
+	cl_mem scale = clGetConvolutionScale(multipliers, len, ysize, xstep, offset, border_ratio);
+
 	cl_kernel kernel = ocl.kernel[KERNEL_CONVOLUTIONY];
-	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &border_ratio);
+	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &inp, &multipliers, &len, &xstep, &offset, &scale);
 
 	size_t x_count = (xsize + xstep - 1) / xstep;
 	size_t y_count = (ysize + xstep - 1) / xstep;
-	size_t globalWorkSize[2] = {static_cast<size_t>(x_count), static_cast<size_t>(y_count)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, x_count, y_count);
 	LOG_CL_RESULT(err);
 }
 
@@ -552,8 +529,7 @@ void clSquareSampleEx(
 	cl_kernel kernel = ocl.kernel[KERNEL_SQUARESAMPLE];
 	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &image, &xstep, &ystep);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -623,10 +599,9 @@ void clOpsinDynamicsImageEx(ocl_channels& rgb, const unsigned int xsize, const u
 	clSetKernelArgEx(kernel, &rgb.r, &rgb.g, &rgb.b, &size_arg, &blurred.r, &blurred.g, &blurred.b);
 
 	// https://registry.khronos.org/OpenCL/sdk/3.0/docs/man/html/clGetKernelSuggestedLocalWorkSizeKHR.html
-	size_t globalWorkSize[1] = {size};
 	if (verbose_cl)
 		LogInfo("clOpsinDynamicsImageEx: clEnqueueNDRangeKernel+\n");
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 1, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange1D(kernel, size);
 	if (verbose_cl)
 		LogInfo("clOpsinDynamicsImageEx: clEnqueueNDRangeKernel-\n");
 	LOG_CL_RESULT(err);
@@ -667,8 +642,7 @@ void clMaskHighIntensityChangeEx(
 					 &c0.r, &c0.g, &c0.b,
 					 &c1.r, &c1.g, &c1.b);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 
 	ocl.releaseMemChannels(c0);
@@ -708,8 +682,7 @@ void clEdgeDetectorMapEx(
 					 &rgb2_blured.r, &rgb2_blured.g, &rgb2_blured.b,
 					 &xsize, &ysize, &step);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(res_xsize), static_cast<size_t>(res_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, res_xsize, res_ysize);
 	LOG_CL_RESULT(err);
 
 	ocl.releaseMemChannels(rgb_blured);
@@ -735,8 +708,7 @@ void clBlockDiffMapEx(
 					 &rgb2.r, &rgb2.g, &rgb2.b,
 					 &xsize, &ysize, &step);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(res_xsize), static_cast<size_t>(res_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, res_xsize, res_ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -771,8 +743,7 @@ void clEdgeDetectorLowFreqEx(
 					 &rgb2_blured.r, &rgb2_blured.g, &rgb2_blured.b,
 					 &xsize, &ysize, &step);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(res_xsize), static_cast<size_t>(res_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, res_xsize, res_ysize);
 	LOG_CL_RESULT(err);
 
 	ocl.releaseMemChannels(rgb_blured);
@@ -793,8 +764,7 @@ void clDiffPrecomputeEx(
 					 &xyb0.x, &xyb0.y, &xyb0.b,
 					 &xyb1.x, &xyb1.y, &xyb1.b);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -806,8 +776,7 @@ void clScaleImageEx(cl_mem img/*in, out*/, unsigned int size, float w)
 	cl_kernel kernel = ocl.kernel[KERNEL_SCALEIMAGE];
 	clSetKernelArgEx(kernel, &img, &size, &w);
 
-	size_t globalWorkSize[1] = {size};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 1, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange1D(kernel, size);
 	LOG_CL_RESULT(err);
 }
 
@@ -831,8 +800,7 @@ void clAverage5x5Ex(cl_mem img/*in,out*/, const unsigned int xsize, const unsign
 	cl_kernel kernel = ocl.kernel[KERNEL_AVERAGE5X5];
 	clSetKernelArgEx(kernel, &img, &xsize, &ysize, &img_org);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 
 	ocl.releaseMem(img_org);
@@ -853,8 +821,7 @@ void clMinSquareValEx(
 	cl_kernel kernel = ocl.kernel[KERNEL_MINSQUAREVAL];
 	clSetKernelArgEx(kernel, &result, &xsize, &ysize, &img, &square_size, &offset);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 	err = clEnqueueCopyBuffer(ocl.commandQueue, result, img, 0, 0, sizeof(cl_float) * xsize * ysize, 0, NULL, NULL);
 	LOG_CL_RESULT(err);
@@ -975,8 +942,7 @@ void clDoMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, s
 					 &xyb.x, &xyb.y, &xyb.b,
 					 &xyb_dc.x, &xyb_dc.y, &xyb_dc.b);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -1036,8 +1002,7 @@ void clCombineChannelsEx(
 					 &res_xsize,
 					 &step);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(work_xsize), static_cast<size_t>(work_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, work_xsize, work_ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -1056,8 +1021,7 @@ void clUpsampleSquareRootEx(cl_mem diffmap, const unsigned int xsize, const unsi
 	const int res_xsize_arg = (int)res_xsize, res_ysize_arg = (int)res_ysize;
 	clSetKernelArgEx(kernel, &diffmap_out, &diffmap, &xsize, &ysize, &step, &res_xsize_arg, &res_ysize_arg);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(res_xsize), static_cast<size_t>(res_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, res_xsize, res_ysize);
 	LOG_CL_RESULT(err);
 	err = clEnqueueCopyBuffer(ocl.commandQueue, diffmap_out, diffmap, 0, 0, xsize * ysize * sizeof(float), 0, NULL, NULL);
 	LOG_CL_RESULT(err);
@@ -1079,8 +1043,7 @@ void clRemoveBorderEx(cl_mem out, const cl_mem in, const unsigned int xsize, con
 	cl_kernel kernel = ocl.kernel[KERNEL_REMOVEBORDER];
 	clSetKernelArgEx(kernel, &out, &out_xsize, &out_ysize, &in, &cls, &cls2);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(out_xsize), static_cast<size_t>(out_ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, out_xsize, out_ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -1094,8 +1057,7 @@ void clAddBorderEx(cl_mem out, const unsigned int xsize, const unsigned int ysiz
 	cl_kernel kernel = ocl.kernel[KERNEL_ADDBORDER];
 	clSetKernelArgEx(kernel, &out, &xsize, &ysize, &cls, &cls2, &in);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(ysize)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, xsize, ysize);
 	LOG_CL_RESULT(err);
 }
 
@@ -1166,8 +1128,7 @@ void clCopyFromJpegComponent(
 					 &output_block_width, &output_block_height,
 					 &output_width, &output_height);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(output_block_width), static_cast<size_t>(output_block_height)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, output_block_width, output_block_height);
 	LOG_CL_RESULT(err);
 
 	err = clEnqueueReadBuffer(ocl.commandQueue, dst_coeff, false, 0, dst_coeff_size, output_batch, 0, NULL, NULL);
@@ -1213,8 +1174,7 @@ void clApplyGlobalQuantization(
 	clSetKernelArgEx(kernel, &dst_coeff, &dst_idct,
 					 &dst_bool, &src_q, &block_width, &block_height);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(block_width), static_cast<size_t>(block_height)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange2D(kernel, block_width, block_height);
 	LOG_CL_RESULT(err);
 
 	err = clEnqueueReadBuffer(ocl.commandQueue, dst_coeff, false, 0, dst_coeff_size, output_batch, 0, NULL, NULL);
@@ -1258,8 +1218,7 @@ static void clComponentsToPixelsDevice(
 							 &out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &pixels[c], &width, &height);
 
-			size_t globalWorkSize[2] = {static_cast<size_t>(xend0 - xmin), static_cast<size_t>(yend0 - ymin)};
-			cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+			cl_int err = clEnqueueRange2D(kernel, xend0 - xmin, yend0 - ymin);
 			LOG_CL_RESULT(err);
 		}
 
@@ -1270,8 +1229,7 @@ static void clComponentsToPixelsDevice(
 							 &out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &width, &height);
 
-			size_t globalWorkSize[2] = {static_cast<size_t>(xend1 - xend0), static_cast<size_t>(yend0 - ymin)};
-			cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+			cl_int err = clEnqueueRange2D(kernel, xend1 - xend0, yend0 - ymin);
 			LOG_CL_RESULT(err);
 		}
 
@@ -1282,8 +1240,7 @@ static void clComponentsToPixelsDevice(
 							 &out, &xmin, &ymin, &xsize, &ysize, &c,
 							 &width, &height);
 
-			size_t globalWorkSize[2] = {static_cast<size_t>(xsize), static_cast<size_t>(yend1 - yend0)};
-			cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+			cl_int err = clEnqueueRange2D(kernel, xsize, yend1 - yend0);
 			LOG_CL_RESULT(err);
 		}
 	}
@@ -1292,8 +1249,7 @@ static void clComponentsToPixelsDevice(
 	const int pixel_count = xsize * ysize;
 	clSetKernelArgEx(kernel, &out, &pixel_count);
 
-	size_t globalWorkSize[2] = {static_cast<size_t>(pixel_count), static_cast<size_t>(1)};
-	cl_int err = clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 2, NULL, globalWorkSize, NULL, 0, NULL, NULL);
+	cl_int err = clEnqueueRange1D(kernel, pixel_count);
 	LOG_CL_RESULT(err);
 }
 
@@ -1401,8 +1357,7 @@ void clCompare(ClCompareContext* ctx, const guetzli::OutputImage& img, int step,
 		cl_mem lut = ocl.getSrgbToLinearLut();
 		cl_kernel kernel = ocl.kernel[KERNEL_SRGBTOLINEAR];
 		clSetKernelArgEx(kernel, &srgb, &xyb1.r, &xyb1.g, &xyb1.b, &lut, &size);
-		size_t globalWorkSize[1] = {static_cast<size_t>(size)};
-		LOG_CL_RESULT(clEnqueueNDRangeKernel(ocl.commandQueue, kernel, 1, NULL, globalWorkSize, NULL, 0, NULL, NULL));
+		LOG_CL_RESULT(clEnqueueRange1D(kernel, size));
 	}
 	ocl.releaseMem(srgb);
 	for (int c = 0; c < 3; ++c) ocl.releaseMem(pixels[c]);

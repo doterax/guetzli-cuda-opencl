@@ -48,6 +48,9 @@ struct ocu_args_d_t
     cu_mem getBlurWeights(float sigma, const std::vector<float>& weights);
     cu_mem getMaskLut(int i, const float* lut512);  // six 512-entry DoMask LUTs
     cu_mem getSrgbToLinearLut();                     // float of guetzli::Srgb8ToLinearTable()
+    // Convolution scale tables (clConvolutionScaleEx), keyed by {weights buffer, n, step,
+    // border_ratio bits}; filled by cuguetzli.cpp, freed with the context.
+    std::map<std::vector<size_t>, cu_mem> convScales;
 
     CUfunction  kernel[KERNEL_COUNT];
     CUstream    commandQueue;

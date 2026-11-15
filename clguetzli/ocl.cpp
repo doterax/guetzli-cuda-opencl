@@ -156,6 +156,8 @@ ocl_args_d_t& getOcl()
 	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_SRGBTOLINEAR] = clCreateKernel(ocl.program, "clSrgbToLinearEx", &err);
 	LOG_CL_RESULT(err);
+	ocl.kernel[KERNEL_CONVOLUTIONSCALE] = clCreateKernel(ocl.program, "clConvolutionScaleEx", &err);
+	LOG_CL_RESULT(err);
 
 	print_info("OpenCL created\n");
 
@@ -298,6 +300,8 @@ ocl_args_d_t::~ocl_args_d_t()
 	for (int i = 0; i < 6; i++)
 		if (maskLut[i]) clReleaseMemObject(maskLut[i]);
 	if (srgbLut) clReleaseMemObject(srgbLut);
+	for (std::map<std::vector<size_t>, cl_mem>::iterator it = convScales.begin(); it != convScales.end(); ++it)
+		clReleaseMemObject(it->second);
 	for (std::map<cl_mem, size_t>::iterator it = bufferSizes.begin(); it != bufferSizes.end(); ++it)
 		clReleaseMemObject(it->first);
 

@@ -380,21 +380,23 @@ __kernel void clConvolutionEx(
 	result[ox * ysize + y] = sum * scale;
 }
 
-__kernel void clConvolutionXEx(
-	__global float *__restrict__ result,
-	const int xsize, const int ysize,
-	__global const float *__restrict__ inp,
+// 1 / (border-adjusted kernel weight) for output index o (sample position o * step)
+// of a 1D convolution over n samples. This is exactly the per-thread prologue the
+// X/Y convolution kernels used to run (same expressions, same order); it only depends
+// on the position, so the host computes the table once per (weights, n, step,
+// border_ratio) and caches it.
+__kernel void clConvolutionScaleEx(
+	__global float *scale,
+	const int n,
 	__global const float *multipliers, const int len,
-	const int step, const int offset, const float border_ratio)
+	const int step, const int offset, const float border_ratio,
+	const int count)
 {
-	const int x = get_global_id(0) * step;
-	const int y = get_global_id(1);
-
-	if (x >= xsize || y >= ysize)
+	const int o = get_global_id(0);
+	if (o >= count)
 		return;
 
-	if (x % step != 0)
-		return;
+	const int x = o * step;
 
 	float weight_no_border = 0;
 	for (int j = 0; j <= 2 * offset; j++)
@@ -403,7 +405,7 @@ __kernel void clConvolutionXEx(
 	}
 
 	int minx = x < offset ? 0 : x - offset;
-	int maxx = _min_i(xsize, x + len - offset);
+	int maxx = _min_i(n, x + len - offset);
 
 	float weight = 0.0f;
 	for (int j = minx; j < maxx; j++)
@@ -412,7 +414,27 @@ __kernel void clConvolutionXEx(
 	}
 
 	weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
-	float scale = 1.0f / weight;
+	scale[o] = 1.0f / weight;
+}
+
+// scale: clConvolutionScaleEx table over xsize, indexed by get_global_id(0).
+__kernel void clConvolutionXEx(
+	__global float *__restrict__ result,
+	const int xsize, const int ysize,
+	__global const float *__restrict__ inp,
+	__global const float *multipliers, const int len,
+	const int step, const int offset,
+	__global const float *scale)
+{
+	const int ox = get_global_id(0);
+	const int x = ox * step;
+	const int y = get_global_id(1);
+
+	if (x >= xsize || y >= ysize)
+		return;
+
+	int minx = x < offset ? 0 : x - offset;
+	int maxx = _min_i(xsize, x + len - offset);
 
 	float sum = 0.0f;
 	for (int j = minx; j < maxx; j++)
@@ -420,43 +442,27 @@ __kernel void clConvolutionXEx(
 		sum += inp[y * xsize + j] * multipliers[j - x + offset];
 	}
 
-	result[y * xsize + x] = sum * scale;
+	result[y * xsize + x] = sum * scale[ox];
 }
 
+// scale: clConvolutionScaleEx table over ysize, indexed by get_global_id(1).
 __kernel void clConvolutionYEx(
 	__global float *__restrict__ result,
 	const int xsize, const int ysize,
 	__global const float *__restrict__ inp,
 	__global const float *multipliers, const int len,
-	const int step, const int offset, const float border_ratio)
+	const int step, const int offset,
+	__global const float *scale)
 {
 	const int x = get_global_id(0) * step;
-	const int y = get_global_id(1) * step;
+	const int oy = get_global_id(1);
+	const int y = oy * step;
 
 	if (x >= xsize || y >= ysize)
 		return;
-	if (x % step != 0)
-		return;
-	if (y % step != 0)
-		return;
-
-	float weight_no_border = 0;
-	for (int j = 0; j <= 2 * offset; j++)
-	{
-		weight_no_border += multipliers[j];
-	}
 
 	int miny = y < offset ? 0 : y - offset;
 	int maxy = _min_i(ysize, y + len - offset);
-
-	float weight = 0.0f;
-	for (int j = miny; j < maxy; j++)
-	{
-		weight += multipliers[j - y + offset];
-	}
-
-	weight = (1.0f - border_ratio) * weight + border_ratio * weight_no_border;
-	float scale = 1.0f / weight;
 
 	float sum = 0.0f;
 	for (int j = miny; j < maxy; j++)
@@ -464,7 +470,7 @@ __kernel void clConvolutionYEx(
 		sum += inp[j * xsize + x] * multipliers[j - y + offset];
 	}
 
-	result[y * xsize + x] = sum * scale;
+	result[y * xsize + x] = sum * scale[oy];
 }
 
 __kernel void clSquareSampleEx(

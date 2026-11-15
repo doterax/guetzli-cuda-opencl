@@ -169,6 +169,7 @@ ocu_args_d_t& getOcu(void)
         { KERNEL_COMPONENTSTOPIXELS_EX2, "clComponentsToPixelsEx2" },
         { KERNEL_COLORTRANSFORMYCBCRTORGB, "clColorTransformYCbCrToRGB" },
         { KERNEL_SRGBTOLINEAR, "clSrgbToLinearEx" },
+        { KERNEL_CONVOLUTIONSCALE, "clConvolutionScaleEx" },
     };
     static_assert(sizeof(kKernels) / sizeof(kKernels[0]) == KERNEL_COUNT, "kernel table out of sync with KernelName");
     for (size_t i = 0; i < sizeof(kKernels) / sizeof(kKernels[0]); i++) {
@@ -212,6 +213,8 @@ ocu_args_d_t::~ocu_args_d_t()
     for (int i = 0; i < 6; i++)
         if (maskLut[i]) cuMemFree(maskLut[i]);
     if (srgbLut) cuMemFree(srgbLut);
+    for (std::map<std::vector<size_t>, cu_mem>::iterator it = convScales.begin(); it != convScales.end(); ++it)
+        cuMemFree(it->second);
     mem_pool.drain();
     if (mod) cuModuleUnload(mod);
     if (commandQueue) cuStreamDestroy(commandQueue);
