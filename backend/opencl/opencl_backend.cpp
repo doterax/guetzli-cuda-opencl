@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "backend/gpu/gpu_block_zeroing.h"
 #include "backend/gpu/gpu_comparator.h"
 #include "backend/gpu/gpu_dct_ops.h"
 #include "clguetzli/clguetzli.h"
@@ -46,6 +47,7 @@ Backend makeOpenClBackend() {
   Backend backend;
   backend.kind = BackendKind::OpenCl;
   backend.comparators = std::make_unique<OpenClComparatorFactory>();
+  backend.block_zeroing = std::make_unique<GpuBlockZeroingSearch>(clComputeBlockZeroingOrder);
   backend.dct = std::make_unique<GpuDctOps>(
       GpuDctKernels{clCopyFromJpegComponent, clApplyGlobalQuantization, clComponentsToPixels});
   return backend;

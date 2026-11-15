@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "backend/gpu/gpu_block_zeroing.h"
 #include "backend/gpu/gpu_comparator.h"
 #include "backend/gpu/gpu_dct_ops.h"
 #include "clguetzli/cuguetzli.h"
@@ -46,6 +47,7 @@ Backend makeCudaBackend() {
   Backend backend;
   backend.kind = BackendKind::Cuda;
   backend.comparators = std::make_unique<CudaComparatorFactory>();
+  backend.block_zeroing = std::make_unique<GpuBlockZeroingSearch>(cuComputeBlockZeroingOrder);
   backend.dct = std::make_unique<GpuDctOps>(
       GpuDctKernels{cuCopyFromJpegComponent, cuApplyGlobalQuantization, cuComponentsToPixels});
   return backend;

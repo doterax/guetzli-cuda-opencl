@@ -5,7 +5,6 @@
 #include <optional>
 
 #include "backend/factory.h"
-#include "clguetzli/clguetzli.h"
 #include "core/io/image_io.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/jpeg_data_reader.h"
@@ -27,20 +26,6 @@ constexpr const char* kSupportMessage =
     "  If you find this tool useful, please consider supporting the development\n"
     "  by buying me a coffee: https://www.buymeacoffee.com/doterax \n"
     "  Your support helps maintain and improve this project!\n\n";
-
-// Transitional: the parts of the encoder that do not take the Backend yet still read g_mathMode.
-MATH_MODE mathModeFor(BackendKind kind, bool check) {
-  switch (kind) {
-    case BackendKind::OpenCl:
-      return check ? MODE_CHECKCL : MODE_OPENCL;
-    case BackendKind::Cuda:
-      return check ? MODE_CHECKCUDA : MODE_CUDA;
-    case BackendKind::Cpu:
-    case BackendKind::Auto:
-      break;
-  }
-  return MODE_CPU_OPT;
-}
 
 }  // namespace
 
@@ -123,7 +108,6 @@ int Application::run() {
   for (int attempt = 0; attempt < 2; ++attempt) {
     try {
       Backend backend = makeBackend(kind, config_.backend.check_against_cpu, logger_);
-      g_mathMode = mathModeFor(kind, config_.backend.check_against_cpu);
       result = encode(backend, in_data, &out_data);
       break;
     } catch (const std::bad_alloc&) {

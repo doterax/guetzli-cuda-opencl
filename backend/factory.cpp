@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "backend/check/checking_block_zeroing.h"
 #include "backend/check/checking_comparator.h"
 #include "backend/check/checking_dct_ops.h"
 #include "backend/cpu/cpu_backend.h"
@@ -97,6 +98,8 @@ Backend checkedAgainst(Backend tested, Backend reference, ILogger& logger) {
   backend.kind = tested.kind;
   backend.comparators = std::make_unique<CheckingComparatorFactory>(std::move(tested.comparators),
                                                                     std::move(reference.comparators), logger);
+  backend.block_zeroing = std::make_unique<CheckingBlockZeroingSearch>(std::move(tested.block_zeroing),
+                                                                       std::move(reference.block_zeroing), logger);
   backend.dct = std::make_unique<CheckingDctOps>(std::move(tested.dct), std::move(reference.dct), logger);
   return backend;
 }

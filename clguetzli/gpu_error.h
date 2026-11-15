@@ -3,7 +3,7 @@
 *
 * Thrown by the OpenCL / CUDA layers when a device call fails (no device,
 * kernel compile/load failure, out of device memory, launch failure, ...).
-* main() catches it and re-runs the job on the CPU (MODE_CPU_OPT).
+* Application::run() catches it and re-runs the job on the CPU backend.
 */
 #pragma once
 

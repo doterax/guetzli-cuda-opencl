@@ -18,8 +18,6 @@
 #define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
 
-MATH_MODE g_mathMode = MODE_AUTO;
-
 #ifdef __USE_OPENCL__
 // Largest work-group the kernel can be launched with on our device (cached per kernel).
 static size_t clKernelMaxWorkGroup(cl_kernel kernel) {

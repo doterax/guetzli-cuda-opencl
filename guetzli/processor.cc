@@ -33,7 +33,6 @@
 #include "guetzli/jpeg_data_writer.h"
 #include "guetzli/output_image.h"
 #include "guetzli/quantize.h"
-#include "clguetzli/clguetzli.h"
 
 #ifdef __SUPPORT_FULL_JPEG__
 #include "jpeglib.h"
@@ -63,10 +62,6 @@ class Processor {
   void SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask, const double target_mul,
                               bool stop_early, std::vector<int>& candidate_coeff_offsets,
                               std::vector<uint8_t>& candidate_coeffs, std::vector<float>& candidate_coeff_errors);
-
-  void ComputeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
-                                const int block_x, const int block_y, const int factor_x, const int factor_y,
-                                const uint8_t comp_mask, OutputImage* img, std::vector<CoeffData>* output_order);
 
   bool SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample, int best_q[3][kDCTBlockSize], OutputImage* img);
   QuantData TryQuantMatrix(const JPEGData& jpg_in, const float target_mul, int q[3][kDCTBlockSize], OutputImage* img);
@@ -345,105 +340,6 @@ bool Processor::SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample,
   return best.dist_ok;
 }
 
-// REQUIRES: block[c*64...(c*64+63)] is all zero if (comp_mask & (1<<c)) == 0.
-void Processor::ComputeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
-                                         const int block_x, const int block_y, const int factor_x, const int factor_y,
-                                         const uint8_t comp_mask, OutputImage* img,
-                                         std::vector<CoeffData>* output_order) {
-  static const uint8_t oldCsf[kDCTBlockSize] = {
-      10, 10, 20, 40, 60, 70, 80, 90, 10, 20, 30, 60, 70, 80, 90, 90, 20, 30, 60, 70, 80, 90,
-      90, 90, 40, 60, 70, 80, 90, 90, 90, 90, 60, 70, 80, 90, 90, 90, 90, 90, 70, 80, 90, 90,
-      90, 90, 90, 90, 80, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,
-  };
-  static const double kWeight[3] = {1.0, 0.22, 0.20};
-#include "guetzli/order.inc"
-  std::vector<std::pair<int, float>> input_order;
-  for (int c = 0; c < 3; ++c) {
-    if (!(comp_mask & (1 << c))) continue;
-    for (int k = 1; k < kDCTBlockSize; ++k) {
-      int idx = c * kDCTBlockSize + k;
-      if (block[idx] != 0) {
-        float score;
-        if (params_.new_zeroing_model) {
-          score = std::abs(orig_block[idx]) * csf[idx] + bias[idx];
-        } else {
-          score = static_cast<float>((std::abs(orig_block[idx]) - kJPEGZigZagOrder[k] / 64.0) * kWeight[c] / oldCsf[k]);
-        }
-        input_order.push_back(std::make_pair(idx, score));
-      }
-    }
-  }
-  std::sort(input_order.begin(), input_order.end(),
-            [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
-  coeff_t processed_block[kBlockSize];
-  memcpy(processed_block, block, sizeof(processed_block));
-  comparator_->SwitchBlock(block_x, block_y, factor_x, factor_y);
-  while (!input_order.empty()) {
-    float best_err = 1e17f;
-    int best_i = 0;
-    for (size_t i = 0; i < std::min<size_t>(params_.zeroing_greedy_lookahead, input_order.size()); ++i) {
-      coeff_t candidate_block[kBlockSize];
-      memcpy(candidate_block, processed_block, sizeof(candidate_block));
-      const int idx = input_order[i].first;
-      candidate_block[idx] = 0;
-      for (int c = 0; c < 3; ++c) {
-        if (comp_mask & (1 << c)) {
-          img->component(c).SetCoeffBlock(block_x, block_y, &candidate_block[c * kDCTBlockSize]);
-        }
-      }
-      float max_err = 0;
-      for (int iy = 0; iy < factor_y; ++iy) {
-        for (int ix = 0; ix < factor_x; ++ix) {
-          int block_xx = block_x * factor_x + ix;
-          int block_yy = block_y * factor_y + iy;
-          if (8 * block_xx < img->width() && 8 * block_yy < img->height()) {
-            float err = static_cast<float>(comparator_->CompareBlock(*img, ix, iy, candidate_block, comp_mask));
-            max_err = std::max(max_err, err);
-          }
-        }
-      }
-      if (max_err < best_err) {
-        best_err = max_err;
-        best_i = i;
-      }
-    }
-    int idx = input_order[best_i].first;
-    processed_block[idx] = 0;
-    input_order.erase(input_order.begin() + best_i);
-    output_order->push_back({idx, best_err});
-    for (int c = 0; c < 3; ++c) {
-      if (comp_mask & (1 << c)) {
-        img->component(c).SetCoeffBlock(block_x, block_y, &processed_block[c * kDCTBlockSize]);
-      }
-    }
-    if (MODE_CPU_OPT == g_mathMode) {
-      if (best_err >= comparator_->BlockErrorLimit()) {
-        // The input_order is an ascent vector, break when best_err exceed the error limit.
-        break;
-      }
-    }
-  }
-  // Make the block error values monotonic.
-  float min_err = 1e10;
-  const int size = narrow_cast<int>(output_order->size());
-  for (int i = size - 1; i >= 0; --i) {
-    min_err = std::min(min_err, (*output_order)[i].block_err);
-    (*output_order)[i].block_err = min_err;
-  }
-  // Cut off at the block error limit.
-  size_t num = 0;
-  while (num < output_order->size() && (*output_order)[num].block_err <= comparator_->BlockErrorLimit()) {
-    ++num;
-  }
-  output_order->resize(num);
-  // Restore *img to the same state as it was at the start of this function.
-  for (int c = 0; c < 3; ++c) {
-    if (comp_mask & (1 << c)) {
-      img->component(c).SetCoeffBlock(block_x, block_y, &block[c * kDCTBlockSize]);
-    }
-  }
-}
-
 namespace {
 
 void UpdateACHistogram(const int weight, const coeff_t* coeffs, const int* q, JpegHistogram* ac_histogram) {
@@ -521,94 +417,10 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 
   comparator_->StartBlockComparisons();
 
-  std::vector<CoeffData> output_order_gpu;
-  std::vector<CoeffData> output_order_cpu;
-
-  CoeffData* output_order = NULL;
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-  if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode || MODE_CHECKCL == g_mathMode ||
-      MODE_CHECKCUDA == g_mathMode) {
-    const std::optional<BlockReferenceData> reference = comparator_->blockReferenceData();
-    if (!reference) throw std::logic_error("GPU block zeroing needs a GPU comparator");
-
-    channel_info orig_channel[3];
-    channel_info mayout_channel[3];
-
-    for (int c = 0; c < 3; c++) {
-      mayout_channel[c].factor = img->component(c).factor_x();
-      mayout_channel[c].block_width = img->component(c).width_in_blocks();
-      mayout_channel[c].block_height = img->component(c).height_in_blocks();
-      mayout_channel[c].coeff = img->component(c).coeffs();
-      mayout_channel[c].pixel = img->component(c).pixels();
-
-      orig_channel[c].factor = jpg.components[c].v_samp_factor;
-      orig_channel[c].block_width = jpg.components[c].width_in_blocks;
-      orig_channel[c].block_height = jpg.components[c].height_in_blocks;
-      orig_channel[c].coeff = jpg.components[c].coeffs.data();
-    }
-    output_order_gpu.resize(num_blocks * kBlockSize);
-    output_order = output_order_gpu.data();
-#ifdef __USE_OPENCL__
-    if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode) {
-      clComputeBlockZeroingOrder(output_order, orig_channel, reference->opsin.data(), reference->mask_scale.data(),
-                                 width, height, mayout_channel, factor_x, comp_mask, comparator_->BlockErrorLimit());
-    }
-#endif
-#ifdef __USE_CUDA__
-    if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode) {
-      cuComputeBlockZeroingOrder(output_order, orig_channel, reference->opsin.data(), reference->mask_scale.data(),
-                                 width, height, mayout_channel, factor_x, comp_mask, comparator_->BlockErrorLimit());
-    }
-#endif
-  }
-#endif
-  // CPU path: CPU modes, check modes, and any mode the GPU block above didn't handle.
-  if (output_order == NULL || MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) {
-    output_order_cpu.resize(num_blocks * kBlockSize);
-    output_order = output_order_cpu.data();
-    for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
-      for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
-        coeff_t block[kBlockSize] = {0};
-        coeff_t orig_block[kBlockSize] = {0};
-        for (int c = 0; c < 3; ++c) {
-          if (comp_mask & (1 << c)) {
-            assert(img->component(c).factor_x() == factor_x);
-            assert(img->component(c).factor_y() == factor_y);
-            img->component(c).GetCoeffBlock(block_x, block_y, &block[c * kDCTBlockSize]);
-            const JPEGComponent& comp = jpg.components[c];
-            int jpg_block_ix = block_y * comp.width_in_blocks + block_x;
-            memcpy(&orig_block[c * kDCTBlockSize], &comp.coeffs[jpg_block_ix * kDCTBlockSize],
-                   kDCTBlockSize * sizeof(orig_block[0]));
-          }
-        }
-
-        std::vector<CoeffData> block_order;
-        ComputeBlockZeroingOrder(block, orig_block, block_x, block_y, factor_x, factor_y, comp_mask, img, &block_order);
-
-        CoeffData* p = &output_order_cpu[block_ix * kBlockSize];
-        for (int i = 0; i < block_order.size(); i++) {
-          p[i].idx = block_order[i].idx;
-          p[i].block_err = block_order[i].block_err;
-        }
-      }
-    }
-  }
-
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-  if ((MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) && !output_order_gpu.empty()) {
-    int count = 0;
-    int check_size = output_order_gpu.size();
-    for (int i = 0; i < check_size; i++) {
-      if (output_order_cpu[i].idx != output_order_gpu[i].idx ||
-          fabs(output_order_cpu[i].block_err - output_order_gpu[i].block_err) > 0.001) {
-        count++;
-      }
-    }
-    if (count > 0) {
-      LogError("CHK %s(%d) %d:%d\r\n", "SelectFrequencyMasking", __LINE__, count, check_size);
-    }
-  }
-#endif
+  const BlockZeroingInput search_input{
+      jpg, *img, comp_mask, *comparator_, params_.zeroing_greedy_lookahead, params_.new_zeroing_model};
+  const std::vector<CoeffData> orders = backend_->block_zeroing->run(search_input);
+  const CoeffData* output_order = orders.data();
 
   std::vector<int> candidate_coeff_offsets(num_blocks + 1);
   std::vector<uint8_t> candidate_coeffs;
@@ -616,7 +428,7 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 
   for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
     for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
-      CoeffData* p = &output_order[block_ix * kBlockSize];
+      const CoeffData* p = &output_order[block_ix * kBlockSize];
 
       candidate_coeff_offsets[block_ix] = narrow_cast<int>(candidate_coeffs.size());
       for (int i = 0; i < kBlockSize; i++) {

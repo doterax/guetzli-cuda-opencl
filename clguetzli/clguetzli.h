@@ -13,18 +13,6 @@
 
 #include "cuguetzli.h"
 
-enum MATH_MODE {
-  MODE_CPU = 0,
-  MODE_CPU_OPT,
-  MODE_OPENCL,
-  MODE_CUDA,
-  MODE_CHECKCL,
-  MODE_CHECKCUDA,
-  MODE_AUTO,
-};
-
-extern MATH_MODE g_mathMode;  // removed in modernization phase 3 (backend interfaces)
-
 #ifdef __USE_OPENCL__
 
 void clOpsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize, const unsigned int ysize);
