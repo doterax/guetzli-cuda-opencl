@@ -36,10 +36,10 @@ enum KernelName {
   KERNEL_COUNT,
 };
 
-#include "utils.h"
-#include "gpu_error.h"
-#include "gpu_options.h"
-#include "clguetzli.cl.h"
+#include "clguetzli/utils.h"
+#include "backend/gpu_error.h"
+#include "backend/gpu/gpu_options.h"
+#include "clguetzli/clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
 #include <map>

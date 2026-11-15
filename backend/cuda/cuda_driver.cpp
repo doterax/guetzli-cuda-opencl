@@ -5,7 +5,7 @@
  * binary does not have a hard link-time dependency on nvcuda.dll.
  */
 
-#include "cuda_dynload.h"
+#include "backend/cuda/cuda_driver.h"
 
 #ifdef __USE_CUDA__
 

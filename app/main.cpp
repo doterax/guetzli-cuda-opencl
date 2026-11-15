@@ -7,7 +7,7 @@
 
 #include "app/application.h"
 #include "app/cli.h"
-#include "clguetzli/clguetzli.h"
+#include "backend/opencl/opencl_kernels.h"
 #include "guetzli/version.h"
 #include "logging/logger.h"
 #ifdef __USE_GPERFTOOLS__

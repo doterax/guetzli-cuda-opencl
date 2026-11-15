@@ -4,12 +4,12 @@
  * Author: ianhuang@tencent.com
  */
 
-#include "cumem_pool.h"
-#include "ocu.h"
+#include "backend/cuda/cuda_memory_pool.h"
+#include "backend/cuda/cuda_context.h"
 #include <string>
 
 #ifdef __USE_CUDA__
-#include "cuda_dynload.h"
+#include "backend/cuda/cuda_driver.h"
 
 bool compare_size(const cu_mem_block_t& first, const cu_mem_block_t& second) {
   return (first.size < second.size);

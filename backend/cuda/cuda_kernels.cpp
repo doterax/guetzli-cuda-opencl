@@ -11,11 +11,11 @@
 #include <cstring>
 #include <map>
 #include <vector>
-#include "cuguetzli.h"
-#include "ocu.h"
+#include "backend/cuda/cuda_kernels.h"
+#include "backend/cuda/cuda_context.h"
 
 #ifdef __USE_CUDA__
-#include "cuda_dynload.h"
+#include "backend/cuda/cuda_driver.h"
 
 #define cuFinish cuStreamSynchronize
 #define BLOCK_SIZE 128  // 1D launches

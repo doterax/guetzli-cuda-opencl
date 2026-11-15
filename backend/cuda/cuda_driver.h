@@ -7,7 +7,7 @@
  *
  * Usage:
  *   #include <cuda.h>          // still needed for type definitions
- *   #include "cuda_dynload.h"  // redefines API calls to function pointers
+ *   #include "backend/cuda/cuda_driver.h"  // redefines API calls to function pointers
  *
  * Call cudaDynloadInit() once at startup. Returns true if nvcuda loaded.
  */

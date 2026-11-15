@@ -8,10 +8,10 @@
 #pragma once
 #include <vector>
 #include "guetzli/processor.h"
-#include "ocl.h"
-#include "clguetzli.cl.h"
+#include "backend/opencl/opencl_context.h"
+#include "clguetzli/clguetzli.cl.h"
 
-#include "cuguetzli.h"
+#include "backend/cuda/cuda_kernels.h"
 
 #ifdef __USE_OPENCL__
 

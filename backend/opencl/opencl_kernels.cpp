@@ -12,8 +12,8 @@
 #include <set>
 #include <map>
 #include <string.h>
-#include "clguetzli.h"
-#include "cl.hpp"
+#include "backend/opencl/opencl_kernels.h"
+#include "backend/opencl/kernel_args.h"
 #define LOG
 #define UTILITIES_FILE
 #include "third_party/OpenCL-Wrapper/opencl.hpp"

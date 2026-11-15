@@ -9,10 +9,10 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include "ocl.h"
-#include "clguetzli/clguetzli.h"
+#include "backend/opencl/opencl_context.h"
+#include "backend/opencl/opencl_kernels.h"
 #include "clguetzli/clguetzli_cl_src.h"
-#include "lzodec.h"
+#include "clguetzli/lzodec.h"
 #include "guetzli/gamma_correct.h"
 //#define LOG
 //#define UTILITIES_FILE

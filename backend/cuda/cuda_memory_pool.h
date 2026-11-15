@@ -9,8 +9,8 @@
 
 #include <list>
 #include <cuda.h>
-#include "cuda_dynload.h"
-#include "ocl.h"
+#include "backend/cuda/cuda_driver.h"
+#include "backend/opencl/opencl_context.h"
 
 /*Simple memory pool for CUDA, aiming to reduce the memory allocation count, because it's time consuming.*/
 

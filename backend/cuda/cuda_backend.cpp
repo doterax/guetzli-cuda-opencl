@@ -7,7 +7,7 @@
 #include "backend/gpu/gpu_block_zeroing.h"
 #include "backend/gpu/gpu_comparator.h"
 #include "backend/gpu/gpu_dct_ops.h"
-#include "clguetzli/cuguetzli.h"
+#include "backend/cuda/cuda_kernels.h"
 
 namespace guetzli {
 

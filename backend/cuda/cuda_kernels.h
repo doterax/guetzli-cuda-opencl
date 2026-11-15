@@ -7,8 +7,8 @@
 */
 #pragma once
 #include "guetzli/processor.h"
-#include "clguetzli.cl.h"
-#include "ocu.h"
+#include "clguetzli/clguetzli.cl.h"
+#include "backend/cuda/cuda_context.h"
 
 #ifdef __USE_CUDA__
 

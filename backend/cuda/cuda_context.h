@@ -10,10 +10,10 @@
 #include <map>
 #include <vector>
 #include <cuda.h>
-#include "cuda_dynload.h"
-#include "ocl.h"
-#include "cumem_pool.h"
-#include "gpu_options.h"
+#include "backend/cuda/cuda_driver.h"
+#include "backend/opencl/opencl_context.h"
+#include "backend/cuda/cuda_memory_pool.h"
+#include "backend/gpu/gpu_options.h"
 
 // Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
 #define LOG_CU_RESULT(e)                                                                                       \

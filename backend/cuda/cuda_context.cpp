@@ -3,17 +3,17 @@
 *
 * Author: strongtu@tencent.com
 */
-#include "ocu.h"
+#include "backend/cuda/cuda_context.h"
 
 #ifdef __USE_CUDA__
 #include <cstdio>
 #include <cstdint>
 #include <string>
 #include <cuda.h>
-#include "cuda_dynload.h"
+#include "backend/cuda/cuda_driver.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
-#include "clguetzli/clguetzli.h"
-#include "lzodec.h"
+#include "backend/opencl/opencl_kernels.h"
+#include "clguetzli/lzodec.h"
 #include "guetzli/gamma_correct.h"
 #include <cstring>
 

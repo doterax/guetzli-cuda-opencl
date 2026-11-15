@@ -10,13 +10,13 @@
 #include "backend/cpu/cpu_backend.h"
 #include "backend/cuda/cuda_backend.h"
 #include "backend/opencl/opencl_backend.h"
-#include "clguetzli/gpu_error.h"
-#include "clguetzli/gpu_options.h"
+#include "backend/gpu_error.h"
+#include "backend/gpu/gpu_options.h"
 #ifdef __USE_OPENCL__
-#include "clguetzli/ocl.h"
+#include "backend/opencl/opencl_context.h"
 #endif
 #ifdef __USE_CUDA__
-#include "clguetzli/ocu.h"
+#include "backend/cuda/cuda_context.h"
 #endif
 
 namespace guetzli {
