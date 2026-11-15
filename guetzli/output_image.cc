@@ -17,11 +17,11 @@
 #include "guetzli/output_image.h"
 
 #include <algorithm>
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
 #include <cmath>
-#include <cstdlib>
+#include <cstdio>
+#include <stdexcept>
+#include <string>
 
 #include "guetzli/idct.h"
 #include "guetzli/color_transform.h"
@@ -44,7 +44,7 @@ void OutputImageComponent::Reset(int factor_x, int factor_y) {
   num_blocks_ = width_in_blocks_ * height_in_blocks_;
   coeffs_ = std::vector<coeff_t>(num_blocks_ * kDCTBlockSize);
   pixels_ = std::vector<uint16_t>(width_ * height_, 128 << 4);
-  for (int i = 0; i < kDCTBlockSize; ++i) quant_[i] = 1;
+  quant_.fill(1);
 }
 
 bool OutputImageComponent::IsAllZero() const {
@@ -58,8 +58,8 @@ bool OutputImageComponent::IsAllZero() const {
 void OutputImageComponent::GetCoeffBlock(int block_x, int block_y, coeff_t block[kDCTBlockSize]) const {
   assert(block_x < width_in_blocks_);
   assert(block_y < height_in_blocks_);
-  int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-  memcpy(block, &coeffs_[offset], kDCTBlockSize * sizeof(coeffs_[0]));
+  const int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
+  std::copy_n(&coeffs_[offset], kDCTBlockSize, block);
 }
 
 void OutputImageComponent::ToPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const {
@@ -120,19 +120,11 @@ void OutputImageComponent::ToFloatPixels(float* out, int stride) const {
 void OutputImageComponent::SetCoeffBlock(int block_x, int block_y, const coeff_t block[kDCTBlockSize]) {
   assert(block_x < width_in_blocks_);
   assert(block_y < height_in_blocks_);
-  int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-
-  // Ensure coefficients are properly quantized before storing
-  coeff_t quantized_block[kDCTBlockSize];
-  for (int k = 0; k < kDCTBlockSize; ++k) {
-    quantized_block[k] = block[k];
-    // Ensure the coefficient is divisible by the quantization value
-    if (quant_[k] > 1 && quantized_block[k] % quant_[k] != 0) {
-      quantized_block[k] = Quantize(quantized_block[k], quant_[k]);
-    }
-  }
-
-  memcpy(&coeffs_[offset], quantized_block, kDCTBlockSize * sizeof(coeffs_[0]));
+  const int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
+#ifndef NDEBUG
+  for (int k = 0; k < kDCTBlockSize; ++k) assert(block[k] % quant_[k] == 0);
+#endif
+  std::copy_n(block, kDCTBlockSize, &coeffs_[offset]);
   uint8_t idct[kDCTBlockSize];
   ComputeBlockIDCT(&coeffs_[offset], idct);
   UpdatePixelsForBlock(block_x, block_y, idct);
@@ -206,8 +198,8 @@ void OutputImageComponent::UpdatePixelsForBlock(int block_x, int block_y, const 
       }
     }
   } else {
-    printf("Sampling ratio not supported: factor_x = %d factor_y = %d\n", factor_x_, factor_y_);
-    exit(1);
+    throw std::logic_error("unsupported sampling ratio: factor_x = " + std::to_string(factor_x_) +
+                           ", factor_y = " + std::to_string(factor_y_));
   }
 }
 
@@ -228,7 +220,7 @@ void OutputImageComponent::CopyFromJpegComponent(const JPEGComponent& comp, int 
       src_coeffs += kDCTBlockSize;
     }
   }
-  memcpy(quant_, quant, sizeof(quant_));
+  std::copy_n(quant, kDCTBlockSize, quant_.begin());
 }
 
 void OutputImageComponent::ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
@@ -241,11 +233,11 @@ void OutputImageComponent::ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
       }
     }
   }
-  memcpy(quant_, q, sizeof(quant_));
+  std::copy_n(q, kDCTBlockSize, quant_.begin());
 }
 
 void OutputImageComponent::SetQuant(const int q[kDCTBlockSize]) {
-  memcpy(quant_, q, sizeof(quant_));
+  std::copy_n(q, kDCTBlockSize, quant_.begin());
 }
 
 OutputImage::OutputImage(int w, int h, IDctOps& ops)
@@ -298,11 +290,6 @@ void SetDownsampledCoefficients(const std::vector<float>& pixels, int factor_x, 
       coeff_t block[kDCTBlockSize];
       for (int k = 0; k < kDCTBlockSize; ++k) {
         block[k] = static_cast<coeff_t>(std::round(blockd[k]));
-        // Ensure the coefficient is properly quantized
-        const int quant = comp->quant()[k];
-        if (quant > 1) {
-          block[k] = Quantize(block[k], quant);
-        }
       }
       comp->SetCoeffBlock(block_x, block_y, block);
     }
@@ -362,14 +349,14 @@ void OutputImage::SaveToJpegData(JPEGData* jpg) const {
   int ncomp = components_[1].IsAllZero() && components_[2].IsAllZero() ? 1 : 3;
   for (int i = 1; i < ncomp; ++i) {
     jpg->max_h_samp_factor = std::max(jpg->max_h_samp_factor, components_[i].factor_x());
-    jpg->max_v_samp_factor = std::max(jpg->max_h_samp_factor, components_[i].factor_y());
+    jpg->max_v_samp_factor = std::max(jpg->max_v_samp_factor, components_[i].factor_y());
     jpg->MCU_cols = std::min(jpg->MCU_cols, components_[i].width_in_blocks());
     jpg->MCU_rows = std::min(jpg->MCU_rows, components_[i].height_in_blocks());
   }
   jpg->components.resize(ncomp);
   int q[3][kDCTBlockSize];
   for (int c = 0; c < 3; ++c) {
-    memcpy(&q[c][0], components_[c].quant(), kDCTBlockSize * sizeof(q[0][0]));
+    std::copy_n(components_[c].quant(), kDCTBlockSize, &q[c][0]);
   }
   for (int c = 0; c < ncomp; ++c) {
     JPEGComponent* comp = &jpg->components[c];
@@ -396,14 +383,7 @@ void OutputImage::SaveToJpegData(JPEGData* jpg) const {
         } else {
           for (int k = 0; k < kDCTBlockSize; ++k) {
             const int quant = q[c][k];
-            int coeff = src_coeffs[k];
-
-            // Defensive check and fix for quantization invariant
-            if (quant > 1 && coeff % quant != 0) {
-              // Fix the coefficient to be properly quantized
-              coeff = Quantize(coeff, quant);
-            }
-
+            const int coeff = src_coeffs[k];
             assert(coeff % quant == 0);
             dest_coeffs[k] = coeff / quant;
           }
@@ -444,8 +424,8 @@ void OutputImage::ToLinearRGB(std::vector<std::vector<float>>* rgb) const {
 std::string OutputImage::FrameTypeStr() const {
   char buf[128];
   int len =
-      snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factor_x(), component(0).factor_y(),
-               component(1).factor_x(), component(1).factor_y(), component(2).factor_x(), component(2).factor_y());
+      std::snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factor_x(), component(0).factor_y(),
+                    component(1).factor_x(), component(1).factor_y(), component(2).factor_x(), component(2).factor_y());
   return std::string(buf, len);
 }
 
