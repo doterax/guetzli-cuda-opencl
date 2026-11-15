@@ -3,12 +3,14 @@
 #
 # Usage:
 #   tests/regress/regress.sh <guetzli-binary> [mode ...]
-#     modes: cpu opencl cuda checkcl checkcuda   (default: cpu)
+#     modes: cpu opencl cuda   (default: cpu)
+#            checkcl checkcuda: GPU and CPU both run and are compared; the
+#            CPU result is used, so output must match the cpu baseline.
 #            fallback-opencl fallback-cuda: GPU init failure is injected
 #            (GUETZLI_TEST_GPU_FAIL=1); output must match the cpu baseline.
 #   UPDATE=1 tests/regress/regress.sh <binary> cpu opencl   # (re)write baselines
 #
-# Inputs are tiny (>100 px so GPU paths are taken, but cheap to run).
+# Inputs are tiny (mostly >100 px so GPU paths are taken, but cheap to run).
 # For each mode the md5 of every output is compared against
 # tests/regress/expected/<mode>.md5. For check* modes, the number of
 # "CHK" mismatch lines reported by the binary is printed as well.
@@ -49,7 +51,10 @@ for mode in "${MODES[@]}"; do
     flag="$(flag_for "$mode")"
     expfile="$EXP/$mode.md5"
     inject=0
-    case "$mode" in fallback-*) expfile="$EXP/cpu.md5"; inject=1 ;; esac
+    case "$mode" in
+        fallback-*) expfile="$EXP/cpu.md5"; inject=1 ;;
+        check*) expfile="$EXP/cpu.md5" ;;
+    esac
     newfile="$OUT/$mode.md5"
     : > "$newfile"
     echo "== mode: $mode ($flag)"
@@ -77,7 +82,7 @@ for mode in "${MODES[@]}"; do
         [ "$chk" != "0" ] && printf "  (CHK mismatches: %s)" "$chk"
         echo
     done
-    if [ "${UPDATE:-0}" = "1" ] && [ $inject = 0 ]; then cp "$newfile" "$expfile"; echo "  baseline written: $expfile"; fi
+    if [ "${UPDATE:-0}" = "1" ] && [ "$expfile" = "$EXP/$mode.md5" ]; then cp "$newfile" "$expfile"; echo "  baseline written: $expfile"; fi
 done
 
 # Cross-backend comparison (informational).
