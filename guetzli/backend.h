@@ -8,12 +8,14 @@
 #include <memory>
 
 #include "config/config.h"
+#include "guetzli/comparator.h"
 #include "guetzli/dct_ops.h"
 
 namespace guetzli {
 
 struct Backend {
   BackendKind kind = BackendKind::Cpu;  // never Auto
+  std::unique_ptr<IComparatorFactory> comparators;
   std::unique_ptr<IDctOps> dct;
 };
 

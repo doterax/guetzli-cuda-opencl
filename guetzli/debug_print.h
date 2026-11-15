@@ -17,6 +17,10 @@
 #ifndef GUETZLI_DEBUG_PRINT_H_
 #define GUETZLI_DEBUG_PRINT_H_
 
+#include <cassert>
+#include <cstdio>
+#include <string>
+
 #include "guetzli/stats.h"
 
 namespace guetzli {

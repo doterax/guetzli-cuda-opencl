@@ -937,7 +937,7 @@ void clComponentsToPixels(uchar* rgb, /*out*/
   for (int c = 0; c < 3; ++c) ocl.releaseMem(pixels[c]);
 }
 
-// Per-image state of ButteraugliComparatorEx::Compare on OpenCL.
+// Per-image state of the OpenCL comparator's Compare() (backend/opencl).
 struct ClCompareContext {
   int xsize;
   int ysize;

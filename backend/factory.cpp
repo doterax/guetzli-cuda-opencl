@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "backend/check/checking_comparator.h"
 #include "backend/check/checking_dct_ops.h"
 #include "backend/cpu/cpu_backend.h"
 #include "backend/cuda/cuda_backend.h"
@@ -94,6 +95,8 @@ Backend makeGpuBackend(BackendKind kind) {
 Backend checkedAgainst(Backend tested, Backend reference, ILogger& logger) {
   Backend backend;
   backend.kind = tested.kind;
+  backend.comparators = std::make_unique<CheckingComparatorFactory>(std::move(tested.comparators),
+                                                                    std::move(reference.comparators), logger);
   backend.dct = std::make_unique<CheckingDctOps>(std::move(tested.dct), std::move(reference.dct), logger);
   return backend;
 }

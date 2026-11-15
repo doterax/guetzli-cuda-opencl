@@ -18,57 +18,47 @@
 
 #include <algorithm>
 
-#include "guetzli/debug_print.h"
+#include "butteraugli/butteraugli.h"
+#include "clguetzli/opsin_block.h"
 #include "guetzli/gamma_correct.h"
 #include "guetzli/score.h"
 
-#include "clguetzli/ocu.h"
-#include "clguetzli/clguetzli.h"
-#include "clguetzli/cuguetzli.h"
-
 namespace guetzli {
 
-std::vector<std::vector<float>> ComputeOpsinDynamicsImage(const int width, const int height,
-                                                          const std::vector<uint8_t>& rgb) {
-  std::vector<std::vector<float>> out(3);
-  const double* lut = Srgb8ToLinearTable();
-  for (int c = 0; c < 3; ++c) {
-    out[c].resize(width * height);
-    for (int y = 0, ix = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x, ++ix) {
-        out[c][ix] = lut[rgb[3 * ix + c]];
-      }
-    }
-  }
-  ::butteraugli::OpsinDynamicsImage(width, height, out);
-  return out;
-}
-
 ButteraugliComparator::ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb,
-                                             const float target_distance, ProcessStats* stats)
+                                             const float target_distance, ProcessStats* stats, ButteraugliOps& ops)
     : width_(width),
       height_(height),
       target_distance_(target_distance),
       rgb_orig_(*rgb),
-      comparator_(width_, height_, kButteraugliStep),
+      ops_(ops),
       distance_(0.0),
-      stats_(stats) {}
+      stats_(stats) {
+  rgb_orig_opsin_.resize(3);
+  rgb_orig_opsin_[0].resize(width * height);
+  rgb_orig_opsin_[1].resize(width * height);
+  rgb_orig_opsin_[2].resize(width * height);
 
-void ButteraugliComparator::Compare(const OutputImage& img) {
-  std::vector<std::vector<float>> rgb0 = ComputeOpsinDynamicsImage(width_, height_, rgb_orig_);
-  std::vector<std::vector<float>> rgb(3, std::vector<float>(width_ * height_));
-  img.ToLinearRGB(&rgb);
-  ::butteraugli::OpsinDynamicsImage(width_, height_, rgb);
-  std::vector<float>().swap(distmap_);
-  comparator_.DiffmapOpsinDynamicsImage(rgb0, rgb, distmap_);
-  distance_ = ::butteraugli::ButteraugliScoreFromDiffmap(distmap_);
-  GUETZLI_LOG(stats_, " BA[100.00%%] D[%6.4f]", distance_);
+  const float* lut = Srgb8ToLinearTableF();
+
+  for (int c = 0; c < 3; ++c) {
+    for (int y = 0, ix = 0; y < height_; ++y) {
+      for (int x = 0; x < width_; ++x, ++ix) {
+        rgb_orig_opsin_[c][ix] = lut[rgb_orig_[3 * ix + c]];
+      }
+    }
+  }
+  ops_.OpsinDynamicsImage(width_, height_, rgb_orig_opsin_);
 }
 
 void ButteraugliComparator::StartBlockComparisons() {
-  std::vector<std::vector<float>> dummy(3);
-  std::vector<std::vector<float>> rgb0 = ComputeOpsinDynamicsImage(width_, height_, rgb_orig_);
-  ::butteraugli::Mask(rgb0, rgb0, width_, height_, &mask_xyz_, &dummy);
+  // Mask(orig, orig) depends only on the original image: compute it once and
+  // reuse it for every block-comparison round (SelectFrequencyMasking runs 2-3x).
+  if (mask_xyz_orig_.empty()) {
+    std::vector<std::vector<float>> dummy(3);
+    ops_.Mask(rgb_orig_opsin_, rgb_orig_opsin_, width_, height_, &mask_xyz_orig_, &dummy);
+  }
+  mask_xyz_ = mask_xyz_orig_;  // FinishBlockComparisons() clears mask_xyz_
 }
 
 void ButteraugliComparator::FinishBlockComparisons() {
@@ -97,7 +87,7 @@ void ButteraugliComparator::SwitchBlock(int block_x, int block_y, int factor_x, 
           }
         }
       }
-      ::butteraugli::OpsinDynamicsImage(8, 8, per_block_pregamma_[bx]);
+      ops_.OpsinDynamicsImage(8, 8, per_block_pregamma_[bx]);
     }
   }
 }
@@ -113,12 +103,12 @@ double ButteraugliComparator::CompareBlock(const OutputImage& img, int off_x, in
 
   std::vector<std::vector<float>> rgb1_c(3, std::vector<float>(kDCTBlockSize));
   img.ToLinearRGB(xmin, ymin, 8, 8, &rgb1_c);
-  ::butteraugli::OpsinDynamicsImage(8, 8, rgb1_c);
+  ops_.OpsinDynamicsImage(8, 8, rgb1_c);
 
   std::vector<std::vector<float>> rgb0 = rgb0_c;
   std::vector<std::vector<float>> rgb1 = rgb1_c;
 
-  ::butteraugli::MaskHighIntensityChange(8, 8, rgb0_c, rgb1_c, rgb0, rgb1);
+  ops_.MaskHighIntensityChange(8, 8, rgb0_c, rgb1_c, rgb0, rgb1);
 
   double b0[3 * kDCTBlockSize];
   double b1[3 * kDCTBlockSize];

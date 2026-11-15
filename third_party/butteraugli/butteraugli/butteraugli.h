@@ -93,6 +93,10 @@ void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::
 
 void Blur(size_t xsize, size_t ysize, float* channel, double sigma, double border_ratio = 0.0);
 
+// Also used by the optimized CPU implementation (clguetzli/clbutter_comparator.cpp).
+void ScaleImage(double scale, std::vector<float>* result);
+void Average5x5(int xsize, int ysize, std::vector<float>* diffs);
+
 }  // namespace butteraugli
 
 #endif  // BUTTERAUGLI_BUTTERAUGLI_H_

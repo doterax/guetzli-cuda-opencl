@@ -17,10 +17,9 @@
 #ifndef GUETZLI_BUTTERAUGLI_COMPARATOR_H_
 #define GUETZLI_BUTTERAUGLI_COMPARATOR_H_
 
+#include <cstddef>
 #include <vector>
 
-#include "butteraugli/butteraugli.h"
-#include "clguetzli/clbutter_comparator.h"
 #include "guetzli/comparator.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/output_image.h"
@@ -30,12 +29,27 @@ namespace guetzli {
 
 constexpr int kButteraugliStep = 3;
 
+// The butteraugli image operations whose implementation depends on the backend (optimized CPU code,
+// GPU kernels, or the reference code in butteraugli.h). Owned by the backend; must outlive its comparators.
+class ButteraugliOps {
+ public:
+  virtual ~ButteraugliOps() = default;
+
+  virtual void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) = 0;
+  virtual void Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
+                    size_t xsize, size_t ysize, std::vector<std::vector<float>>* mask,
+                    std::vector<std::vector<float>>* mask_dc) = 0;
+  virtual void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+                                       const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
+                                       std::vector<std::vector<float>>& xyb1) = 0;
+};
+
+// Butteraugli comparator. The whole-image Compare() is implemented by each backend; everything else is
+// shared and runs the image operations through the backend's ButteraugliOps.
 class ButteraugliComparator : public Comparator {
  public:
   ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb, const float target_distance,
-                        ProcessStats* stats);
-
-  void Compare(const OutputImage& img) override;
+                        ProcessStats* stats, ButteraugliOps& ops);
 
   void StartBlockComparisons() override;
   void FinishBlockComparisons() override;
@@ -63,13 +77,17 @@ class ButteraugliComparator : public Comparator {
   const int height_;
   const float target_distance_;
   const std::vector<uint8_t>& rgb_orig_;
+  ButteraugliOps& ops_;
   int block_x_;
   int block_y_;
   int factor_x_;
   int factor_y_;
-  std::vector<std::vector<float>> mask_xyz_;
+  // Opsin-dynamics image of the original (single-precision sRGB table): the reference of every Compare().
+  std::vector<std::vector<float>> rgb_orig_opsin_;
+  // Mask(original, original); computed by the first StartBlockComparisons() and reused.
+  std::vector<std::vector<float>> mask_xyz_orig_;
+  std::vector<std::vector<float>> mask_xyz_;  // valid between Start/FinishBlockComparisons()
   std::vector<std::vector<std::vector<float>>> per_block_pregamma_;
-  ::butteraugli::clButteraugliComparator comparator_;
   float distance_;
   std::vector<float> distmap_;
   ProcessStats* stats_;

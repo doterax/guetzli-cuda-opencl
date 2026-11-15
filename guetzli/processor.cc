@@ -17,11 +17,13 @@
 #include "guetzli/processor.h"
 
 #include <algorithm>
+#include <cassert>
+#include <optional>
+#include <stdexcept>
 #include <set>
 #include <string.h>
 #include <vector>
 
-#include "guetzli/butteraugli_comparator.h"
 #include "guetzli/comparator.h"
 #include "guetzli/debug_print.h"
 #include "guetzli/fast_log.h"
@@ -526,7 +528,8 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
   if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode || MODE_CHECKCL == g_mathMode ||
       MODE_CHECKCUDA == g_mathMode) {
-    ButteraugliComparatorEx* comp = (ButteraugliComparatorEx*)comparator_;
+    const std::optional<BlockReferenceData> reference = comparator_->blockReferenceData();
+    if (!reference) throw std::logic_error("GPU block zeroing needs a GPU comparator");
 
     channel_info orig_channel[3];
     channel_info mayout_channel[3];
@@ -547,16 +550,14 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
     output_order = output_order_gpu.data();
 #ifdef __USE_OPENCL__
     if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode) {
-      clComputeBlockZeroingOrder(output_order, orig_channel, comp->imgOpsinDynamicsBlockList.data(),
-                                 comp->imgMaskXyzScaleBlockList.data(), width, height, mayout_channel, factor_x,
-                                 comp_mask, comp->BlockErrorLimit());
+      clComputeBlockZeroingOrder(output_order, orig_channel, reference->opsin.data(), reference->mask_scale.data(),
+                                 width, height, mayout_channel, factor_x, comp_mask, comparator_->BlockErrorLimit());
     }
 #endif
 #ifdef __USE_CUDA__
     if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode) {
-      cuComputeBlockZeroingOrder(output_order, orig_channel, comp->imgOpsinDynamicsBlockList.data(),
-                                 comp->imgMaskXyzScaleBlockList.data(), width, height, mayout_channel, factor_x,
-                                 comp_mask, comp->BlockErrorLimit());
+      cuComputeBlockZeroingOrder(output_order, orig_channel, reference->opsin.data(), reference->mask_scale.data(),
+                                 width, height, mayout_channel, factor_x, comp_mask, comparator_->BlockErrorLimit());
     }
 #endif
   }
@@ -952,13 +953,9 @@ bool Process(const Params& params, Backend& backend, ProcessStats* stats, const 
   if (stats == nullptr) {
     stats = &dummy_stats;
   }
-  std::unique_ptr<ButteraugliComparator> comparator;
+  std::unique_ptr<Comparator> comparator;
   if (jpg.width >= 32 && jpg.height >= 32) {
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    comparator.reset(new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
-#else
-    comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
-#endif
+    comparator = backend.comparators->create(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats);
   }
   bool ok = ProcessJpegData(params, backend, jpg, comparator.get(), &out, stats);
   *jpg_out = out.jpeg_data;
@@ -1068,13 +1065,9 @@ bool Process(const Params& params, Backend& backend, ProcessStats* stats, const 
   if (stats == nullptr) {
     stats = &dummy_stats;
   }
-  std::unique_ptr<ButteraugliComparator> comparator;
+  std::unique_ptr<Comparator> comparator;
   if (jpg.width >= 32 && jpg.height >= 32) {
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    comparator.reset(new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
-#else
-    comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
-#endif
+    comparator = backend.comparators->create(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats);
   }
   bool ok = ProcessJpegData(params, backend, jpg, comparator.get(), &out, stats);
   *jpg_out = out.jpeg_data;

@@ -17,12 +17,23 @@
 #ifndef GUETZLI_COMPARATOR_H_
 #define GUETZLI_COMPARATOR_H_
 
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <span>
 #include <vector>
 
 #include "guetzli/output_image.h"
 #include "guetzli/stats.h"
 
 namespace guetzli {
+
+// Per-block data of the baseline image for a device block-zeroing search, one entry per 8x8 block in
+// row-major order (docs/design/modernization.md §5.3).
+struct BlockReferenceData {
+  std::span<const float> opsin;       // per block: 3 * kDCTBlockSize opsin-dynamics values (R..R G..G B..B)
+  std::span<const float> mask_scale;  // per block: the 3 channel mask values at its top-left pixel
+};
 
 // Represents a baseline image, a comparison metric and an image acceptance
 // criteria based on this metric.
@@ -91,6 +102,20 @@ class Comparator {
   virtual void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
                                                   int factor_y, const std::vector<float>& distmap,
                                                   std::vector<float>* block_weight) = 0;
+
+  // Data for a device block-zeroing search, available after StartBlockComparisons(); empty if this
+  // comparator does not provide it.
+  virtual std::optional<BlockReferenceData> blockReferenceData() const { return std::nullopt; }
+};
+
+// Creates the comparator for one image; part of a Backend.
+class IComparatorFactory {
+ public:
+  virtual ~IComparatorFactory() = default;
+
+  // rgb (3 bytes per pixel, width * height pixels) and stats must outlive the comparator.
+  virtual std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb,
+                                             float target_distance, ProcessStats* stats) = 0;
 };
 
 }  // namespace guetzli

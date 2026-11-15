@@ -4,7 +4,7 @@
  * These used to be reached by compiling clguetzli.cl itself as C++
  * (clguetzli.cl.cpp). The bodies below are verbatim ports of the kernel
  * functions and must stay numerically identical to them: they feed
- * ButteraugliComparatorEx's per-block opsin lists for the GPU block search.
+ * the GPU comparator's per-block opsin lists for the GPU block search.
  */
 #include "opsin_block.h"
 

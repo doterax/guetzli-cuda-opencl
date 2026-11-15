@@ -961,7 +961,7 @@ void cuComponentsToPixels(uchar* rgb, /*out*/
   for (int c = 0; c < 3; ++c) ocu.releaseMem(pixels[c]);
 }
 
-// Per-image state of ButteraugliComparatorEx::Compare on CUDA.
+// Per-image state of the CUDA comparator's Compare() (backend/cuda).
 struct CuCompareContext {
   int xsize;
   int ysize;

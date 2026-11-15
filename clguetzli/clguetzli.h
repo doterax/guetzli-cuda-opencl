@@ -8,7 +8,6 @@
 #pragma once
 #include <vector>
 #include "guetzli/processor.h"
-#include "guetzli/butteraugli_comparator.h"
 #include "ocl.h"
 #include "clguetzli.cl.h"
 
@@ -121,7 +120,7 @@ namespace guetzli {
 class OutputImage;
 }
 
-// Per-image device state for ButteraugliComparatorEx::Compare: the original's
+// Per-image device state for the GPU comparator's Compare(): the original's
 // opsin image stays resident and the output image is converted on the device.
 struct ClCompareContext;
 struct CuCompareContext;
@@ -130,41 +129,4 @@ struct CuCompareContext;
 ClCompareContext* clCompareCreate(const float* r, const float* g, const float* b, int xsize, int ysize);
 void clCompareDestroy(ClCompareContext* ctx);  // never throws
 void clCompare(ClCompareContext* ctx, const guetzli::OutputImage& img, int step, float* distmap /*out*/);
-#endif
-
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-
-namespace guetzli {
-
-class OutputImage;  // forward declaration
-
-class ButteraugliComparatorEx : public ButteraugliComparator {
- public:
-  ButteraugliComparatorEx(const int width, const int height, const std::vector<uint8_t>* rgb,
-                          const float target_distance, ProcessStats* stats);
-  ~ButteraugliComparatorEx() override;
-
-  void Compare(const OutputImage& img) override;
-  void StartBlockComparisons() override;
-  void FinishBlockComparisons() override;
-
-  double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
-                      const int comp_mask) const override;
-
- public:
-  std::vector<float> imgOpsinDynamicsBlockList;  // [RR..RRGG..GGBB..BB]:blockCount
-  std::vector<float> imgMaskXyzScaleBlockList;   // [RGBRGB..RGBRGB]:blockCount
-  std::vector<std::vector<float>> rgb_orig_opsin;
-
- private:
-  // Computed once per image and reused by every Start/FinishBlockComparisons round.
-  bool block_lists_ready_ = false;
-  std::vector<std::vector<float>> mask_xyz_orig_;
-
-  // Device-resident Compare() state, created on first GPU Compare.
-  ::ClCompareContext* cl_ctx_ = nullptr;
-  ::CuCompareContext* cu_ctx_ = nullptr;
-};
-}  // namespace guetzli
-
 #endif
