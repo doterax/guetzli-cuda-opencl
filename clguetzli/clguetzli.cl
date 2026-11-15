@@ -324,17 +324,14 @@ __kernel void clConvolutionEx(
 	__global float *__restrict__ result,
 	__global const float *__restrict__ inp, const int xsize,
 	__global const float *multipliers, const int len,
-	const int xstep, const int offset, const float border_ratio)
+	const int xstep, const int offset, const float border_ratio,
+	const int oxsize, const int ysize) // explicit extents: the launch grid may be padded
 {
 	const int ox = get_global_id(0);
 	const int y = get_global_id(1);
 
-	// Early exit for out of bounds
-	if (ox >= get_global_size(0) || y >= get_global_size(1))
+	if (ox >= oxsize || y >= ysize)
 		return;
-
-	const int oxsize = get_global_size(0);
-	const int ysize = get_global_size(1);
 
 	const int x = ox * xstep;
 
@@ -968,13 +965,14 @@ __kernel void clCombineChannelsEx(
 							 DotProduct(&edge_detector_map[3 * res_ix], mask));
 }
 
-__kernel void clUpsampleSquareRootEx(__global float *diffmap_out, __global const float *diffmap, const int xsize, const int ysize, const int step)
+__kernel void clUpsampleSquareRootEx(__global float *diffmap_out, __global const float *diffmap, const int xsize, const int ysize, const int step,
+	const int res_xsize, const int res_ysize) // explicit extents: the launch grid may be padded
 {
 	const int res_x = get_global_id(0);
 	const int res_y = get_global_id(1);
 
-	const int res_xsize = get_global_size(0);
-	const int res_ysize = get_global_size(1);
+	if (res_x >= res_xsize || res_y >= res_ysize)
+		return;
 
 	const int pos_x = res_x * step;
 	const int pos_y = res_y * step;
@@ -1049,9 +1047,19 @@ __kernel void clComputeBlockZeroingOrderEx(
 	__global const ushort *mayout_pixel_1,
 	__global const ushort *mayout_pixel_2,
 
-	const channel_info mayout_channel_0,
-	const channel_info mayout_channel_1,
-	const channel_info mayout_channel_2,
+	// Block geometry is passed as scalars: kernel args must not contain pointers.
+	const int orig_block_width_0, // width_in_blocks of the original JPEG components,
+	const int orig_block_width_1, // which may differ from the output image's (e.g. 4:2:0
+	const int orig_block_width_2, // with MCU padding).
+	const int mayout_factor_0,
+	const int mayout_factor_1,
+	const int mayout_factor_2,
+	const int mayout_block_width_0,
+	const int mayout_block_width_1,
+	const int mayout_block_width_2,
+	const int mayout_block_height_0,
+	const int mayout_block_height_1,
+	const int mayout_block_height_2,
 	const int factor,	 // Current factor in computing.
 	const int comp_mask, // Current channel in computing.
 	const float BlockErrorLimit,
@@ -1063,12 +1071,19 @@ __kernel void clComputeBlockZeroingOrderEx(
 	if (block_x >= block_xsize || block_y >= block_ysize)
 		return;
 
-	channel_info orig_channel[3];
-	orig_channel[0].coeff = orig_batch_0;
-	orig_channel[1].coeff = orig_batch_1;
-	orig_channel[2].coeff = orig_batch_2;
+	__global const coeff_t *orig_coeff[3] = {orig_batch_0, orig_batch_1, orig_batch_2};
+	const int orig_block_width[3] = {orig_block_width_0, orig_block_width_1, orig_block_width_2};
 
-	channel_info mayout_channel[3] = {mayout_channel_0, mayout_channel_1, mayout_channel_2};
+	channel_info mayout_channel[3];
+	mayout_channel[0].factor = mayout_factor_0;
+	mayout_channel[1].factor = mayout_factor_1;
+	mayout_channel[2].factor = mayout_factor_2;
+	mayout_channel[0].block_width = mayout_block_width_0;
+	mayout_channel[1].block_width = mayout_block_width_1;
+	mayout_channel[2].block_width = mayout_block_width_2;
+	mayout_channel[0].block_height = mayout_block_height_0;
+	mayout_channel[1].block_height = mayout_block_height_1;
+	mayout_channel[2].block_height = mayout_block_height_2;
 	mayout_channel[0].coeff = mayout_batch_0;
 	mayout_channel[1].coeff = mayout_batch_1;
 	mayout_channel[2].coeff = mayout_batch_2;
@@ -1076,7 +1091,7 @@ __kernel void clComputeBlockZeroingOrderEx(
 	mayout_channel[1].pixel = mayout_pixel_1;
 	mayout_channel[2].pixel = mayout_pixel_2;
 
-	int block_idx = 0;
+	const int block_idx = block_y * block_xsize + block_x;
 
 	coeff_t mayout_block[kComputeBlockSize] = {0};
 	coeff_t orig_block[kComputeBlockSize] = {0};
@@ -1085,12 +1100,13 @@ __kernel void clComputeBlockZeroingOrderEx(
 	{
 		if (comp_mask & (1 << c))
 		{
-			block_idx = block_y * mayout_channel[c].block_width + block_x;
+			const int mayout_idx = block_y * mayout_channel[c].block_width + block_x;
+			const int orig_idx = block_y * orig_block_width[c] + block_x;
 			coeffcopy_g(&mayout_block[c * kBlockSize],
-						mayout_channel[c].coeff + block_idx * kBlockSize,
+						mayout_channel[c].coeff + mayout_idx * kBlockSize,
 						kBlockSize);
 			coeffcopy_g(&orig_block[c * kBlockSize],
-						orig_channel[c].coeff + block_idx * kBlockSize,
+						orig_coeff[c] + orig_idx * kBlockSize,
 						kBlockSize);
 		}
 	}
@@ -1262,7 +1278,8 @@ __kernel void clComponentsToPixels(
     const int x = get_global_id(0) + xmin;
     const int y = get_global_id(1) + ymin;
 
-    if (x >= width || y >= height) return;
+    // The CUDA grid is padded to the block size: also bound to the requested region.
+    if (x >= width || y >= height || x >= xmin + xsize || y >= ymin + ysize) return;
 
     const int px = y * width + x;
     const int pixel_stride = 3;
@@ -1337,9 +1354,12 @@ __kernel void clComponentsToPixelsEx2(
 
 
 __kernel void clColorTransformYCbCrToRGB(
-	__global uchar *rgb)
+	__global uchar *rgb,
+	const int size) // number of pixels
 {
 	const int block_x = get_global_id(0);
+	if (block_x >= size)
+		return;
 
 	ColorTransformYCbCrToRGB(&rgb[block_x * 3]);
 }
@@ -1411,7 +1431,12 @@ __device__ float DotProduct(__global const float u[3], const float v[3])
 __device__ float Interpolate(__constant_ex const float *array, const int size, const float sx)
 {
 	float ix = _abs_d(sx);
-
+	// Clamp before the int conversion: identical for finite values (anything
+	// >= size-1 takes the clamp branch either way), and a NaN becomes size-1
+	// instead of an undefined (int)NaN index. Safe under finite-math too: the
+	// select either stays a compare (NaN < x is false) or becomes fmin (returns x).
+	const float max_ix = (float)(size - 1);
+	ix = ix < max_ix ? ix : max_ix;
 	int baseix = (int)(ix);
 	float res;
 	if (baseix >= size - 1)
@@ -1541,6 +1566,12 @@ __device__ float InterpolateClampNegative(__global const float *array,
 		sx = 0;
 	}
 	float ix = _abs_d(sx);
+	// Clamp before the int conversion: identical for finite values (anything
+	// >= size-1 takes the clamp branch either way), and a NaN becomes size-1
+	// instead of an undefined (int)NaN index. Safe under finite-math too: the
+	// select either stays a compare (NaN < x is false) or becomes fmin (returns x).
+	const float max_ix = (float)(size - 1);
+	ix = ix < max_ix ? ix : max_ix;
 	int baseix = (int)(ix);
 	float res;
 	if (baseix >= size - 1)
@@ -1563,7 +1594,7 @@ __device__ void XybDiffLowFreqSquaredAccumulate(__private const float r0, __priv
 	float valx0, valy0, valz0;
 	float valx1, valy1, valz1;
 	XybLowFreqToVals(r0, g0, b0, &valx0, &valy0, &valz0);
-	if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0)
+	if (r1 == 0.0f && g1 == 0.0f && b1 == 0.0f) // float literals: exact, avoids fp64 compares
 	{
 		// PROFILER_ZONE("XybDiff r1=g1=b1=0");
 		res[0] += factor * valx0 * valx0;
@@ -2092,7 +2123,7 @@ __device__ float Gamma(float v)
 
 	const float yp = EvaluatePolynomial(xc, g_gamma_p, 6);
 	const float yq = EvaluatePolynomial(xc, g_gamma_q, 6);
-	if (yq == 0.0)
+	if (yq == 0.0f) // float literal: exact, avoids an fp64 compare
 		return 0.0f;
 	return (float)(yp / yq);
 }

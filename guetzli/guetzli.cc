@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <exception>
 #include <memory>
+#include <new>
 #include <string>
 #include <sstream>
 #include <string.h>
@@ -68,8 +69,8 @@ namespace {
         return (static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255;
     }
     inline uint8_t BlendOnWhite(const uint8_t val, const uint8_t alpha) {
-        if (alpha < 1) return 255 - ((static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255);
-        return val;
+        const int a = static_cast<int>(alpha);
+        return (static_cast<int>(val) * a + 255 * (255 - a) + 128) / 255;
     }
     inline uint8_t Blend(const uint8_t val, const uint8_t alpha) {
         return blendOnBlack ? BlendOnBlack(val, alpha) : BlendOnWhite(val, alpha);
@@ -519,6 +520,16 @@ void WriteFileOrDie(const char* filename, const std::string& contents) {
 }
 
 void TerminateHandler() {
+  try {
+    std::exception_ptr e = std::current_exception();
+    if (e) std::rethrow_exception(e);
+  } catch (const std::bad_alloc&) {
+    // fall through to the out-of-memory message below
+  } catch (const std::exception& e) {
+    fprintf(stderr, "Unhandled exception: %s\n", e.what());
+    exit(1);
+  } catch (...) {
+  }
   fprintf(stderr, "Unhandled exception. Most likely insufficient memory available.\n"
           "Make sure that there is 300MB/MPix of memory available.\n");
   exit(1);
@@ -671,10 +682,10 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[opt_idx], "--checkcuda")) {
         g_mathMode = MODE_CHECKCUDA;
     }
+#endif
     else if (!strcmp(argv[opt_idx], "--auto")) {
         g_mathMode = MODE_AUTO;
     }
-#endif
 	else if (!strcmp(argv[opt_idx], "--")) {
       opt_idx++;
       break;
@@ -703,13 +714,29 @@ int main(int argc, char** argv) {
 
   bool processed = false;
 
-  for (int i = 0; i != 3; ++i) {
-      const IImageProcessor* processor = processors[i];
-      const ProcessResult result = processor->Process(in_data, &out_data);
-      if (result != ProcessResult::NotSupported)
-      {
-          processed = result == ProcessResult::Success;
+  for (int attempt = 0; attempt < 2; ++attempt) {
+      try {
+          for (int i = 0; i != 3; ++i) {
+              const IImageProcessor* processor = processors[i];
+              const ProcessResult result = processor->Process(in_data, &out_data);
+              if (result != ProcessResult::NotSupported)
+              {
+                  processed = result == ProcessResult::Success;
+                  break;
+              }
+          }
           break;
+      }
+      catch (const std::bad_alloc&) {
+          throw;  // host OOM: retrying on the CPU would not help (TerminateHandler reports it)
+      }
+      catch (const std::exception& e) {
+          if (g_mathMode == MODE_CPU_OPT || g_mathMode == MODE_CPU) throw;
+          // GPU backend failure (no device, kernel build/load error, device OOM, ...):
+          // redo the whole job on the CPU.
+          fprintf(stderr, "GPU processing failed (%s); falling back to CPU (--c).\n", e.what());
+          g_mathMode = MODE_CPU_OPT;
+          out_data.clear();
       }
   }
 

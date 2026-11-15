@@ -22,7 +22,7 @@ public:
     // Destructor
     ~LzoDec();
     
-    // Get decompressed data
+    // Get decompressed data (always followed by a NUL byte, not counted in getSize())
     const unsigned char* getData() const { return decompressed_data_.data(); }
     
     // Get decompressed data size

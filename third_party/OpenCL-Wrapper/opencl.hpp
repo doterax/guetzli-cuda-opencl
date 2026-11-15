@@ -326,10 +326,7 @@ inline vector<Device_Info> get_devices(const bool print_info=true) { // returns 
 	if((uint)cl_platforms.size()==0u||(uint)devices.size()==0u) {
 		print_message("No OpenCL devices are available. Please install the drivers for your GPU(s) and/or the CPU Runtime for OpenCL. Instructions:", "Error", 12);
 		print(driver_installation_instructions);
-#ifdef _WIN32
-		wait();
-#endif // Windows
-		exit(1);
+		throw std::runtime_error("No OpenCL devices are available."); // guetzli: caller falls back to CPU
 	}
 	if(print_info) {
 		println("\r|----------------.------------------------------------------------------------|");
@@ -382,6 +379,31 @@ inline string opencl_safe_fname(const string& s, size_t maxlen=48) {
 		r += ((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9'))?c:'_';
 	return r.size() > maxlen ? r.substr(0, maxlen) : r;
 }
+inline string opencl_hex(ulong h) {
+	static const char* digits = "0123456789abcdef";
+	string r(16, '0');
+	for (int i = 15; i >= 0; i--) { r[i] = digits[h & 15u]; h >>= 4; }
+	return r;
+}
+// Write a file atomically: write a temp file in the same directory, then rename over the target,
+// so a concurrently starting process never reads a partially written cache entry.
+inline bool opencl_write_file_atomic(const string& path, const vector<unsigned char>& data) {
+	const string tmp = path + ".tmp" + opencl_hex(opencl_hash_fnv1a(path + to_string((ulong)clock()) + to_string((ulong)(size_t)&data))).substr(0, 8);
+	{
+		std::ofstream fout(tmp, std::ios::binary | std::ios::trunc);
+		if (!fout.is_open()) return false;
+		fout.write(reinterpret_cast<const char*>(data.data()), (std::streamsize)data.size());
+		fout.close();
+		if (!fout) { std::remove(tmp.c_str()); return false; }
+	}
+#if defined(_WIN32)
+	const bool ok = MoveFileExA(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING) != 0;
+#else
+	const bool ok = std::rename(tmp.c_str(), path.c_str()) == 0;
+#endif
+	if (!ok) std::remove(tmp.c_str());
+	return ok;
+}
 
 class Device {
 private:
@@ -416,13 +438,19 @@ public:
 		const string build_options = isOclgrind ? "" : ("-cl-std=CL" + info.opencl_c_version + " -cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable" + (info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : ""));
 
 		// --- Binary program cache ---
-		// Cache key encodes device identity + driver version + a hash of the source and build options.
-		// Any change to the kernel source, build flags, device, or driver automatically invalidates it.
+		// Cache key: hash over the full (untruncated) device identity -- platform, vendor, device name,
+		// device/driver version -- plus the kernel source and build options. Any change to the kernel
+		// source, build flags, device, platform, or driver automatically invalidates it. The readable
+		// name prefix is cosmetic only (it may be truncated/collide; the hash disambiguates).
+		string platform_name;
+		try { platform_name = cl::Platform(info.cl_device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>(); } catch (...) {}
+		const string identity = platform_name + "|" + info.vendor + "|" + info.name + "|" +
+			info.cl_device.getInfo<CL_DEVICE_VERSION>() + "|" + info.driver_version;
 		const string cache_dir = opencl_path_cache();
 		const string cache_file = cache_dir + "/" +
-			opencl_safe_fname(info.name) + "_" +
-			opencl_safe_fname(info.driver_version) + "_" +
-			to_string(opencl_hash_fnv1a(kernel_code + build_options)) + ".bin";
+			opencl_safe_fname(info.name, 32) + "_" +
+			opencl_hex(opencl_hash_fnv1a(identity)) + "_" +
+			opencl_hex(opencl_hash_fnv1a(kernel_code + build_options)) + ".bin";
 
 		bool loaded_from_cache = false;
 		if (!isOclgrind) {
@@ -477,9 +505,7 @@ public:
 					vector<vector<unsigned char>> prog_bins = cl_program.getInfo<CL_PROGRAM_BINARIES>();
 					if (!prog_bins.empty() && !prog_bins[0].empty()) {
 						opencl_create_dirs(cache_dir);
-						std::ofstream fout(cache_file, std::ios::binary);
-						if (fout.is_open()) {
-							fout.write(reinterpret_cast<const char*>(prog_bins[0].data()), prog_bins[0].size());
+						if (opencl_write_file_atomic(cache_file, prog_bins[0])) {
 							print_info("OpenCL kernel cached to: " + cache_file);
 						}
 					}

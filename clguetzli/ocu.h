@@ -12,7 +12,14 @@
 #include "ocl.h"
 #include "cumem_pool.h"
 
-#define LOG_CU_RESULT(e)   if (CUDA_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateCUDAError((e)));}
+// Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
+#define LOG_CU_RESULT(e) do { \
+		const CUresult _cu_res = (e); \
+		if (CUDA_SUCCESS != _cu_res) { \
+			LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateCUDAError(_cu_res)); \
+			throw GpuError(std::string("CUDA call failed in ") + __FUNCTION__ + ": " + TranslateCUDAError(_cu_res)); \
+		} \
+	} while (0)
 
 struct ocu_args_d_t;
 

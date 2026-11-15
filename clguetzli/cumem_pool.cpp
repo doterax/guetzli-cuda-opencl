@@ -5,6 +5,8 @@
  */
 
 #include "cumem_pool.h"
+#include "ocu.h"
+#include <string>
 
 #ifdef __USE_CUDA__
 #include "cuda_dynload.h"
@@ -15,7 +17,8 @@ bool compare_size(const cu_mem_block_t& first, const cu_mem_block_t& second)
 }
 
 cu_mem_pool_t::cu_mem_pool_t()
-    : alloc_count(0)
+    : commandQueue(NULL)
+    , alloc_count(0)
     , total_mem_request(0)
 {
 
@@ -47,8 +50,17 @@ cu_mem cu_mem_pool_t::allocMem(size_t s, const void *init)
         mem = block_candidate->mem;
     }
     else {
-        cu_mem new_mem;
-        cuMemAlloc(&new_mem, s);
+        cu_mem new_mem = 0;
+        CUresult err = cuMemAlloc(&new_mem, s);
+        if (err == CUDA_ERROR_OUT_OF_MEMORY) {
+            // Idle pooled blocks are only freed at shutdown; release them and retry once.
+            drain();
+            err = cuMemAlloc(&new_mem, s);
+        }
+        if (err != CUDA_SUCCESS) {
+            LogError("Error: cuMemAlloc(%zu) returned %s.\n", s, TranslateCUDAError(err));
+            throw GpuError(std::string("CUDA allocation failed: ") + TranslateCUDAError(err));
+        }
         cu_mem_block_t mem_block;
         mem_block.size = s;
         mem_block.used = s;
@@ -61,11 +73,11 @@ cu_mem cu_mem_pool_t::allocMem(size_t s, const void *init)
     }
     if (init)
     {
-        cuMemcpyHtoDAsync(mem, init, s, commandQueue);
+        LOG_CU_RESULT(cuMemcpyHtoDAsync(mem, init, s, commandQueue));
     }
     else
     {
-        cuMemsetD8Async(mem, 0, s, commandQueue);
+        LOG_CU_RESULT(cuMemsetD8Async(mem, 0, s, commandQueue));
     }
 
     return mem;

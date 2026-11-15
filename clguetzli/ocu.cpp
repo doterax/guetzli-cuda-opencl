@@ -7,6 +7,8 @@
 
 #ifdef __USE_CUDA__
 #include <cstdio>
+#include <cstdint>
+#include <string>
 #include <cuda.h>
 #include "cuda_dynload.h"
 #include "clguetzli/clguetzli_cu_ptx.h"
@@ -18,58 +20,16 @@ bool supportsCuda()
     if (!cudaDynloadInit())
         return false;
 
-    CUresult err = cuInit(0);
-    if (err != CUDA_SUCCESS)
-        return false;
-
-    CUdevice dev = 0;
-    CUcontext ctxt;
-
-    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
-
-    if (err != CUDA_SUCCESS)
-        return false;
-
-    int proc_count = 0, thread_count = 0;
-    cuDeviceGetAttribute(&proc_count, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
-    cuDeviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
-
-    if (!proc_count || !thread_count)
-    {
-        cuCtxDestroy(ctxt);
+    // Full initialization of the selected device (honors --device): context,
+    // PTX JIT and kernel lookup. The result is reused by later getOcu() calls,
+    // so the module is only JIT-compiled once.
+    try {
+        getOcu();
+    }
+    catch (const std::exception& e) {
+        LogError("CUDA not usable: %s\n", e.what());
         return false;
     }
-
-    cu_mem new_mem;
-    err = cuMemAlloc(&new_mem, 1024);
-    if (err != CUDA_SUCCESS)
-    {
-        cuCtxDestroy(ctxt);
-        return false;
-    }
-    cuMemFree(new_mem);
-
-    const char* ptx;
-
-    LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
-    ptx = (char*)decompressed.getData();
-    
-
-    CUmodule mod;
-    CUjit_option jit_options[2];
-    void* jit_optvals[2];
-    jit_options[0] = CU_JIT_CACHE_MODE;
-    jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
-    err = cuModuleLoadDataEx(&mod, ptx, 1, jit_options, jit_optvals);
-
-    if (err != CUDA_SUCCESS)
-    {
-        cuCtxDestroy(ctxt);
-        return false;
-    }
-    cuModuleUnload(mod);
-    cuCtxDestroy(ctxt);
-
     return true;
 }
 
@@ -117,41 +77,41 @@ ocu_args_d_t& getOcu(void)
 
     if (bInit == true) return ocu;
 
-    bInit = true;
+    MaybeInjectGpuFailure("CUDA");
 
     // Ensure CUDA driver library is loaded (cudaDynloadInit is idempotent).
     // Without this, --cuda flag bypasses autoDetectBestMode() which normally
     // calls supportsCuda() -> cudaDynloadInit(), leaving function pointers
     // uninitialized and causing an access violation (0xC0000005).
     if (!cudaDynloadInit()) {
-        fprintf(stderr, "Error: failed to load CUDA driver library\n");
-        exit(1);
+        throw GpuError("failed to load CUDA driver library");
     }
 
-    CUresult err = cuInit(0);
-    LOG_CU_RESULT(err);
+    // Any failure below throws GpuError; bInit is only set once everything succeeded.
+    LOG_CU_RESULT(cuInit(0));
     CUdevice dev = 0;
 
     // Use user-specified device index if valid
     if (g_deviceIndex >= 0) {
         int deviceCount = 0;
-        cuDeviceGetCount(&deviceCount);
+        LOG_CU_RESULT(cuDeviceGetCount(&deviceCount));
         if (g_deviceIndex < deviceCount) {
-            err = cuDeviceGet(&dev, g_deviceIndex);
-            LOG_CU_RESULT(err);
+            LOG_CU_RESULT(cuDeviceGet(&dev, g_deviceIndex));
         } else {
             fprintf(stderr, "Warning: CUDA device %d not found (only %d devices available), using default device 0\n",
                     g_deviceIndex, deviceCount);
+            LOG_CU_RESULT(cuDeviceGet(&dev, 0));
         }
+    } else {
+        LOG_CU_RESULT(cuDeviceGet(&dev, 0));
     }
 
-    CUcontext ctxt;
-    CUstream  stream;
+    if (ocu.ctxt == NULL) {
+        LOG_CU_RESULT(cuCtxCreate(&ocu.ctxt, CU_CTX_SCHED_AUTO, dev));
+    }
+    ocu.dev = dev;
 
-    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
-    LOG_CU_RESULT(err);
-
-    char name[1024];
+    char name[1024] = {0};
     int proc_count = 0;
     int thread_count = 0;
     int cap_major = 0, cap_minor = 0;
@@ -161,62 +121,71 @@ ocu_args_d_t& getOcu(void)
     cuDeviceGetAttribute(&proc_count, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
     cuDeviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
     LogError("CUDA Adapter:%s Ver%d.%d MP %d MaxThread Per MP %d)\r\n", name, cap_major, cap_minor, proc_count, thread_count);
+    if (!proc_count || !thread_count) {
+        throw GpuError("CUDA device reports no multiprocessors");
+    }
 
-    const char* ptx;
+    if (ocu.mod == NULL) {
+        LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
+        if (!decompressed.isValid()) {
+            throw GpuError("failed to decompress embedded CUDA PTX");
+        }
+        // getData() is NUL-terminated, as cuModuleLoadDataEx expects for PTX text.
+        const char* ptx = (const char*)decompressed.getData();
 
-    LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
-    ptx = (char*)decompressed.getData();
-    
+        CUjit_option jit_options[1];
+        void *jit_optvals[1];
+        jit_options[0] = CU_JIT_CACHE_MODE;
+        jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
+        LOG_CU_RESULT(cuModuleLoadDataEx(&ocu.mod, ptx, 1, jit_options, jit_optvals));
+    }
 
-
-    CUmodule mod;
-    CUjit_option jit_options[2];
-    void *jit_optvals[2];
-    jit_options[0] = CU_JIT_CACHE_MODE;
-    jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
-    err = cuModuleLoadDataEx(&mod, ptx, 1, jit_options, jit_optvals);
-    LOG_CU_RESULT(err);
-
-    //delete[] ptx;
-
-    cuModuleGetFunction(&ocu.kernel[KERNEL_CONVOLUTION], mod, "clConvolutionEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_CONVOLUTIONX], mod, "clConvolutionXEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_CONVOLUTIONY], mod, "clConvolutionYEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_SQUARESAMPLE], mod, "clSquareSampleEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_OPSINDYNAMICSIMAGE], mod, "clOpsinDynamicsImageEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_MASKHIGHINTENSITYCHANGE], mod, "clMaskHighIntensityChangeEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_EDGEDETECTOR], mod, "clEdgeDetectorMapEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_BLOCKDIFFMAP], mod, "clBlockDiffMapEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_EDGEDETECTORLOWFREQ], mod, "clEdgeDetectorLowFreqEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_DIFFPRECOMPUTE], mod, "clDiffPrecomputeEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_SCALEIMAGE], mod, "clScaleImageEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_AVERAGE5X5], mod, "clAverage5x5Ex");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_MINSQUAREVAL], mod, "clMinSquareValEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_DOMASK], mod, "clDoMaskEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_COMBINECHANNELS], mod, "clCombineChannelsEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_UPSAMPLESQUAREROOT], mod, "clUpsampleSquareRootEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_REMOVEBORDER], mod, "clRemoveBorderEx");
-    cuModuleGetFunction(&ocu.kernel[KERNEL_ADDBORDER], mod, "clAddBorderEx");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER], mod, "clComputeBlockZeroingOrderEx");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COPYFROMJPEGCOMPONENT], mod, "clCopyFromJpegComponentEx");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_APPLYGLOBALQUANTIZATION], mod, "clApplyGlobalQuantizationEx");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COMPONENTSTOPIXELS], mod, "clComponentsToPixels");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COMPONENTSTOPIXELS_EX1], mod, "clComponentsToPixelsEx1");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COMPONENTSTOPIXELS_EX2], mod, "clComponentsToPixelsEx2");
-	cuModuleGetFunction(&ocu.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB], mod, "clColorTransformYCbCrToRGB");
+    static const struct { KernelName id; const char* name; } kKernels[] = {
+        { KERNEL_CONVOLUTION, "clConvolutionEx" },
+        { KERNEL_CONVOLUTIONX, "clConvolutionXEx" },
+        { KERNEL_CONVOLUTIONY, "clConvolutionYEx" },
+        { KERNEL_SQUARESAMPLE, "clSquareSampleEx" },
+        { KERNEL_OPSINDYNAMICSIMAGE, "clOpsinDynamicsImageEx" },
+        { KERNEL_MASKHIGHINTENSITYCHANGE, "clMaskHighIntensityChangeEx" },
+        { KERNEL_EDGEDETECTOR, "clEdgeDetectorMapEx" },
+        { KERNEL_BLOCKDIFFMAP, "clBlockDiffMapEx" },
+        { KERNEL_EDGEDETECTORLOWFREQ, "clEdgeDetectorLowFreqEx" },
+        { KERNEL_DIFFPRECOMPUTE, "clDiffPrecomputeEx" },
+        { KERNEL_SCALEIMAGE, "clScaleImageEx" },
+        { KERNEL_AVERAGE5X5, "clAverage5x5Ex" },
+        { KERNEL_MINSQUAREVAL, "clMinSquareValEx" },
+        { KERNEL_DOMASK, "clDoMaskEx" },
+        { KERNEL_COMBINECHANNELS, "clCombineChannelsEx" },
+        { KERNEL_UPSAMPLESQUAREROOT, "clUpsampleSquareRootEx" },
+        { KERNEL_REMOVEBORDER, "clRemoveBorderEx" },
+        { KERNEL_ADDBORDER, "clAddBorderEx" },
+        { KERNEL_COMPUTEBLOCKZEROINGORDER, "clComputeBlockZeroingOrderEx" },
+        { KERNEL_COPYFROMJPEGCOMPONENT, "clCopyFromJpegComponentEx" },
+        { KERNEL_APPLYGLOBALQUANTIZATION, "clApplyGlobalQuantizationEx" },
+        { KERNEL_COMPONENTSTOPIXELS, "clComponentsToPixels" },
+        { KERNEL_COMPONENTSTOPIXELS_EX1, "clComponentsToPixelsEx1" },
+        { KERNEL_COMPONENTSTOPIXELS_EX2, "clComponentsToPixelsEx2" },
+        { KERNEL_COLORTRANSFORMYCBCRTORGB, "clColorTransformYCbCrToRGB" },
+    };
+    static_assert(sizeof(kKernels) / sizeof(kKernels[0]) == KERNEL_COUNT, "kernel table out of sync with KernelName");
+    for (size_t i = 0; i < sizeof(kKernels) / sizeof(kKernels[0]); i++) {
+        CUresult err = cuModuleGetFunction(&ocu.kernel[kKernels[i].id], ocu.mod, kKernels[i].name);
+        if (err != CUDA_SUCCESS) {
+            LogError("Error: cuModuleGetFunction(%s) returned %s.\n", kKernels[i].name, TranslateCUDAError(err));
+            throw GpuError(std::string("CUDA kernel not found: ") + kKernels[i].name);
+        }
+    }
 
     cuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_SHARED);
     // cuCtxSetSharedMemConfig is deprecated and no longer needed on modern GPUs
     // as they have a fixed shared memory bank size
 
-    cuStreamCreate(&stream, 0);
-
-    ocu.dev = dev;
-    ocu.commandQueue = stream;
-    ocu.mod = mod;
-    ocu.ctxt = ctxt;
+    if (ocu.commandQueue == NULL) {
+        LOG_CU_RESULT(cuStreamCreate(&ocu.commandQueue, 0));
+    }
     ocu.mem_pool.commandQueue = ocu.commandQueue;
 
+    bInit = true;
     return ocu;
 }
 
@@ -231,9 +200,13 @@ ocu_args_d_t::ocu_args_d_t()
 
 ocu_args_d_t::~ocu_args_d_t()
 {
-    cuModuleUnload(mod);
-    cuCtxDestroy(ctxt);
+    if (ctxt == NULL) return; // CUDA never initialized (driver entry points may be NULL)
+
+    // Teardown order: free device memory, unload module, destroy stream, then context.
     mem_pool.drain();
+    if (mod) cuModuleUnload(mod);
+    if (commandQueue) cuStreamDestroy(commandQueue);
+    cuCtxDestroy(ctxt);
 }
 
 cu_mem ocu_args_d_t::allocMem(size_t s, const void *init)

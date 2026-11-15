@@ -579,7 +579,8 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 
 	CoeffData * output_order = NULL;
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode)
+    if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode ||
+        MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode)
     {
 		ButteraugliComparatorEx * comp = (ButteraugliComparatorEx*)comparator_;
 
@@ -617,7 +618,7 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
         }
 #endif
 #ifdef __USE_CUDA__
-        if(MODE_CUDA == g_mathMode)
+        if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode)
         {
             cuComputeBlockZeroingOrder(output_order,
                 orig_channel,
@@ -633,11 +634,8 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
 #endif
     }
 #endif
-#ifdef __USE_OPENCL__
-    if (MODE_CPU_OPT == g_mathMode || MODE_CPU == g_mathMode || MODE_CHECKCL == g_mathMode)
-#else
-	if (MODE_CPU_OPT == g_mathMode || MODE_CPU == g_mathMode)
-#endif
+    // CPU path: CPU modes, check modes, and any mode the GPU block above didn't handle.
+    if (output_order == NULL || MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode)
     {
         output_order_cpu.resize(num_blocks * kBlockSize);
         output_order = output_order_cpu.data();
@@ -672,8 +670,8 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
         }
     }
 
-#ifdef __USE_OPENCL__
-    if (MODE_CHECKCL == g_mathMode)
+#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
+    if ((MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) && !output_order_gpu.empty())
     {
         int count = 0;
         int check_size = output_order_gpu.size();

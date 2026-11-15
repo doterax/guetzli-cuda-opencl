@@ -9,6 +9,7 @@
 #pragma warning(disable:6386)
 #include <cmath>
 #include <vector>
+#include <stdexcept>
 #include <string>
 #ifdef UTILITIES_REGEX
 #include <regex> // contains <string>, <vector>, <algorithm> and others
@@ -623,16 +624,10 @@ inline void print_message(const string& message, const string& keyword="", const
 }
 inline void print_error(const string& s) { // print formatted error message
 	print_message(s, "Error");
-#ifdef _WIN32
-	print_message("Press Enter to exit.", "     ", -1, false);
-#endif // _WIN32
 	string b = "";
 	for(int i=0; i<CONSOLE_WIDTH-2; i++) b += "-";
 	println("'"+b+"'");
-#ifdef _WIN32
-	wait();
-#endif //_WIN32
-	exit(1);
+	throw std::runtime_error(s); // guetzli: let the caller fall back to CPU instead of exit(1)
 }
 inline void print_warning(const string& s) { // print formatted warning message
 	print_message(s, "Warning");
@@ -708,11 +703,7 @@ inline void print_message(const string& message, const string& keyword="", const
 }
 inline void print_error(const string& s) { // print error message
 	println("Error: "+s);
-#ifdef _WIN32
-	println("       Press Enter to exit.");
-	wait();
-#endif //_WIN32
-	exit(1);
+	throw std::runtime_error(s); // guetzli: let the caller fall back to CPU instead of exit(1)
 }
 inline void print_warning(const string& s) { // print warning message
 	println("Warning: "+s);

@@ -591,9 +591,9 @@ $(MINILZOC): $(MINILZOC_DIR)/minilzoc.cpp $(MINILZO_DIR)/minilzo.c
 # Generate CUDA headers with mandatory LZO compression
 cuda-headers: $(GENERATED_HEADERS)
 
-$(CLGUETZLI_DIR)/clguetzli_cu_ptx.h: $(CLGUETZLI_DIR)/clguetzli.cu | $(MINILZOC)
+$(CLGUETZLI_DIR)/clguetzli_cu_ptx.h: $(CLGUETZLI_DIR)/clguetzli.cu $(CLGUETZLI_DIR)/clguetzli.cl $(CLGUETZLI_DIR)/clguetzli.cl.h | $(MINILZOC)
 	@echo Generating CUDA PTX header...
-	@$(NVCC) $(NVCCFLAGS) -Xcompiler "/wd 4819" -I"$(SRC_DIR)" -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -ptx -o $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu || echo "Warning: CUDA PTX generation failed - CUDA may not be available"
+	@"$(NVCC)" $(NVCCFLAGS) -Xcompiler -wd4819 -I"$(SRC_DIR)" -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -ptx -o $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu || echo "Warning: CUDA PTX generation failed - CUDA may not be available"
 	@$(MINILZOC) $(CLGUETZLI_DIR)/clguetzli.cu.ptx64 $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo
 	@$(PYTHON) format_header.py $(CLGUETZLI_DIR)/clguetzli.cu.ptx64.lzo $(CLGUETZLI_DIR)/clguetzli_cu_ptx.h clguetzli_cu64_lzo || echo "Warning: Header generation failed"
 
@@ -640,7 +640,7 @@ else ifeq ($(DETECTED_OS),Windows)
 else
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
 endif
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Compile C++ source files (.cpp) from clguetzli directory
 $(OBJ_TARGET_DIR)/$(CLGUETZLI_DIR)/%.o: $(CLGUETZLI_DIR)/%.cpp
@@ -652,7 +652,7 @@ else ifeq ($(DETECTED_OS),Windows)
 else
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
 endif
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Compile C++ source files (.cc) from butteraugli directory
 $(OBJ_TARGET_DIR)/$(BUTTERAUGLI_DIR)/%.o: $(BUTTERAUGLI_DIR)/%.cc
@@ -664,7 +664,7 @@ else ifeq ($(DETECTED_OS),Windows)
 else
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
 endif
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Compile C source files (.c) from minilzo directory
 $(OBJ_TARGET_DIR)/$(MINILZO_DIR)/%.o: $(MINILZO_DIR)/%.c
@@ -676,20 +676,20 @@ else ifeq ($(DETECTED_OS),Windows)
 else
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
 endif
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Compile CUDA source files (output .cu.o to avoid collision with .cpp → .o)
 $(OBJ_TARGET_DIR)/$(CLGUETZLI_DIR)/%.cu.o: $(CLGUETZLI_DIR)/%.cu
 	@echo Compiling CUDA $<...
 ifeq ($(DETECTED_OS),WindowsUnix)
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
-	@$(NVCC) $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler "-Wno-unknown-pragmas" -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>/dev/null || echo "Warning: CUDA compilation failed - CUDA may not be available"
+	@"$(NVCC)" $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler "-Wno-unknown-pragmas" -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>/dev/null || echo "Warning: CUDA compilation failed - CUDA may not be available"
 else ifeq ($(DETECTED_OS),Windows)
 	@if not exist "$(subst /,\,$(dir $@))" $(MKDIR) "$(subst /,\,$(dir $@))" 2>NUL || true
-	@$(NVCC) $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler "/wd 4819" -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>NUL || echo Warning: CUDA compilation failed - CUDA may not be available
+	@"$(NVCC)" $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler -wd4819 -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>NUL || echo Warning: CUDA compilation failed - CUDA may not be available
 else
 	@$(MKDIR) $(dir $@) 2>/dev/null || true
-	@$(NVCC) $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler "-Wno-unknown-pragmas" -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>/dev/null || echo "Warning: CUDA compilation failed - CUDA may not be available"
+	@"$(NVCC)" $(NVCCFLAGS) $(NVCC_INCLUDES) -Xcompiler "-Wno-unknown-pragmas" -I"$(SRC_DIR)" -I$(BUTTERAUGLI_DIR)/.. -I$(CLGUETZLI_DIR) -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -arch=$(CUDA_ARCH) -c $< -o $@ 2>/dev/null || echo "Warning: CUDA compilation failed - CUDA may not be available"
 endif
 
 # Clean targets
@@ -771,9 +771,6 @@ help:
 	@echo "  Linux: Uses GCC or Clang"
 	@echo "  macOS: Uses Clang with libc++"
 
-# Include dependency files (for automatic header dependencies)
-# Note: Commented out to avoid makefile parsing issues with non-existent files
-# To enable, uncomment these lines and add -MD flags to CXXFLAGS
-# -include $(EXECUTABLE_OBJECTS:.o=.d)
-# -include $(STATIC_OBJECTS:.o=.d)
-# -include $(CUDA_OBJECTS:.o=.d)
+# Include dependency files (generated by -MMD -MP; missing files are ignored)
+-include $(EXECUTABLE_OBJECTS:.o=.d)
+-include $(STATIC_OBJECTS:.o=.d)

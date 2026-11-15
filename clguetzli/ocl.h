@@ -36,12 +36,20 @@ enum KernelName {
 };
 
 #include "utils.h"
+#include "gpu_error.h"
 #include "clguetzli.cl.h"
 
 #ifdef __USE_OPENCL__
 #include "third_party/OpenCL/include/CL/cl.h"
 
-#define LOG_CL_RESULT(e)   if (CL_SUCCESS != (e)) { LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError((e))); std::abort();}
+// Evaluates e once; on failure logs and throws GpuError (main() falls back to CPU).
+#define LOG_CL_RESULT(e) do { \
+		const cl_int _cl_res = (e); \
+		if (CL_SUCCESS != _cl_res) { \
+			LogError("Error: %s:%d returned %s.\n", __FUNCTION__, __LINE__, TranslateOpenCLError(_cl_res)); \
+			throw GpuError(std::string("OpenCL call failed in ") + __FUNCTION__ + ": " + TranslateOpenCLError(_cl_res)); \
+		} \
+	} while (0)
 
 struct ocl_args_d_t;
 class Device;

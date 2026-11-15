@@ -44,6 +44,7 @@ typedef CUresult (CUDAAPI *PFN_cuModuleUnload)(CUmodule hmod);
 typedef CUresult (CUDAAPI *PFN_cuModuleGetFunction)(CUfunction *hfunc, CUmodule hmod, const char *name);
 typedef CUresult (CUDAAPI *PFN_cuStreamCreate)(CUstream *phStream, unsigned int Flags);
 typedef CUresult (CUDAAPI *PFN_cuStreamSynchronize)(CUstream hStream);
+typedef CUresult (CUDAAPI *PFN_cuStreamDestroy)(CUstream hStream);
 typedef CUresult (CUDAAPI *PFN_cuLaunchKernel)(CUfunction f,
     unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
     unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
@@ -73,6 +74,7 @@ extern PFN_cuModuleUnload        dynCuModuleUnload;
 extern PFN_cuModuleGetFunction   dynCuModuleGetFunction;
 extern PFN_cuStreamCreate        dynCuStreamCreate;
 extern PFN_cuStreamSynchronize   dynCuStreamSynchronize;
+extern PFN_cuStreamDestroy       dynCuStreamDestroy;
 extern PFN_cuLaunchKernel        dynCuLaunchKernel;
 
 /* --- Runtime loader --- */
@@ -115,6 +117,7 @@ bool cudaDynloadAvailable();
 #undef cuModuleGetFunction
 #undef cuStreamCreate
 #undef cuStreamSynchronize
+#undef cuStreamDestroy
 #undef cuLaunchKernel
 
 #define cuInit                dynCuInit
@@ -138,6 +141,7 @@ bool cudaDynloadAvailable();
 #define cuModuleGetFunction  dynCuModuleGetFunction
 #define cuStreamCreate       dynCuStreamCreate
 #define cuStreamSynchronize  dynCuStreamSynchronize
+#define cuStreamDestroy      dynCuStreamDestroy
 #define cuLaunchKernel       dynCuLaunchKernel
 
 #endif /* __USE_CUDA__ */

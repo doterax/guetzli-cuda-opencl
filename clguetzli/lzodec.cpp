@@ -13,32 +13,37 @@ LzoDec::LzoDec(const unsigned char* compressed_data, size_t compressed_size)
         return;
     }
     
-    // Estimate decompressed size (worst case: compressed_size * 4)
-    // This is a conservative estimate for LZO compression
-    size_t estimated_size = compressed_size * 4;
-    
-    // Allocate buffer for decompressed data
-    decompressed_data_.resize(estimated_size);
-    
-    // Decompress the data
-    lzo_uint decompressed_size = estimated_size;
-    int result = lzo1x_decompress_safe(
-        compressed_data, compressed_size,
-        decompressed_data_.data(), &decompressed_size,
-        nullptr  // workmem not needed for decompression
-    );
-    
-    if (result == LZO_E_OK) {
-        // Resize to actual decompressed size
-        decompressed_data_.resize(decompressed_size);
-        decompressed_size_ = decompressed_size;
-        valid_ = true;
-    } else {
-        // Decompression failed, clear the buffer
-        decompressed_data_.clear();
-        decompressed_size_ = 0;
-        valid_ = false;
+    // The decompressed size is not stored in the stream: start with a 4x
+    // estimate and grow on LZO_E_OUTPUT_OVERRUN (PTX compresses ~3.3:1, but
+    // there is no hard upper bound on the ratio).
+    size_t capacity = compressed_size * 4;
+    const size_t max_capacity = compressed_size * 1024 + 1024;
+    for (;;) {
+        // +1: room for a NUL terminator (PTX / OpenCL source are used as C strings).
+        decompressed_data_.resize(capacity + 1);
+        lzo_uint out_size = capacity;
+        int result = lzo1x_decompress_safe(
+            compressed_data, compressed_size,
+            decompressed_data_.data(), &out_size,
+            nullptr  // workmem not needed for decompression
+        );
+        if (result == LZO_E_OK) {
+            decompressed_data_.resize(out_size + 1);
+            decompressed_data_[out_size] = 0;
+            decompressed_size_ = out_size;
+            valid_ = true;
+            return;
+        }
+        if (result != LZO_E_OUTPUT_OVERRUN || capacity >= max_capacity) {
+            break;
+        }
+        capacity *= 2;
     }
+
+    // Decompression failed
+    decompressed_data_.assign(1, 0);
+    decompressed_size_ = 0;
+    valid_ = false;
 }
 
 LzoDec::~LzoDec() {

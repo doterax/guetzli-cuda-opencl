@@ -41,6 +41,7 @@ PFN_cuModuleUnload        dynCuModuleUnload      = nullptr;
 PFN_cuModuleGetFunction   dynCuModuleGetFunction = nullptr;
 PFN_cuStreamCreate        dynCuStreamCreate      = nullptr;
 PFN_cuStreamSynchronize   dynCuStreamSynchronize = nullptr;
+PFN_cuStreamDestroy       dynCuStreamDestroy     = nullptr;
 PFN_cuLaunchKernel        dynCuLaunchKernel      = nullptr;
 
 /* --- Platform-specific helpers --- */
@@ -148,6 +149,7 @@ bool cudaDynloadInit()
     LOAD_SYM_EXACT (dynCuModuleGetFunction, PFN_cuModuleGetFunction, "cuModuleGetFunction");
     LOAD_SYM       (dynCuStreamCreate,      PFN_cuStreamCreate,      "cuStreamCreate");
     LOAD_SYM_EXACT (dynCuStreamSynchronize, PFN_cuStreamSynchronize, "cuStreamSynchronize");
+    LOAD_SYM       (dynCuStreamDestroy,     PFN_cuStreamDestroy,     "cuStreamDestroy");
     LOAD_SYM_EXACT (dynCuLaunchKernel,      PFN_cuLaunchKernel,      "cuLaunchKernel");
 
     g_cudaLoaded = true;

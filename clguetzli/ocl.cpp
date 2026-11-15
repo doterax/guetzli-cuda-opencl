@@ -27,6 +27,9 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo);
 
 string opencl_c_container() {
 	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
+	if (!decompressed.isValid()) {
+		throw GpuError("failed to decompress embedded OpenCL source");
+	}
 	return string((char*)decompressed.getData(), decompressed.getSize());
 }
 
@@ -55,13 +58,15 @@ ocl_args_d_t& getOcl()
 
     if (bInit == true) return ocl;
 
-    bInit = true;
+	MaybeInjectGpuFailure("OpenCL");
 
+	// bInit is set only after successful initialization: on failure a GpuError
+	// propagates and nothing half-initialized is handed out later.
 	vector<Device_Info> devices = get_devices(true);
 
 	if (devices.empty()) {
 		LogError("No OpenCL devices found");
-		throw std::runtime_error("Failed to create OpenCL program: No OpenCL devices found");
+		throw GpuError("No OpenCL devices found");
 	}
 
 	// Select device: use user-specified index if valid, otherwise pick best by flops
@@ -133,6 +138,7 @@ ocl_args_d_t& getOcl()
 	ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
 	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
+	LOG_CL_RESULT(err);
     ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
 	LOG_CL_RESULT(err);
 	ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
@@ -152,6 +158,7 @@ ocl_args_d_t& getOcl()
 
 	if(verbose_cl) PrintDeviceCapabilities(device.info);
 
+	bInit = true;
     return ocl;
 }
 
@@ -191,7 +198,7 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo)
 	// Get additional device information not available in Device_Info
 	cl_device_id device = deviceInfo.cl_device();
 	
-	cl_uint maxWorkGroupSize = 0;
+	size_t maxWorkGroupSize = 0; // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
 	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
 
 	size_t maxWorkItemSizes[3] = { 0 };
@@ -206,6 +213,9 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo)
 	cl_device_fp_config fpConfig = 0;
 	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
 
+	char deviceVersion[256] = { 0 };
+	clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, NULL);
+
 	cl_device_exec_capabilities execCapabilities = 0;
 	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
 
@@ -216,7 +226,7 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo)
 	LogError("Platform Vendor: %s\n", platformVendor.c_str());
 	LogError("Device: %s\n", deviceInfo.name.c_str());
 	LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
-	LogError("Device Version: %s\n", deviceInfo.opencl_c_version.c_str());
+	LogError("Device Version: %s\n", deviceVersion);
 	LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
 	LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
 	LogError("\n=== Memory Information ===\n");
@@ -225,12 +235,12 @@ void PrintDeviceCapabilities(const Device_Info& deviceInfo)
 	LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
 	LogError("\n=== Compute Capabilities ===\n");
 	LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
-	LogError("Max Work Group Size: %u\n", maxWorkGroupSize);
+	LogError("Max Work Group Size: %zu\n", maxWorkGroupSize);
 	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
 	LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
 	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
 	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
-	LogError("Double Precision Support: %s\n", (fpConfig & CL_FP_FMA) ? "Yes" : "No");
+	LogError("Double Precision Support: %s\n", fpConfig != 0 ? "Yes" : "No"); // non-zero DOUBLE_FP_CONFIG => fp64 supported
 	LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
 	LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
 	LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
@@ -262,6 +272,7 @@ ocl_args_d_t::~ocl_args_d_t()
 	cl_int err = CL_SUCCESS;
 	for (int i = 0; i < KERNEL_COUNT; i++)
 	{
+		if (kernel[i] == NULL) continue; // never created (init failed or not used)
 		err = clReleaseKernel(kernel[i]);
 		if (CL_SUCCESS != err)
 		{
@@ -321,8 +332,8 @@ cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
 			LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
 		}
         LOG_CL_RESULT(err);
-        err = clFinish(this->commandQueue);
-        LOG_CL_RESULT(err);
+        // No clFinish: the pattern is copied at enqueue time and the in-order queue
+        // orders the fill before any later use of the buffer.
     }
 
 	++allocations;
@@ -342,13 +353,8 @@ void ocl_args_d_t::releaseMem(cl_mem mem) {
 	}
 
 	LOG_CL_RESULT(err);
-
-	err = clFinish(this->commandQueue);
-
-	if (CL_SUCCESS != (err)) {
-		LogError("Failed to clFinish during releaseMem\n");
-	}
-	LOG_CL_RESULT(err);
+	// No clFinish: the runtime defers the actual release until enqueued commands
+	// using the buffer have completed.
 
 	--allocations;
 
@@ -492,12 +498,15 @@ bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredP
 
 bool supportsOpenCl()
 {
-	vector<Device_Info> devices = get_devices(true);
-
-	if (devices.empty()) {
+	// Full initialization (device selection, kernel compile, kernel creation), so a
+	// compile failure is detected here rather than mid-run. The result is reused.
+	try {
+		getOcl();
+	}
+	catch (const std::exception& e) {
+		LogError("OpenCL not usable: %s\n", e.what());
 		return false;
 	}
-
 	return true;
 }
 
