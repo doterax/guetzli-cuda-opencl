@@ -213,7 +213,7 @@ space :=
 space +=
 
 # Compiler flags base
-CXXFLAGS_BASE := -std=c++11
+CXXFLAGS_BASE := -std=c++20
 CXXFLAGS_BASE += -I$(SRC_DIR)
 CXXFLAGS_BASE += -I$(BUTTERAUGLI_DIR)/..
 CXXFLAGS_BASE += -I$(CLGUETZLI_DIR)
