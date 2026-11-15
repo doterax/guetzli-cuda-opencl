@@ -165,6 +165,10 @@ jobs:
         run: |
           make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
+      - name: Unit tests
+        run: |
+          make CONFIG=release FEATURES="${{ matrix.features }}" -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2) unit-test
+
       # The embedded kernel headers are committed; CI must never regenerate them.
       - name: Verify embedded kernel headers
         run: |
