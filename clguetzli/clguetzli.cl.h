@@ -12,8 +12,6 @@
 #ifndef __CLGUETZLI_CL_H__
 #define __CLGUETZLI_CL_H__
 
-#if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-
 #ifdef __USE_OPENCL__
 #include "third_party/OpenCL/include/CL/cl.h"
 #endif
@@ -72,7 +70,5 @@ typedef struct __channel_info_t {
   const ushort* pixel;
 } channel_info;
 #pragma pack(pop)
-
-#endif  // __USE_OPENCL__ || __USE_CUDA__
 
 #endif /*__CLGUETZLI_CL_H__*/
