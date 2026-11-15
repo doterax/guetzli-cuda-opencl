@@ -17,6 +17,7 @@
 #include "core/encoder/frequency_masking.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 #include <set>
@@ -202,8 +203,9 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
       int est_jpg_size = prev_size;
       for (size_t i = 0; i < global_order.size(); ++i) {
         const int block_ix = global_order[i].first;
-        const int global_block_x = block_ix % block_width;
-        const int global_block_y = block_ix / block_width;
+        // Block coordinates in the grid of the components in comp_mask, which all have its subsampling.
+        const int block_x = block_ix % block_width;
+        const int block_y = block_ix / block_width;
         const int last_idx = last_indexes[block_ix];
         const int offset = std::max(0, std::min(candidate_coeff_offsets[block_ix], ((int)candidate_coeffs.size() - 1)));
         const uint8_t* candidates = &candidate_coeffs[offset];
@@ -212,28 +214,17 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
         const int k = idx % kDCTBlockSize;
         const int* quant = img.component(c).quant();
         const JPEGComponent& comp = jpg.components[c];
+        assert(img.component(c).factor_x() == factor_x && img.component(c).factor_y() == factor_y);
 
-        // Calculate component-specific block coordinates
-        // For subsampled components, the block coordinates need to be adjusted
-        const int comp_factor_x = img.component(c).factor_x();
-        const int comp_factor_y = img.component(c).factor_y();
-        const int comp_block_x = global_block_x / comp_factor_x;
-        const int comp_block_y = global_block_y / comp_factor_y;
-
-        // Bounds check to prevent assertion failure
-        if (comp_block_x >= img.component(c).width_in_blocks() || comp_block_y >= img.component(c).height_in_blocks()) {
-          continue;  // Skip this coefficient if out of bounds
-        }
-
-        const int jpg_block_ix = comp_block_y * comp.width_in_blocks + comp_block_x;
+        const int jpg_block_ix = block_y * comp.width_in_blocks + block_x;
         const int newval = direction > 0 ? 0 : Quantize(comp.coeffs[jpg_block_ix * kDCTBlockSize + k], quant[k]);
         coeff_t old_block[kDCTBlockSize];
-        img.component(c).GetCoeffBlock(comp_block_x, comp_block_y, old_block);
+        img.component(c).GetCoeffBlock(block_x, block_y, old_block);
         coeff_t block[kDCTBlockSize];
         std::memcpy(block, old_block, sizeof(block));
         block[k] = newval;
         size_estimator.replaceBlock(c, old_block, block, quant);
-        img.component(c).SetCoeffBlock(comp_block_x, comp_block_y, block);
+        img.component(c).SetCoeffBlock(block_x, block_y, block);
         last_indexes[block_ix] += direction;
         changed_blocks.insert(block_ix);
         val_threshold = global_order[i].second;

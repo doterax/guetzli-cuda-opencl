@@ -1,8 +1,10 @@
 // Unit tests for the encoder classes (core/encoder).
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "backend/cpu/cpu_backend.h"
@@ -44,7 +46,8 @@ void FillQuant(int q[3][kDCTBlockSize], int value) {
     for (int k = 0; k < kDCTBlockSize; ++k) q[c][k] = value;
 }
 
-// Scores an output by a configurable value; everything else is inert.
+// Scores an output by a configurable value (default: its size); every distance is OK, block errors up
+// to 1 are acceptable, every block may be adjusted upwards and none downwards.
 class ScoreComparator final : public guetzli::Comparator {
  public:
   void Compare(const guetzli::OutputImage&) override {}
@@ -56,11 +59,23 @@ class ScoreComparator final : public guetzli::Comparator {
   bool DistanceOK(double) const override { return true; }
   const std::vector<float> distmap() const override { return {}; }
   float distmap_aggregate() const override { return 0; }
-  float BlockErrorLimit() const override { return 0; }
-  void ComputeBlockErrorAdjustmentWeights(int, int, double, int, int, const std::vector<float>&,
-                                          std::vector<float>*) override {}
+  float BlockErrorLimit() const override { return 1.0f; }
+  void ComputeBlockErrorAdjustmentWeights(int direction, int, double, int, int, const std::vector<float>&,
+                                          std::vector<float>* block_weight) override {
+    std::fill(block_weight->begin(), block_weight->end(), direction > 0 ? 1.0f : 0.0f);
+  }
 
   double score = -1;  // < 0: the output size
+};
+
+// Returns fixed block-zeroing orders.
+class FixedSearch final : public guetzli::IBlockZeroingSearch {
+ public:
+  explicit FixedSearch(std::vector<guetzli::CoeffData> orders) : orders_(std::move(orders)) {}
+  std::vector<guetzli::CoeffData> run(const guetzli::BlockZeroingInput&) override { return orders_; }
+
+ private:
+  std::vector<guetzli::CoeffData> orders_;
 };
 
 }  // namespace
@@ -216,6 +231,48 @@ TEST_CASE("CollectZeroingCandidates keeps the entries within the error limit, pe
   CHECK(c.offsets == std::vector<int>{0, 2, 3});
   CHECK(c.coeffs == std::vector<uint8_t>{5, 6, 130});
   CHECK(c.errors == std::vector<float>{0.1f, 0.5f, 0.2f});
+}
+
+TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chroma component") {
+  const int w = 64, h = 48;  // chroma: 4x3 blocks of 16x16 pixels
+  int ones[3 * kDCTBlockSize];
+  std::fill(ones, ones + 3 * kDCTBlockSize, 1);  // as after RemoveOriginalQuantization
+  guetzli::JPEGData jpg;
+  REQUIRE(guetzli::EncodeRGBToJpeg(NoisyImage(w, h, 13), w, h, ones, &jpg));
+  guetzli::CpuDctOps dct;
+  guetzli::OutputImage img(w, h, dct);
+  img.CopyFromJpegData(jpg);
+  img.Downsample(guetzli::OutputImage::DownsampleConfig{});
+  img.SaveToJpegData(&jpg);
+  const guetzli::OutputImageComponent& cb = img.component(1);
+  REQUIRE(cb.width_in_blocks() == 4);
+  REQUIRE(cb.height_in_blocks() == 3);
+
+  // One candidate: a nonzero AC coefficient of Cb block (3, 1).
+  const int bx = 3, by = 1;
+  coeff_t target[kDCTBlockSize];
+  cb.GetCoeffBlock(bx, by, target);
+  int k = 1;
+  while (k < kDCTBlockSize && target[k] == 0) ++k;
+  REQUIRE(k < kDCTBlockSize);
+  std::vector<guetzli::CoeffData> orders(12 * guetzli::kBlockZeroingBlockSize, guetzli::CoeffData{0, 0.0f});
+  orders[(by * 4 + bx) * guetzli::kBlockZeroingBlockSize] = {kDCTBlockSize + k, 0.5f};
+
+  std::vector<coeff_t> before(cb.coeffs(), cb.coeffs() + 12 * kDCTBlockSize);
+  guetzli::ProcessStats stats;
+  guetzli::OutputSelector selector(true, stats);
+  ScoreComparator comparator;
+  FixedSearch search(orders);
+  const guetzli::EncoderParams params;
+  guetzli::FrequencyMasking masking(params, search, comparator, selector, stats);
+  masking.run(jpg, img, 6, 1.0, false);
+
+  const std::vector<coeff_t> after(cb.coeffs(), cb.coeffs() + 12 * kDCTBlockSize);
+  CHECK(after[(by * 4 + bx) * kDCTBlockSize + k] == 0);
+  // Block (bx / 2, by / 2) is not touched.
+  const int other = (by / 2) * 4 + bx / 2;
+  CHECK(std::equal(&after[other * kDCTBlockSize], &after[(other + 1) * kDCTBlockSize], &before[other * kDCTBlockSize]));
+  CHECK(selector.hasOutput());
 }
 
 TEST_CASE("OutputSelector keeps the output with the lowest score") {
