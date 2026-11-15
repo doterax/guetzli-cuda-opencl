@@ -26,29 +26,30 @@ namespace {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Cosine table: C(k) = cos(k.pi/16)/sqrt(2), k = 1..7 using 15 bits signed
-const coeff_t kTable04[7] = { 22725, 21407, 19266, 16384, 12873,  8867, 4520 };
+const coeff_t kTable04[7] = {22725, 21407, 19266, 16384, 12873, 8867, 4520};
 // rows #1 and #7 are pre-multiplied by 2.C(1) before the 2nd pass.
 // This multiply is merged in the table of constants used during 1st pass:
-const coeff_t kTable17[7] = { 31521, 29692, 26722, 22725, 17855, 12299, 6270 };
+const coeff_t kTable17[7] = {31521, 29692, 26722, 22725, 17855, 12299, 6270};
 // rows #2 and #6 are pre-multiplied by 2.C(2):
-const coeff_t kTable26[7] = { 29692, 27969, 25172, 21407, 16819, 11585, 5906 };
+const coeff_t kTable26[7] = {29692, 27969, 25172, 21407, 16819, 11585, 5906};
 // rows #3 and #5 are pre-multiplied by 2.C(3):
-const coeff_t kTable35[7] = { 26722, 25172, 22654, 19266, 15137, 10426, 5315 };
+const coeff_t kTable35[7] = {26722, 25172, 22654, 19266, 15137, 10426, 5315};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants (15bit precision) and C macros for IDCT vertical pass
 
-#define kTan1   (13036)   // = tan(pi/16)
-#define kTan2   (27146)   // = tan(2.pi/16) = sqrt(2) - 1.
+#define kTan1 (13036)     // = tan(pi/16)
+#define kTan2 (27146)     // = tan(2.pi/16) = sqrt(2) - 1.
 #define kTan3m1 (-21746)  // = tan(3.pi/16) - 1
 #define k2Sqrt2 (23170)   // = 1 / 2.sqrt(2)
 
-  // performs: {a,b} <- {a-b, a+b}, without saturation
-#define BUTTERFLY(a, b) do {   \
-  SUB((a), (b));               \
-  ADD((b), (b));               \
-  ADD((b), (a));               \
-} while (0)
+// performs: {a,b} <- {a-b, a+b}, without saturation
+#define BUTTERFLY(a, b) \
+  do {                  \
+    SUB((a), (b));      \
+    ADD((b), (b));      \
+    ADD((b), (a));      \
+  } while (0)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants for DCT horizontal pass
@@ -65,92 +66,92 @@ const coeff_t kTable35[7] = { 26722, 25172, 22654, 19266, 15137, 10426, 5315 };
 // However, all in all the correction is quite small, and CORRECT_LSB can
 // be defined empty if needed.
 
-#define COLUMN_DCT8(in) do { \
-  LOAD(m0, (in)[0 * 8]);     \
-  LOAD(m2, (in)[2 * 8]);     \
-  LOAD(m7, (in)[7 * 8]);     \
-  LOAD(m5, (in)[5 * 8]);     \
-                             \
-  BUTTERFLY(m0, m7);         \
-  BUTTERFLY(m2, m5);         \
-                             \
-  LOAD(m3, (in)[3 * 8]);     \
-  LOAD(m4, (in)[4 * 8]);     \
-  BUTTERFLY(m3, m4);         \
-                             \
-  LOAD(m6, (in)[6 * 8]);     \
-  LOAD(m1, (in)[1 * 8]);     \
-  BUTTERFLY(m1, m6);         \
-  BUTTERFLY(m7, m4);         \
-  BUTTERFLY(m6, m5);         \
-                             \
-  /* RowIdct() needs 15bits fixed-point input, when the output from   */ \
-  /* ColumnIdct() would be 12bits. We are better doing the shift by 3 */ \
-  /* now instead of in RowIdct(), because we have some multiplies to  */ \
-  /* perform, that can take advantage of the extra 3bits precision.   */ \
-  LSHIFT(m4, 3);             \
-  LSHIFT(m5, 3);             \
-  BUTTERFLY(m4, m5);         \
-  STORE16((in)[0 * 8], m5);  \
-  STORE16((in)[4 * 8], m4);  \
-                             \
-  LSHIFT(m7, 3);             \
-  LSHIFT(m6, 3);             \
-  LSHIFT(m3, 3);             \
-  LSHIFT(m0, 3);             \
-                             \
-  LOAD_CST(m4, kTan2);       \
-  m5 = m4;                   \
-  MULT(m4, m7);              \
-  MULT(m5, m6);              \
-  SUB(m4, m6);               \
-  ADD(m5, m7);               \
-  STORE16((in)[2 * 8], m5);  \
-  STORE16((in)[6 * 8], m4);  \
-                             \
-  /* We should be multiplying m6 by C4 = 1/sqrt(2) here, but we only have */ \
-  /* the k2Sqrt2 = 1/(2.sqrt(2)) constant that fits into 15bits. So we    */ \
-  /* shift by 4 instead of 3 to compensate for the additional 1/2 factor. */ \
-  LOAD_CST(m6, k2Sqrt2);     \
-  LSHIFT(m2, 3 + 1);         \
-  LSHIFT(m1, 3 + 1);         \
-  BUTTERFLY(m1, m2);         \
-  MULT(m2, m6);              \
-  MULT(m1, m6);              \
-  BUTTERFLY(m3, m1);         \
-  BUTTERFLY(m0, m2);         \
-                             \
-  LOAD_CST(m4, kTan3m1);     \
-  LOAD_CST(m5, kTan1);       \
-  m7 = m3;                   \
-  m6 = m1;                   \
-  MULT(m3, m4);              \
-  MULT(m1, m5);              \
-                             \
-  ADD(m3, m7);               \
-  ADD(m1, m2);               \
-  CORRECT_LSB(m1);           \
-  CORRECT_LSB(m3);           \
-  MULT(m4, m0);              \
-  MULT(m5, m2);              \
-  ADD(m4, m0);               \
-  SUB(m0, m3);               \
-  ADD(m7, m4);               \
-  SUB(m5, m6);               \
-                             \
-  STORE16((in)[1 * 8], m1);  \
-  STORE16((in)[3 * 8], m0);  \
-  STORE16((in)[5 * 8], m7);  \
-  STORE16((in)[7 * 8], m5);  \
-} while (0)
-
+#define COLUMN_DCT8(in)                                                        \
+  do {                                                                         \
+    LOAD(m0, (in)[0 * 8]);                                                     \
+    LOAD(m2, (in)[2 * 8]);                                                     \
+    LOAD(m7, (in)[7 * 8]);                                                     \
+    LOAD(m5, (in)[5 * 8]);                                                     \
+                                                                               \
+    BUTTERFLY(m0, m7);                                                         \
+    BUTTERFLY(m2, m5);                                                         \
+                                                                               \
+    LOAD(m3, (in)[3 * 8]);                                                     \
+    LOAD(m4, (in)[4 * 8]);                                                     \
+    BUTTERFLY(m3, m4);                                                         \
+                                                                               \
+    LOAD(m6, (in)[6 * 8]);                                                     \
+    LOAD(m1, (in)[1 * 8]);                                                     \
+    BUTTERFLY(m1, m6);                                                         \
+    BUTTERFLY(m7, m4);                                                         \
+    BUTTERFLY(m6, m5);                                                         \
+                                                                               \
+    /* RowIdct() needs 15bits fixed-point input, when the output from   */     \
+    /* ColumnIdct() would be 12bits. We are better doing the shift by 3 */     \
+    /* now instead of in RowIdct(), because we have some multiplies to  */     \
+    /* perform, that can take advantage of the extra 3bits precision.   */     \
+    LSHIFT(m4, 3);                                                             \
+    LSHIFT(m5, 3);                                                             \
+    BUTTERFLY(m4, m5);                                                         \
+    STORE16((in)[0 * 8], m5);                                                  \
+    STORE16((in)[4 * 8], m4);                                                  \
+                                                                               \
+    LSHIFT(m7, 3);                                                             \
+    LSHIFT(m6, 3);                                                             \
+    LSHIFT(m3, 3);                                                             \
+    LSHIFT(m0, 3);                                                             \
+                                                                               \
+    LOAD_CST(m4, kTan2);                                                       \
+    m5 = m4;                                                                   \
+    MULT(m4, m7);                                                              \
+    MULT(m5, m6);                                                              \
+    SUB(m4, m6);                                                               \
+    ADD(m5, m7);                                                               \
+    STORE16((in)[2 * 8], m5);                                                  \
+    STORE16((in)[6 * 8], m4);                                                  \
+                                                                               \
+    /* We should be multiplying m6 by C4 = 1/sqrt(2) here, but we only have */ \
+    /* the k2Sqrt2 = 1/(2.sqrt(2)) constant that fits into 15bits. So we    */ \
+    /* shift by 4 instead of 3 to compensate for the additional 1/2 factor. */ \
+    LOAD_CST(m6, k2Sqrt2);                                                     \
+    LSHIFT(m2, 3 + 1);                                                         \
+    LSHIFT(m1, 3 + 1);                                                         \
+    BUTTERFLY(m1, m2);                                                         \
+    MULT(m2, m6);                                                              \
+    MULT(m1, m6);                                                              \
+    BUTTERFLY(m3, m1);                                                         \
+    BUTTERFLY(m0, m2);                                                         \
+                                                                               \
+    LOAD_CST(m4, kTan3m1);                                                     \
+    LOAD_CST(m5, kTan1);                                                       \
+    m7 = m3;                                                                   \
+    m6 = m1;                                                                   \
+    MULT(m3, m4);                                                              \
+    MULT(m1, m5);                                                              \
+                                                                               \
+    ADD(m3, m7);                                                               \
+    ADD(m1, m2);                                                               \
+    CORRECT_LSB(m1);                                                           \
+    CORRECT_LSB(m3);                                                           \
+    MULT(m4, m0);                                                              \
+    MULT(m5, m2);                                                              \
+    ADD(m4, m0);                                                               \
+    SUB(m0, m3);                                                               \
+    ADD(m7, m4);                                                               \
+    SUB(m5, m6);                                                               \
+                                                                               \
+    STORE16((in)[1 * 8], m1);                                                  \
+    STORE16((in)[3 * 8], m0);                                                  \
+    STORE16((in)[5 * 8], m7);                                                  \
+    STORE16((in)[7 * 8], m5);                                                  \
+  } while (0)
 
 // these are the macro required by COLUMN_*
 #define LOAD_CST(dst, src) (dst) = (src)
 #define LOAD(dst, src) (dst) = (src)
-#define MULT(a, b)  (a) = (((a) * (b)) >> 16)
-#define ADD(a, b)   (a) = (a) + (b)
-#define SUB(a, b)   (a) = (a) - (b)
+#define MULT(a, b) (a) = (((a) * (b)) >> 16)
+#define ADD(a, b) (a) = (a) + (b)
+#define SUB(a, b) (a) = (a) - (b)
 #define LSHIFT(a, n) (a) = ((a) << (n))
 #define STORE16(a, b) (a) = (b)
 #define CORRECT_LSB(a) (a) += 1
@@ -168,7 +169,7 @@ inline void ColumnDct(coeff_t* in) {
 
 // We don't really need to round before descaling, since we
 // still have 4 bits of precision left as final scaled output.
-#define DESCALE(a)  static_cast<coeff_t>((a) >> 16)
+#define DESCALE(a) static_cast<coeff_t>((a) >> 16)
 
 void RowDct(coeff_t* in, const coeff_t* table) {
   // The Fourier transform is an unitary operator, so we're basically

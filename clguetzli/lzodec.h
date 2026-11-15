@@ -15,32 +15,30 @@
 #include "../third_party/minilzo/minilzo.h"
 
 class LzoDec {
-public:
-    // Constructor: decompress data immediately
-    LzoDec(const unsigned char* compressed_data, size_t compressed_size);
-    
-    // Destructor
-    ~LzoDec();
-    
-    // Get decompressed data (always followed by a NUL byte, not counted in getSize())
-    const unsigned char* getData() const { return decompressed_data_.data(); }
-    
-    // Get decompressed data size
-    size_t getSize() const { return decompressed_size_; }
-    
-    // Check if decompression was successful
-    bool isValid() const { return valid_; }
+ public:
+  // Constructor: decompress data immediately
+  LzoDec(const unsigned char* compressed_data, size_t compressed_size);
 
-private:
-    std::vector<unsigned char> decompressed_data_;
-    size_t decompressed_size_;
-    bool valid_;
-    
-    // Disable copy constructor and assignment operator
-    LzoDec(const LzoDec&) = delete;
-    LzoDec& operator=(const LzoDec&) = delete;
+  // Destructor
+  ~LzoDec();
+
+  // Get decompressed data (always followed by a NUL byte, not counted in getSize())
+  const unsigned char* getData() const { return decompressed_data_.data(); }
+
+  // Get decompressed data size
+  size_t getSize() const { return decompressed_size_; }
+
+  // Check if decompression was successful
+  bool isValid() const { return valid_; }
+
+ private:
+  std::vector<unsigned char> decompressed_data_;
+  size_t decompressed_size_;
+  bool valid_;
+
+  // Disable copy constructor and assignment operator
+  LzoDec(const LzoDec&) = delete;
+  LzoDec& operator=(const LzoDec&) = delete;
 };
 
-#endif // LZODEC_H
-
-
+#endif  // LZODEC_H

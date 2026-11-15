@@ -25,25 +25,22 @@ void PrintDebug(ProcessStats* stats, std::string s);
 
 }  // namespace guetzli
 
-#define GUETZLI_LOG(stats, ...)                                    \
-  do {                                                             \
-    char debug_string[1024];                                       \
-    int res = snprintf(debug_string, sizeof(debug_string),         \
-                       __VA_ARGS__);                               \
-    assert(res > 0 && "expected successful printing");             \
-    (void)res;                                                     \
-    debug_string[sizeof(debug_string) - 1] = '\0';                 \
-    ::guetzli::PrintDebug(                      \
-         stats, std::string(debug_string));        \
+#define GUETZLI_LOG(stats, ...)                                          \
+  do {                                                                   \
+    char debug_string[1024];                                             \
+    int res = snprintf(debug_string, sizeof(debug_string), __VA_ARGS__); \
+    assert(res > 0 && "expected successful printing");                   \
+    (void)res;                                                           \
+    debug_string[sizeof(debug_string) - 1] = '\0';                       \
+    ::guetzli::PrintDebug(stats, std::string(debug_string));             \
   } while (0)
-#define GUETZLI_LOG_QUANT(stats, q)                    \
-  for (int y = 0; y < 8; ++y) {                        \
-    for (int c = 0; c < 3; ++c) {                      \
-      for (int x = 0; x < 8; ++x)                      \
-        GUETZLI_LOG(stats, " %2d", (q)[c][8 * y + x]); \
-      GUETZLI_LOG(stats, "   ");                       \
-    }                                                  \
-    GUETZLI_LOG(stats, "\n");                          \
+#define GUETZLI_LOG_QUANT(stats, q)                                              \
+  for (int y = 0; y < 8; ++y) {                                                  \
+    for (int c = 0; c < 3; ++c) {                                                \
+      for (int x = 0; x < 8; ++x) GUETZLI_LOG(stats, " %2d", (q)[c][8 * y + x]); \
+      GUETZLI_LOG(stats, "   ");                                                 \
+    }                                                                            \
+    GUETZLI_LOG(stats, "\n");                                                    \
   }
 
 #endif  // GUETZLI_DEBUG_PRINT_H_

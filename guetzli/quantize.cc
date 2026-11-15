@@ -18,8 +18,7 @@
 
 namespace guetzli {
 
-bool QuantizeBlock(coeff_t block[kDCTBlockSize],
-                   const int q[kDCTBlockSize]) {
+bool QuantizeBlock(coeff_t block[kDCTBlockSize], const int q[kDCTBlockSize]) {
   bool changed = false;
   for (int k = 0; k < kDCTBlockSize; ++k) {
     coeff_t coeff = Quantize(block[k], q[k]);

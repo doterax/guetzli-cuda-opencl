@@ -20,8 +20,7 @@
 
 namespace guetzli {
 
-double ScoreJPEG(double butteraugli_distance, int size,
-                 double butteraugli_target) {
+double ScoreJPEG(double butteraugli_distance, int size, double butteraugli_target) {
   constexpr double kScale = 50;
   constexpr double kMaxExponent = 10;
   constexpr double kLargeSize = 1e30;

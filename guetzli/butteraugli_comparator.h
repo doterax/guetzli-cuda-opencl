@@ -32,36 +32,31 @@ constexpr int kButteraugliStep = 3;
 
 class ButteraugliComparator : public Comparator {
  public:
-  ButteraugliComparator(const int width, const int height,
-                        const std::vector<uint8_t>* rgb,
-                        const float target_distance, ProcessStats* stats);
+  ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb, const float target_distance,
+                        ProcessStats* stats);
 
   void Compare(const OutputImage& img) override;
 
   void StartBlockComparisons() override;
   void FinishBlockComparisons() override;
 
-  void SwitchBlock(int block_x, int block_y,
-                   int factor_x, int factor_y) override;
+  void SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) override;
 
-  double CompareBlock(const OutputImage& img,
-                      int off_x, int off_y, const coeff_t* candidate_block, const int comp_mask) const override;
+  double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+                      const int comp_mask) const override;
 
   double ScoreOutputSize(int size) const override;
 
-  bool DistanceOK(double target_mul) const override {
-    return distance_ <= target_mul * target_distance_;
-  }
+  bool DistanceOK(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
 
   const std::vector<float> distmap() const override { return distmap_; }
   float distmap_aggregate() const override { return distance_; }
 
   float BlockErrorLimit() const override;
 
-  void ComputeBlockErrorAdjustmentWeights(
-      int direction, int max_block_dist, double target_mul, int factor_x,
-      int factor_y, const std::vector<float>& distmap,
-      std::vector<float>* block_weight) override;
+  void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
+                                          int factor_y, const std::vector<float>& distmap,
+                                          std::vector<float>* block_weight) override;
 
  protected:
   const int width_;

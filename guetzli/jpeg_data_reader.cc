@@ -28,39 +28,37 @@ namespace {
 
 // Macros for commonly used error conditions.
 
-#define VERIFY_LEN(n)                                                   \
-  if (*pos + (n) > len) {                                               \
-    fprintf(stderr, "Unexpected end of input: pos=%d need=%d len=%d\n", \
-            static_cast<int>(*pos), static_cast<int>(n),                \
-            static_cast<int>(len));                                     \
-    jpg->error = JPEG_UNEXPECTED_EOF;                                   \
-    return false;                                                       \
+#define VERIFY_LEN(n)                                                                                                \
+  if (*pos + (n) > len) {                                                                                            \
+    fprintf(stderr, "Unexpected end of input: pos=%d need=%d len=%d\n", static_cast<int>(*pos), static_cast<int>(n), \
+            static_cast<int>(len));                                                                                  \
+    jpg->error = JPEG_UNEXPECTED_EOF;                                                                                \
+    return false;                                                                                                    \
   }
 
-#define VERIFY_INPUT(var, low, high, code)                              \
-  if (var < low || var > high) {                                        \
-    fprintf(stderr, "Invalid %s: %d\n", #var, static_cast<int>(var));   \
-    jpg->error = JPEG_INVALID_ ## code;                                 \
-        return false;                                                   \
+#define VERIFY_INPUT(var, low, high, code)                            \
+  if (var < low || var > high) {                                      \
+    fprintf(stderr, "Invalid %s: %d\n", #var, static_cast<int>(var)); \
+    jpg->error = JPEG_INVALID_##code;                                 \
+    return false;                                                     \
   }
 
-#define VERIFY_MARKER_END()                                             \
-  if (start_pos + marker_len != *pos) {                                 \
-    fprintf(stderr, "Invalid marker length: declared=%d actual=%d\n",   \
-            static_cast<int>(marker_len),                               \
-            static_cast<int>(*pos - start_pos));                        \
-    jpg->error = JPEG_WRONG_MARKER_SIZE;                                \
-    return false;                                                       \
+#define VERIFY_MARKER_END()                                                                         \
+  if (start_pos + marker_len != *pos) {                                                             \
+    fprintf(stderr, "Invalid marker length: declared=%d actual=%d\n", static_cast<int>(marker_len), \
+            static_cast<int>(*pos - start_pos));                                                    \
+    jpg->error = JPEG_WRONG_MARKER_SIZE;                                                            \
+    return false;                                                                                   \
   }
 
-#define EXPECT_MARKER() \
-  if (pos + 2 > len || data[pos] != 0xff) {                             \
-    fprintf(stderr, "Marker byte (0xff) expected, found: %d "           \
-            "pos=%d len=%d\n",                                          \
-            (pos < len ? data[pos] : 0), static_cast<int>(pos),         \
-            static_cast<int>(len));                                     \
-    jpg->error = JPEG_MARKER_BYTE_NOT_FOUND;                            \
-    return false;                                                       \
+#define EXPECT_MARKER()                                                                 \
+  if (pos + 2 > len || data[pos] != 0xff) {                                             \
+    fprintf(stderr,                                                                     \
+            "Marker byte (0xff) expected, found: %d "                                   \
+            "pos=%d len=%d\n",                                                          \
+            (pos < len ? data[pos] : 0), static_cast<int>(pos), static_cast<int>(len)); \
+    jpg->error = JPEG_MARKER_BYTE_NOT_FOUND;                                            \
+    return false;                                                                       \
   }
 
 inline int SignedLeftshift(int v, int s) {
@@ -84,8 +82,7 @@ inline int ReadUint16(const uint8_t* data, size_t* pos) {
 
 // Reads the Start of Frame (SOF) marker segment and fills in *jpg with the
 // parsed data.
-bool ProcessSOF(const uint8_t* data, const size_t len,
-                JpegReadMode mode, size_t* pos, JPEGData* jpg) {
+bool ProcessSOF(const uint8_t* data, const size_t len, JpegReadMode mode, size_t* pos, JPEGData* jpg) {
   if (jpg->width != 0) {
     fprintf(stderr, "Duplicate SOF marker.\n");
     jpg->error = JPEG_DUPLICATE_SOF;
@@ -111,7 +108,7 @@ bool ProcessSOF(const uint8_t* data, const size_t len,
   std::vector<bool> ids_seen(256, false);
   for (size_t i = 0; i < jpg->components.size(); ++i) {
     const int id = ReadUint8(data, pos);
-    if (ids_seen[id]) {   // (cf. section B.2.2, syntax of Ci)
+    if (ids_seen[id]) {  // (cf. section B.2.2, syntax of Ci)
       fprintf(stderr, "Duplicate ID %d in SOF.\n", id);
       jpg->error = JPEG_DUPLICATE_COMPONENT_ID;
       return false;
@@ -138,16 +135,14 @@ bool ProcessSOF(const uint8_t* data, const size_t len,
   if (mode == JPEG_READ_ALL) {
     for (size_t i = 0; i < jpg->components.size(); ++i) {
       JPEGComponent* c = &jpg->components[i];
-      if (jpg->max_h_samp_factor % c->h_samp_factor != 0 ||
-          jpg->max_v_samp_factor % c->v_samp_factor != 0) {
+      if (jpg->max_h_samp_factor % c->h_samp_factor != 0 || jpg->max_v_samp_factor % c->v_samp_factor != 0) {
         fprintf(stderr, "Non-integral subsampling ratios.\n");
         jpg->error = JPEG_INVALID_SAMPLING_FACTORS;
         return false;
       }
       c->width_in_blocks = jpg->MCU_cols * c->h_samp_factor;
       c->height_in_blocks = jpg->MCU_rows * c->v_samp_factor;
-      const uint64_t num_blocks =
-          static_cast<uint64_t>(c->width_in_blocks) * c->height_in_blocks;
+      const uint64_t num_blocks = static_cast<uint64_t>(c->width_in_blocks) * c->height_in_blocks;
       if (num_blocks > (1ull << 21)) {
         // Refuse to allocate more than 1 GB of memory for the coefficients,
         // that is 2M blocks x 64 coeffs x 2 bytes per coeff x max 4 components.
@@ -166,14 +161,12 @@ bool ProcessSOF(const uint8_t* data, const size_t len,
 
 // Reads the Start of Scan (SOS) marker segment and fills in *scan_info with the
 // parsed data.
-bool ProcessSOS(const uint8_t* data, const size_t len, size_t* pos,
-                JPEGData* jpg) {
+bool ProcessSOS(const uint8_t* data, const size_t len, size_t* pos, JPEGData* jpg) {
   const size_t start_pos = *pos;
   VERIFY_LEN(3);
   size_t marker_len = ReadUint16(data, pos);
   int comps_in_scan = ReadUint8(data, pos);
-  VERIFY_INPUT(comps_in_scan, 1, static_cast<int>(jpg->components.size()),
-               COMPS_IN_SCAN);
+  VERIFY_INPUT(comps_in_scan, 1, static_cast<int>(jpg->components.size()), COMPS_IN_SCAN);
 
   JPEGScanInfo scan_info;
   scan_info.components.resize(comps_in_scan);
@@ -181,7 +174,7 @@ bool ProcessSOS(const uint8_t* data, const size_t len, size_t* pos,
   std::vector<bool> ids_seen(256, false);
   for (int i = 0; i < comps_in_scan; ++i) {
     int id = ReadUint8(data, pos);
-    if (ids_seen[id]) {   // (cf. section B.2.3, regarding CSj)
+    if (ids_seen[id]) {  // (cf. section B.2.3, regarding CSj)
       fprintf(stderr, "Duplicate ID %d in SOS.\n", id);
       jpg->error = JPEG_DUPLICATE_COMPONENT_ID;
       return false;
@@ -228,14 +221,18 @@ bool ProcessSOS(const uint8_t* data, const size_t len, size_t* pos,
       }
     }
     if (scan_info.Ss == 0 && !found_dc_table) {
-      fprintf(stderr, "SOS marker: Could not find DC Huffman table with index "
-              "%d\n", scan_info.components[i].dc_tbl_idx);
+      fprintf(stderr,
+              "SOS marker: Could not find DC Huffman table with index "
+              "%d\n",
+              scan_info.components[i].dc_tbl_idx);
       jpg->error = JPEG_HUFFMAN_TABLE_NOT_FOUND;
       return false;
     }
     if (scan_info.Se > 0 && !found_ac_table) {
-      fprintf(stderr, "SOS marker: Could not find AC Huffman table with index "
-              "%d\n", scan_info.components[i].ac_tbl_idx);
+      fprintf(stderr,
+              "SOS marker: Could not find AC Huffman table with index "
+              "%d\n",
+              scan_info.components[i].ac_tbl_idx);
       jpg->error = JPEG_HUFFMAN_TABLE_NOT_FOUND;
       return false;
     }
@@ -248,12 +245,8 @@ bool ProcessSOS(const uint8_t* data, const size_t len, size_t* pos,
 // Reads the Define Huffman Table (DHT) marker segment and fills in *jpg with
 // the parsed data. Builds the Huffman decoding table in either dc_huff_lut or
 // ac_huff_lut, depending on the type and solt_id of Huffman code being read.
-bool ProcessDHT(const uint8_t* data, const size_t len,
-                JpegReadMode mode,
-                std::vector<HuffmanTableEntry>* dc_huff_lut,
-                std::vector<HuffmanTableEntry>* ac_huff_lut,
-                size_t* pos,
-                JPEGData* jpg) {
+bool ProcessDHT(const uint8_t* data, const size_t len, JpegReadMode mode, std::vector<HuffmanTableEntry>* dc_huff_lut,
+                std::vector<HuffmanTableEntry>* ac_huff_lut, size_t* pos, JPEGData* jpg) {
   const size_t start_pos = *pos;
   VERIFY_LEN(2);
   size_t marker_len = ReadUint16(data, pos);
@@ -327,8 +320,7 @@ bool ProcessDHT(const uint8_t* data, const size_t len,
       }
     }
     huff.is_last = (*pos == start_pos + marker_len);
-    if (mode == JPEG_READ_ALL &&
-        !BuildJpegHuffmanTable(&huff.counts[0], &huff.values[0], huff_lut)) {
+    if (mode == JPEG_READ_ALL && !BuildJpegHuffmanTable(&huff.counts[0], &huff.values[0], huff_lut)) {
       fprintf(stderr, "Failed to build Huffman table.\n");
       jpg->error = JPEG_INVALID_HUFFMAN_CODE;
       return false;
@@ -341,8 +333,7 @@ bool ProcessDHT(const uint8_t* data, const size_t len,
 
 // Reads the Define Quantization Table (DQT) marker segment and fills in *jpg
 // with the parsed data.
-bool ProcessDQT(const uint8_t* data, const size_t len, size_t* pos,
-                JPEGData* jpg) {
+bool ProcessDQT(const uint8_t* data, const size_t len, size_t* pos, JPEGData* jpg) {
   const size_t start_pos = *pos;
   VERIFY_LEN(2);
   size_t marker_len = ReadUint16(data, pos);
@@ -362,9 +353,7 @@ bool ProcessDQT(const uint8_t* data, const size_t len, size_t* pos,
     table.index = quant_table_index;
     table.precision = quant_table_precision;
     for (int i = 0; i < kDCTBlockSize; ++i) {
-      int quant_val = quant_table_precision ?
-          ReadUint16(data, pos) :
-          ReadUint8(data, pos);
+      int quant_val = quant_table_precision ? ReadUint16(data, pos) : ReadUint8(data, pos);
       VERIFY_INPUT(quant_val, 1, 65535, QUANT_VAL);
       table.values[kJPEGNaturalOrder[i]] = quant_val;
     }
@@ -376,8 +365,7 @@ bool ProcessDQT(const uint8_t* data, const size_t len, size_t* pos,
 }
 
 // Reads the DRI marker and saved the restart interval into *jpg.
-bool ProcessDRI(const uint8_t* data, const size_t len, size_t* pos,
-                JPEGData* jpg) {
+bool ProcessDRI(const uint8_t* data, const size_t len, size_t* pos, JPEGData* jpg) {
   if (jpg->restart_interval > 0) {
     fprintf(stderr, "Duplicate DRI marker.\n");
     jpg->error = JPEG_DUPLICATE_DRI;
@@ -393,29 +381,25 @@ bool ProcessDRI(const uint8_t* data, const size_t len, size_t* pos,
 }
 
 // Saves the APP marker segment as a string to *jpg.
-bool ProcessAPP(const uint8_t* data, const size_t len, size_t* pos,
-                JPEGData* jpg) {
+bool ProcessAPP(const uint8_t* data, const size_t len, size_t* pos, JPEGData* jpg) {
   VERIFY_LEN(2);
   size_t marker_len = ReadUint16(data, pos);
   VERIFY_INPUT(marker_len, 2, 65535, MARKER_LEN);
   VERIFY_LEN(marker_len - 2);
   // Save the marker type together with the app data.
-  std::string app_str(reinterpret_cast<const char*>(
-      &data[*pos - 3]), marker_len + 1);
+  std::string app_str(reinterpret_cast<const char*>(&data[*pos - 3]), marker_len + 1);
   *pos += marker_len - 2;
   jpg->app_data.push_back(app_str);
   return true;
 }
 
 // Saves the COM marker segment as a string to *jpg.
-bool ProcessCOM(const uint8_t* data, const size_t len, size_t* pos,
-                JPEGData* jpg) {
+bool ProcessCOM(const uint8_t* data, const size_t len, size_t* pos, JPEGData* jpg) {
   VERIFY_LEN(2);
   size_t marker_len = ReadUint16(data, pos);
   VERIFY_INPUT(marker_len, 2, 65535, MARKER_LEN);
   VERIFY_LEN(marker_len - 2);
-  std::string com_str(reinterpret_cast<const char*>(
-      &data[*pos - 2]), marker_len);
+  std::string com_str(reinterpret_cast<const char*>(&data[*pos - 2]), marker_len);
   *pos += marker_len - 2;
   jpg->com_data.push_back(com_str);
   return true;
@@ -423,10 +407,7 @@ bool ProcessCOM(const uint8_t* data, const size_t len, size_t* pos,
 
 // Helper structure to read bits from the entropy coded data segment.
 struct BitReaderState {
-  BitReaderState(const uint8_t* data, const size_t len, size_t pos)
-      : data_(data), len_(len) {
-    Reset(pos);
-  }
+  BitReaderState(const uint8_t* data, const size_t len, size_t pos) : data_(data), len_(len) { Reset(pos); }
 
   void Reset(size_t pos) {
     pos_ = pos;
@@ -482,8 +463,7 @@ struct BitReaderState {
       --pos_;
       // If we give back a 0 byte, we need to check if it was a 0xff/0x00 escape
       // sequence, and if yes, we need to give back one more byte.
-      if (pos_ < next_marker_pos_ &&
-          data_[pos_] == 0 && data_[pos_ - 1] == 0xff) {
+      if (pos_ < next_marker_pos_ && data_[pos_] == 0 && data_[pos_ - 1] == 0xff) {
         --pos_;
       }
     }
@@ -528,14 +508,8 @@ int HuffExtend(int x, int s) {
 }
 
 // Decodes one 8x8 block of DCT coefficients from the bit stream.
-bool DecodeDCTBlock(const HuffmanTableEntry* dc_huff,
-                    const HuffmanTableEntry* ac_huff,
-                    int Ss, int Se, int Al,
-                    int* eobrun,
-                    BitReaderState* br,
-                    JPEGData* jpg,
-                    coeff_t* last_dc_coeff,
-                    coeff_t* coeffs) {
+bool DecodeDCTBlock(const HuffmanTableEntry* dc_huff, const HuffmanTableEntry* ac_huff, int Ss, int Se, int Al,
+                    int* eobrun, BitReaderState* br, JPEGData* jpg, coeff_t* last_dc_coeff, coeff_t* coeffs) {
   int s;
   int r;
   bool eobrun_allowed = Ss > 0;
@@ -571,8 +545,7 @@ bool DecodeDCTBlock(const HuffmanTableEntry* dc_huff,
   for (int k = Ss; k <= Se; k++) {
     s = ReadSymbol(ac_huff, br);
     if (s >= kJpegHuffmanAlphabetSize) {
-      fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n",
-              s, k);
+      fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n", s, k);
       jpg->error = JPEG_INVALID_SYMBOL;
       return false;
     }
@@ -581,14 +554,12 @@ bool DecodeDCTBlock(const HuffmanTableEntry* dc_huff,
     if (s > 0) {
       k += r;
       if (k > Se) {
-        fprintf(stderr, "Out-of-band coefficient %d band was %d-%d\n",
-                k, Ss, Se);
+        fprintf(stderr, "Out-of-band coefficient %d band was %d-%d\n", k, Ss, Se);
         jpg->error = JPEG_OUT_OF_BAND_COEFF;
         return false;
       }
       if (s + Al >= kJpegDCAlphabetSize) {
-        fprintf(stderr, "Out of range AC coefficient value: s=%d Al=%d k=%d\n",
-                s, Al, k);
+        fprintf(stderr, "Out of range AC coefficient value: s=%d Al=%d k=%d\n", s, Al, k);
         jpg->error = JPEG_NON_REPRESENTABLE_AC_COEFF;
         return false;
       }
@@ -614,12 +585,8 @@ bool DecodeDCTBlock(const HuffmanTableEntry* dc_huff,
   return true;
 }
 
-bool RefineDCTBlock(const HuffmanTableEntry* ac_huff,
-                    int Ss, int Se, int Al,
-                    int* eobrun,
-                    BitReaderState* br,
-                    JPEGData* jpg,
-                    coeff_t* coeffs) {
+bool RefineDCTBlock(const HuffmanTableEntry* ac_huff, int Ss, int Se, int Al, int* eobrun, BitReaderState* br,
+                    JPEGData* jpg, coeff_t* coeffs) {
   bool eobrun_allowed = Ss > 0;
   if (Ss == 0) {
     int s = br->ReadBits(1);
@@ -641,8 +608,7 @@ bool RefineDCTBlock(const HuffmanTableEntry* ac_huff,
     for (; k <= Se; k++) {
       s = ReadSymbol(ac_huff, br);
       if (s >= kJpegHuffmanAlphabetSize) {
-        fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n",
-                s, k);
+        fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n", s, k);
         jpg->error = JPEG_INVALID_SYMBOL;
         return false;
       }
@@ -650,8 +616,7 @@ bool RefineDCTBlock(const HuffmanTableEntry* ac_huff,
       s &= 15;
       if (s) {
         if (s != 1) {
-          fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n",
-                  s, k);
+          fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n", s, k);
           jpg->error = JPEG_INVALID_SYMBOL;
           return false;
         }
@@ -694,8 +659,7 @@ bool RefineDCTBlock(const HuffmanTableEntry* ac_huff,
       } while (k <= Se);
       if (s) {
         if (k > Se) {
-          fprintf(stderr, "Out-of-band coefficient %d band was %d-%d\n",
-                  k, Ss, Se);
+          fprintf(stderr, "Out-of-band coefficient %d band was %d-%d\n", k, Ss, Se);
           jpg->error = JPEG_OUT_OF_BAND_COEFF;
           return false;
         }
@@ -729,8 +693,7 @@ bool RefineDCTBlock(const HuffmanTableEntry* ac_huff,
   return true;
 }
 
-bool ProcessRestart(const uint8_t* data, const size_t len,
-                    int* next_restart_marker, BitReaderState* br,
+bool ProcessRestart(const uint8_t* data, const size_t len, int* next_restart_marker, BitReaderState* br,
                     JPEGData* jpg) {
   size_t pos = 0;
   if (!br->FinishStream(&pos)) {
@@ -741,8 +704,7 @@ bool ProcessRestart(const uint8_t* data, const size_t len,
   EXPECT_MARKER();
   int marker = data[pos + 1];
   if (marker != expected_marker) {
-    fprintf(stderr, "Did not find expected restart marker %d actual=%d\n",
-            expected_marker, marker);
+    fprintf(stderr, "Did not find expected restart marker %d actual=%d\n", expected_marker, marker);
     jpg->error = JPEG_WRONG_RESTART_MARKER;
     return false;
   }
@@ -752,12 +714,9 @@ bool ProcessRestart(const uint8_t* data, const size_t len,
   return true;
 }
 
-bool ProcessScan(const uint8_t* data, const size_t len,
-                 const std::vector<HuffmanTableEntry>& dc_huff_lut,
+bool ProcessScan(const uint8_t* data, const size_t len, const std::vector<HuffmanTableEntry>& dc_huff_lut,
                  const std::vector<HuffmanTableEntry>& ac_huff_lut,
-                 uint16_t scan_progression[kMaxComponents][kDCTBlockSize],
-                 bool is_progressive,
-                 size_t* pos,
+                 uint16_t scan_progression[kMaxComponents][kDCTBlockSize], bool is_progressive, size_t* pos,
                  JPEGData* jpg) {
   if (!ProcessSOS(data, len, pos, jpg)) {
     return false;
@@ -771,10 +730,8 @@ bool ProcessScan(const uint8_t* data, const size_t len,
     MCU_rows = jpg->MCU_rows;
   } else {
     const JPEGComponent& c = jpg->components[scan_info->components[0].comp_idx];
-    MCUs_per_row =
-        DivCeil(jpg->width * c.h_samp_factor, 8 * jpg->max_h_samp_factor);
-    MCU_rows =
-        DivCeil(jpg->height * c.v_samp_factor, 8 * jpg->max_v_samp_factor);
+    MCUs_per_row = DivCeil(jpg->width * c.h_samp_factor, 8 * jpg->max_h_samp_factor);
+    MCU_rows = DivCeil(jpg->height * c.v_samp_factor, 8 * jpg->max_v_samp_factor);
   }
   coeff_t last_dc_coeff[kMaxComponents] = {0};
   BitReaderState br(data, len, *pos);
@@ -792,16 +749,18 @@ bool ProcessScan(const uint8_t* data, const size_t len,
     int comp_idx = scan_info->components[i].comp_idx;
     for (int k = Ss; k <= Se; ++k) {
       if (scan_progression[comp_idx][k] & scan_bitmask) {
-        fprintf(stderr, "Overlapping scans: component=%d k=%d prev_mask=%d "
-                "cur_mask=%d\n", comp_idx, k, scan_progression[i][k],
-                scan_bitmask);
+        fprintf(stderr,
+                "Overlapping scans: component=%d k=%d prev_mask=%d "
+                "cur_mask=%d\n",
+                comp_idx, k, scan_progression[i][k], scan_bitmask);
         jpg->error = JPEG_OVERLAPPING_SCANS;
         return false;
       }
       if (scan_progression[comp_idx][k] & refinement_bitmask) {
-        fprintf(stderr, "Invalid scan order, a more refined scan was already "
-                "done: component=%d k=%d prev_mask=%d cur_mask=%d\n", comp_idx,
-                k, scan_progression[i][k], scan_bitmask);
+        fprintf(stderr,
+                "Invalid scan order, a more refined scan was already "
+                "done: component=%d k=%d prev_mask=%d cur_mask=%d\n",
+                comp_idx, k, scan_progression[i][k], scan_bitmask);
         jpg->error = JPEG_INVALID_SCAN_ORDER;
         return false;
       }
@@ -818,8 +777,7 @@ bool ProcessScan(const uint8_t* data, const size_t len,
       // Handle the restart intervals.
       if (jpg->restart_interval > 0) {
         if (restarts_to_go == 0) {
-          if (ProcessRestart(data, len,
-                             &next_restart_marker, &br, jpg)) {
+          if (ProcessRestart(data, len, &next_restart_marker, &br, jpg)) {
             restarts_to_go = jpg->restart_interval;
             memset(last_dc_coeff, 0, sizeof(last_dc_coeff));
             if (eobrun > 0) {
@@ -827,7 +785,7 @@ bool ProcessScan(const uint8_t* data, const size_t len,
               jpg->error = JPEG_EOB_RUN_TOO_LONG;
               return false;
             }
-            eobrun = -1;   // fresh start
+            eobrun = -1;  // fresh start
           } else {
             return false;
           }
@@ -838,10 +796,8 @@ bool ProcessScan(const uint8_t* data, const size_t len,
       for (size_t i = 0; i < scan_info->components.size(); ++i) {
         JPEGComponentScanInfo* si = &scan_info->components[i];
         JPEGComponent* c = &jpg->components[si->comp_idx];
-        const HuffmanTableEntry* dc_lut =
-            &dc_huff_lut[si->dc_tbl_idx * kJpegHuffmanLutSize];
-        const HuffmanTableEntry* ac_lut =
-            &ac_huff_lut[si->ac_tbl_idx * kJpegHuffmanLutSize];
+        const HuffmanTableEntry* dc_lut = &dc_huff_lut[si->dc_tbl_idx * kJpegHuffmanLutSize];
+        const HuffmanTableEntry* ac_lut = &ac_huff_lut[si->ac_tbl_idx * kJpegHuffmanLutSize];
         int nblocks_y = is_interleaved ? c->v_samp_factor : 1;
         int nblocks_x = is_interleaved ? c->h_samp_factor : 1;
         for (int iy = 0; iy < nblocks_y; ++iy) {
@@ -851,13 +807,12 @@ bool ProcessScan(const uint8_t* data, const size_t len,
             int block_idx = block_y * c->width_in_blocks + block_x;
             coeff_t* coeffs = &c->coeffs[block_idx * kDCTBlockSize];
             if (Ah == 0) {
-              if (!DecodeDCTBlock(dc_lut, ac_lut, Ss, Se, Al, &eobrun, &br, jpg,
-                                  &last_dc_coeff[si->comp_idx], coeffs)) {
+              if (!DecodeDCTBlock(dc_lut, ac_lut, Ss, Se, Al, &eobrun, &br, jpg, &last_dc_coeff[si->comp_idx],
+                                  coeffs)) {
                 return false;
               }
             } else {
-              if (!RefineDCTBlock(ac_lut, Ss, Se, Al,
-                                  &eobrun, &br, jpg, coeffs)) {
+              if (!RefineDCTBlock(ac_lut, Ss, Se, Al, &eobrun, &br, jpg, coeffs)) {
                 return false;
               }
             }
@@ -877,8 +832,8 @@ bool ProcessScan(const uint8_t* data, const size_t len,
     return false;
   }
   if (*pos > len) {
-    fprintf(stderr, "Unexpected end of file during scan. pos=%d len=%d\n",
-            static_cast<int>(*pos), static_cast<int>(len));
+    fprintf(stderr, "Unexpected end of file during scan. pos=%d len=%d\n", static_cast<int>(*pos),
+            static_cast<int>(len));
     jpg->error = JPEG_UNEXPECTED_EOF;
     return false;
   }
@@ -899,8 +854,7 @@ bool FixupIndexes(JPEGData* jpg) {
       }
     }
     if (!found_index) {
-      fprintf(stderr, "Quantization table with index %zd not found\n",
-              c->quant_idx);
+      fprintf(stderr, "Quantization table with index %zd not found\n", c->quant_idx);
       jpg->error = JPEG_QUANT_TABLE_NOT_FOUND;
       return false;
     }
@@ -911,15 +865,11 @@ bool FixupIndexes(JPEGData* jpg) {
 size_t FindNextMarker(const uint8_t* data, const size_t len, size_t pos) {
   // kIsValidMarker[i] == 1 means (0xc0 + i) is a valid marker.
   static const uint8_t kIsValidMarker[] = {
-    1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+      1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
   };
   size_t num_skipped = 0;
-  while (pos + 1 < len &&
-         (data[pos] != 0xff || data[pos + 1] < 0xc0 ||
-          !kIsValidMarker[data[pos + 1] - 0xc0])) {
+  while (pos + 1 < len && (data[pos] != 0xff || data[pos + 1] < 0xc0 || !kIsValidMarker[data[pos + 1] - 0xc0])) {
     ++pos;
     ++num_skipped;
   }
@@ -928,8 +878,7 @@ size_t FindNextMarker(const uint8_t* data, const size_t len, size_t pos) {
 
 }  // namespace
 
-bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
-              JPEGData* jpg) {
+bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JPEGData* jpg) {
   size_t pos = 0;
   // Check SOI marker.
   EXPECT_MARKER();
@@ -944,18 +893,16 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
   std::vector<HuffmanTableEntry> dc_huff_lut(lut_size);
   std::vector<HuffmanTableEntry> ac_huff_lut(lut_size);
   bool found_sof = false;
-  uint16_t scan_progression[kMaxComponents][kDCTBlockSize] = { { 0 } };
+  uint16_t scan_progression[kMaxComponents][kDCTBlockSize] = {{0}};
 
-  bool is_progressive = false;   // default
+  bool is_progressive = false;  // default
   do {
     // Read next marker.
     size_t num_skipped = FindNextMarker(data, len, pos);
     if (num_skipped > 0) {
       // Add a fake marker to indicate arbitrary in-between-markers data.
       jpg->marker_order.push_back(0xff);
-      jpg->inter_marker_data.push_back(
-          std::string(reinterpret_cast<const char*>(&data[pos]),
-                                      num_skipped));
+      jpg->inter_marker_data.push_back(std::string(reinterpret_cast<const char*>(&data[pos]), num_skipped));
       pos += num_skipped;
     }
     EXPECT_MARKER();
@@ -988,8 +935,7 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
         break;
       case 0xda:
         if (mode == JPEG_READ_ALL) {
-          ok = ProcessScan(data, len, dc_huff_lut, ac_huff_lut,
-                           scan_progression, is_progressive, &pos, jpg);
+          ok = ProcessScan(data, len, dc_huff_lut, ac_huff_lut, scan_progression, is_progressive, &pos, jpg);
         }
         break;
       case 0xdb:
@@ -1024,8 +970,7 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
         }
         break;
       default:
-        fprintf(stderr, "Unsupported marker: %d pos=%d len=%d\n",
-                marker, static_cast<int>(pos), static_cast<int>(len));
+        fprintf(stderr, "Unsupported marker: %d pos=%d len=%d\n", marker, static_cast<int>(pos), static_cast<int>(len));
         jpg->error = JPEG_UNSUPPORTED_MARKER;
         ok = false;
         break;
@@ -1048,8 +993,7 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
   // Supplemental checks.
   if (mode == JPEG_READ_ALL) {
     if (pos < len) {
-      jpg->tail_data.assign(reinterpret_cast<const char*>(&data[pos]),
-                            len - pos);
+      jpg->tail_data.assign(reinterpret_cast<const char*>(&data[pos]), len - pos);
     }
     if (!FixupIndexes(jpg)) {
       return false;
@@ -1071,11 +1015,8 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
   return true;
 }
 
-bool ReadJpeg(const std::string& data, JpegReadMode mode,
-              JPEGData* jpg) {
-  return ReadJpeg(reinterpret_cast<const uint8_t*>(data.data()),
-                  static_cast<const size_t>(data.size()),
-                  mode, jpg);
+bool ReadJpeg(const std::string& data, JpegReadMode mode, JPEGData* jpg) {
+  return ReadJpeg(reinterpret_cast<const uint8_t*>(data.data()), static_cast<const size_t>(data.size()), mode, jpg);
 }
 
 }  // namespace guetzli

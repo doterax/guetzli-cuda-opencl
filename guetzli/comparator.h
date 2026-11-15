@@ -43,15 +43,14 @@ class Comparator {
 
   // Sets the coordinates of the current macro-block for the purpose of
   // CompareBlock() calls.
-  virtual void SwitchBlock(int block_x, int block_y,
-                           int factor_x, int factor_y) = 0;
+  virtual void SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) = 0;
 
   // Compares the 8x8 block with offsets (off_x, off_y) within the current
   // macro-block of the baseline image with the same block of img and returns
   // the resulting per-block distance. The interpretation of the returned
   // distance depends on the comparator used.
-  virtual double CompareBlock(const OutputImage& img,
-                              int off_x, int off_y, const coeff_t* candidate_block, const int comp_mask) const = 0;
+  virtual double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+                              const int comp_mask) const = 0;
 
   // Returns the combined score of the output image in the last Compare() call
   // (or the baseline image, if Compare() was not called yet), based on output
@@ -89,12 +88,10 @@ class Comparator {
   // The target_mul param has the same semantics as in DistanceOK().
   // Note that this is essentially a static function in the sense that it does
   // not depend on the last Compare() call.
-  virtual void ComputeBlockErrorAdjustmentWeights(
-      int direction, int max_block_dist, double target_mul, int factor_x,
-      int factor_y, const std::vector<float>& distmap,
-      std::vector<float>* block_weight) = 0;
+  virtual void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
+                                                  int factor_y, const std::vector<float>& distmap,
+                                                  std::vector<float>* block_weight) = 0;
 };
-
 
 }  // namespace guetzli
 

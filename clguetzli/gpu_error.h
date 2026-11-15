@@ -11,18 +11,16 @@
 #include <stdexcept>
 #include <string>
 
-class GpuError : public std::runtime_error
-{
-public:
-	explicit GpuError(const std::string& what) : std::runtime_error(what) {}
+class GpuError : public std::runtime_error {
+ public:
+  explicit GpuError(const std::string& what) : std::runtime_error(what) {}
 };
 
 // Test hook: GUETZLI_TEST_GPU_FAIL=1 makes GPU backend initialization fail,
 // to exercise the CPU fallback path (see tests/regress/regress.sh).
-inline void MaybeInjectGpuFailure(const char* backend)
-{
-	const char* v = getenv("GUETZLI_TEST_GPU_FAIL");
-	if (v && v[0] && v[0] != '0') {
-		throw GpuError(std::string(backend) + ": failure injected by GUETZLI_TEST_GPU_FAIL");
-	}
+inline void MaybeInjectGpuFailure(const char* backend) {
+  const char* v = getenv("GUETZLI_TEST_GPU_FAIL");
+  if (v && v[0] && v[0] != '0') {
+    throw GpuError(std::string(backend) + ": failure injected by GUETZLI_TEST_GPU_FAIL");
+  }
 }

@@ -23,7 +23,7 @@
 
 namespace guetzli {
 
-bool SetDepth(int p0, HuffmanTree *pool, uint8_t *depth, int max_depth) {
+bool SetDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
   int stack[17];
   int level = 0;
   int p = p0;
@@ -47,8 +47,7 @@ bool SetDepth(int p0, HuffmanTree *pool, uint8_t *depth, int max_depth) {
 }
 
 // Sort the root nodes, least popular first.
-static inline bool SortHuffmanTree(const HuffmanTree& v0,
-                                   const HuffmanTree& v1) {
+static inline bool SortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1) {
   if (v0.total_count_ != v1.total_count_) {
     return v0.total_count_ < v1.total_count_;
   }
@@ -70,16 +69,13 @@ static inline bool SortHuffmanTree(const HuffmanTree& v0,
 // we are not planning to use this with extremely long blocks.
 //
 // See http://en.wikipedia.org/wiki/Huffman_coding
-void CreateHuffmanTree(const uint32_t *data,
-                       const size_t length,
-                       const int tree_limit,
-                       HuffmanTree* tree,
-                       uint8_t *depth) {
+void CreateHuffmanTree(const uint32_t* data, const size_t length, const int tree_limit, HuffmanTree* tree,
+                       uint8_t* depth) {
   // For block sizes below 64 kB, we never need to do a second iteration
   // of this loop. Probably all of our block sizes will be smaller than
   // that, so this loop is mostly of academic interest. If we actually
   // would need this, we would be better off with the Katajainen algorithm.
-  for (uint32_t count_limit = 1; ; count_limit *= 2) {
+  for (uint32_t count_limit = 1;; count_limit *= 2) {
     size_t n = 0;
     for (size_t i = length; i != 0;) {
       --i;
@@ -90,7 +86,7 @@ void CreateHuffmanTree(const uint32_t *data,
     }
 
     if (n == 1) {
-      depth[tree[0].index_right_or_value_] = 1;      // Only one element.
+      depth[tree[0].index_right_or_value_] = 1;  // Only one element.
       break;
     }
 
@@ -128,8 +124,7 @@ void CreateHuffmanTree(const uint32_t *data,
 
       // The sentinel node becomes the parent node.
       size_t j_end = 2 * n - k;
-      tree[j_end].total_count_ =
-          tree[left].total_count_ + tree[right].total_count_;
+      tree[j_end].total_count_ = tree[left].total_count_ + tree[right].total_count_;
       tree[j_end].index_left_ = static_cast<int16_t>(left);
       tree[j_end].index_right_or_value_ = static_cast<int16_t>(right);
 

@@ -30,12 +30,8 @@ inline uint64_t HasZeroByte(uint64_t x) {
 
 // Handles the packing of bits into output bytes.
 struct BitWriter {
-  explicit BitWriter(size_t length) : len(length),
-                                      data(new uint8_t[len]),
-                                      pos(0),
-                                      put_buffer(0),
-                                      put_bits(64),
-                                      overflow(false) {}
+  explicit BitWriter(size_t length)
+      : len(length), data(new uint8_t[len]), pos(0), put_buffer(0), put_bits(64), overflow(false) {}
 
   void WriteBits(int nbits, uint64_t bits) {
     put_bits -= nbits;

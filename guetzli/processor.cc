@@ -51,36 +51,23 @@ struct QuantData {
 };
 class Processor {
  public:
-  bool ProcessJpegData(const Params& params, const JPEGData& jpg_in,
-                       Comparator* comparator, GuetzliOutput* out,
+  bool ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator, GuetzliOutput* out,
                        ProcessStats* stats);
 
  private:
-  void SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img,
-                              const uint8_t comp_mask, const double target_mul,
+  void SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask, const double target_mul,
                               bool stop_early);
 
-  void SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
-      const uint8_t comp_mask,
-      const double target_mul,
-      bool stop_early,
-      std::vector<int> &candidate_coeff_offsets,
-      std::vector<uint8_t>& candidate_coeffs,
-      std::vector<float> &candidate_coeff_errors);
+  void SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask, const double target_mul,
+                              bool stop_early, std::vector<int>& candidate_coeff_offsets,
+                              std::vector<uint8_t>& candidate_coeffs, std::vector<float>& candidate_coeff_errors);
 
-  void ComputeBlockZeroingOrder(
-      const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
-      const int block_x, const int block_y, const int factor_x,
-      const int factor_y, const uint8_t comp_mask, OutputImage* img,
-      std::vector<CoeffData>* output_order);
+  void ComputeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
+                                const int block_x, const int block_y, const int factor_x, const int factor_y,
+                                const uint8_t comp_mask, OutputImage* img, std::vector<CoeffData>* output_order);
 
-  bool SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample,
-                         int best_q[3][kDCTBlockSize],
-                         OutputImage* img);
-  QuantData TryQuantMatrix(const JPEGData& jpg_in,
-                           const float target_mul,
-                           int q[3][kDCTBlockSize],
-                           OutputImage* img);
+  bool SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample, int best_q[3][kDCTBlockSize], OutputImage* img);
+  QuantData TryQuantMatrix(const JPEGData& jpg_in, const float target_mul, int q[3][kDCTBlockSize], OutputImage* img);
   void MaybeOutput(const std::string& encoded_jpg);
   void DownsampleImage(OutputImage* img);
   void OutputJpeg(const JPEGData& in, std::string* out);
@@ -133,14 +120,12 @@ bool CheckJpegSanity(const JPEGData& jpg) {
 }  // namespace
 
 int GuetzliStringOut(void* data, const uint8_t* buf, size_t count) {
-  std::string* sink =
-      reinterpret_cast<std::string*>(data);
+  std::string* sink = reinterpret_cast<std::string*>(data);
   sink->append(reinterpret_cast<const char*>(buf), count);
   return count;
 }
 
-void Processor::OutputJpeg(const JPEGData& jpg,
-                           std::string* out) {
+void Processor::OutputJpeg(const JPEGData& jpg, std::string* out) {
   out->clear();
   JPEGOutput output(GuetzliStringOut, out);
   if (!WriteJpeg(jpg, params_.clear_metadata, output)) {
@@ -206,8 +191,7 @@ double QuantMatrixHeuristicScore(const int q[3][kDCTBlockSize]) {
 class QuantMatrixGenerator {
  public:
   QuantMatrixGenerator(bool downsample, ProcessStats* stats)
-      : downsample_(downsample), hscore_a_(-1.0), hscore_b_(-1.0),
-        total_csf_(0.0), stats_(stats) {
+      : downsample_(downsample), hscore_a_(-1.0), hscore_b_(-1.0), total_csf_(0.0), stats_(stats) {
     for (int k = 0; k < kDCTBlockSize; ++k) {
       total_csf_ += 3.0 * ContrastSensitivity(k);
     }
@@ -242,14 +226,9 @@ class QuantMatrixGenerator {
         int lower_q[3][kDCTBlockSize];
         int upper_q[3][kDCTBlockSize];
         constexpr double kEps = 0.05;
-        GetQuantMatrixWithHeuristicScore(
-            (1 - kEps) * hscore_a_ + kEps * 0.5 * (hscore_a_ + hscore_b_),
-            lower_q);
-        GetQuantMatrixWithHeuristicScore(
-            (1 - kEps) * hscore_b_ + kEps * 0.5 * (hscore_a_ + hscore_b_),
-            upper_q);
-        if (CompareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0)
-          return false;
+        GetQuantMatrixWithHeuristicScore((1 - kEps) * hscore_a_ + kEps * 0.5 * (hscore_a_ + hscore_b_), lower_q);
+        GetQuantMatrixWithHeuristicScore((1 - kEps) * hscore_b_ + kEps * 0.5 * (hscore_a_ + hscore_b_), upper_q);
+        if (CompareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0) return false;
         hscore = (hscore_a_ + hscore_b_) * 0.5;
       }
       GetQuantMatrixWithHeuristicScore(hscore, q);
@@ -281,8 +260,7 @@ class QuantMatrixGenerator {
   }
 
  private:
-  void GetQuantMatrixWithHeuristicScore(double score,
-                                        int q[3][kDCTBlockSize]) const {
+  void GetQuantMatrixWithHeuristicScore(double score, int q[3][kDCTBlockSize]) const {
     int level = static_cast<int>(score / total_csf_);
     score -= level * total_csf_;
     for (int k = kDCTBlockSize - 1; k >= 0; --k) {
@@ -307,9 +285,7 @@ class QuantMatrixGenerator {
   ProcessStats* stats_;
 };
 
-QuantData Processor::TryQuantMatrix(const JPEGData& jpg_in,
-                                    const float target_mul,
-                                    int q[3][kDCTBlockSize],
+QuantData Processor::TryQuantMatrix(const JPEGData& jpg_in, const float target_mul, int q[3][kDCTBlockSize],
                                     OutputImage* img) {
   QuantData data;
   memcpy(data.q, q, sizeof(data.q));
@@ -321,14 +297,11 @@ QuantData Processor::TryQuantMatrix(const JPEGData& jpg_in,
     img->SaveToJpegData(&jpg_out);
     OutputJpeg(jpg_out, &encoded_jpg);
   }
-  GUETZLI_LOG(stats_, "Iter %2d: %s quantization matrix:\n",
-              stats_->counters[kNumItersCnt] + 1,
+  GUETZLI_LOG(stats_, "Iter %2d: %s quantization matrix:\n", stats_->counters[kNumItersCnt] + 1,
               img->FrameTypeStr().c_str());
   GUETZLI_LOG_QUANT(stats_, q);
-  GUETZLI_LOG(stats_, "Iter %2d: %s GQ[%5.2f] Out[%7zd]",
-              stats_->counters[kNumItersCnt] + 1,
-              img->FrameTypeStr().c_str(),
-              QuantMatrixHeuristicScore(q), encoded_jpg.size());
+  GUETZLI_LOG(stats_, "Iter %2d: %s GQ[%5.2f] Out[%7zd]", stats_->counters[kNumItersCnt] + 1,
+              img->FrameTypeStr().c_str(), QuantMatrixHeuristicScore(q), encoded_jpg.size());
   ++stats_->counters[kNumItersCnt];
   comparator_->Compare(*img);
   data.dist_ok = comparator_->DistanceOK(target_mul);
@@ -337,8 +310,7 @@ QuantData Processor::TryQuantMatrix(const JPEGData& jpg_in,
   return data;
 }
 
-bool Processor::SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample,
-                                  int best_q[3][kDCTBlockSize],
+bool Processor::SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample, int best_q[3][kDCTBlockSize],
                                   OutputImage* img) {
   QuantMatrixGenerator qgen(downsample, stats_);
   // Don't try to go up to exactly the target distance when selecting a
@@ -365,32 +337,24 @@ bool Processor::SelectQuantMatrix(const JPEGData& jpg_in, const bool downsample,
   }
 
   memcpy(&best_q[0][0], &best.q[0][0], kBlockSize * sizeof(best_q[0][0]));
-  GUETZLI_LOG(stats_, "\n%s selected quantization matrix:\n",
-              downsample ? "YUV420" : "YUV444");
+  GUETZLI_LOG(stats_, "\n%s selected quantization matrix:\n", downsample ? "YUV420" : "YUV444");
   GUETZLI_LOG_QUANT(stats_, best_q);
   return best.dist_ok;
 }
 
-
 // REQUIRES: block[c*64...(c*64+63)] is all zero if (comp_mask & (1<<c)) == 0.
-void Processor::ComputeBlockZeroingOrder(
-    const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
-    const int block_x, const int block_y, const int factor_x,
-    const int factor_y, const uint8_t comp_mask, OutputImage* img,
-    std::vector<CoeffData>* output_order) {
+void Processor::ComputeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t orig_block[kBlockSize],
+                                         const int block_x, const int block_y, const int factor_x, const int factor_y,
+                                         const uint8_t comp_mask, OutputImage* img,
+                                         std::vector<CoeffData>* output_order) {
   static const uint8_t oldCsf[kDCTBlockSize] = {
-      10, 10, 20, 40, 60, 70, 80, 90,
-      10, 20, 30, 60, 70, 80, 90, 90,
-      20, 30, 60, 70, 80, 90, 90, 90,
-      40, 60, 70, 80, 90, 90, 90, 90,
-      60, 70, 80, 90, 90, 90, 90, 90,
-      70, 80, 90, 90, 90, 90, 90, 90,
-      80, 90, 90, 90, 90, 90, 90, 90,
-      90, 90, 90, 90, 90, 90, 90, 90,
+      10, 10, 20, 40, 60, 70, 80, 90, 10, 20, 30, 60, 70, 80, 90, 90, 20, 30, 60, 70, 80, 90,
+      90, 90, 40, 60, 70, 80, 90, 90, 90, 90, 60, 70, 80, 90, 90, 90, 90, 90, 70, 80, 90, 90,
+      90, 90, 90, 90, 80, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,
   };
-  static const double kWeight[3] = { 1.0, 0.22, 0.20 };
+  static const double kWeight[3] = {1.0, 0.22, 0.20};
 #include "guetzli/order.inc"
-  std::vector<std::pair<int, float> > input_order;
+  std::vector<std::pair<int, float>> input_order;
   for (int c = 0; c < 3; ++c) {
     if (!(comp_mask & (1 << c))) continue;
     for (int k = 1; k < kDCTBlockSize; ++k) {
@@ -400,69 +364,61 @@ void Processor::ComputeBlockZeroingOrder(
         if (params_.new_zeroing_model) {
           score = std::abs(orig_block[idx]) * csf[idx] + bias[idx];
         } else {
-          score = static_cast<float>((std::abs(orig_block[idx]) - kJPEGZigZagOrder[k] / 64.0) *
-                  kWeight[c] / oldCsf[k]);
+          score = static_cast<float>((std::abs(orig_block[idx]) - kJPEGZigZagOrder[k] / 64.0) * kWeight[c] / oldCsf[k]);
         }
         input_order.push_back(std::make_pair(idx, score));
       }
     }
   }
   std::sort(input_order.begin(), input_order.end(),
-            [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
-              return a.second < b.second; });
+            [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
   coeff_t processed_block[kBlockSize];
   memcpy(processed_block, block, sizeof(processed_block));
   comparator_->SwitchBlock(block_x, block_y, factor_x, factor_y);
   while (!input_order.empty()) {
-	  float best_err = 1e17f;
-	  int best_i = 0;
-	  for (size_t i = 0; i < std::min<size_t>(params_.zeroing_greedy_lookahead,
-		  input_order.size());
-		  ++i) {
-		  coeff_t candidate_block[kBlockSize];
-		  memcpy(candidate_block, processed_block, sizeof(candidate_block));
-		  const int idx = input_order[i].first;
-		  candidate_block[idx] = 0;
-		  for (int c = 0; c < 3; ++c) {
-			  if (comp_mask & (1 << c)) {
-				  img->component(c).SetCoeffBlock(
-					  block_x, block_y, &candidate_block[c * kDCTBlockSize]);
-			  }
-		  }
-		  float max_err = 0;
-		  for (int iy = 0; iy < factor_y; ++iy) {
-			  for (int ix = 0; ix < factor_x; ++ix) {
-				  int block_xx = block_x * factor_x + ix;
-				  int block_yy = block_y * factor_y + iy;
-				  if (8 * block_xx < img->width() && 8 * block_yy < img->height()) {
-					  float err = static_cast<float>(comparator_->CompareBlock(*img, ix, iy, candidate_block, comp_mask));
-					  max_err = std::max(max_err, err);
-				  }
-			  }
-		  }
-		  if (max_err < best_err) {
-			  best_err = max_err;
-			  best_i = i;
-		  }
-	  }
-	  int idx = input_order[best_i].first;
-	  processed_block[idx] = 0;
-	  input_order.erase(input_order.begin() + best_i);
-	  output_order->push_back({ idx, best_err });
-	  for (int c = 0; c < 3; ++c) {
-		  if (comp_mask & (1 << c)) {
-			  img->component(c).SetCoeffBlock(
-				  block_x, block_y, &processed_block[c * kDCTBlockSize]);
-		  }
-	  }
-	  if (MODE_CPU_OPT == g_mathMode)
-	  {
-		  if (best_err >= comparator_->BlockErrorLimit())
-		  {   
-              // The input_order is an ascent vector, break when best_err exceed the error limit.
-			  break;
-		  }
-	  }
+    float best_err = 1e17f;
+    int best_i = 0;
+    for (size_t i = 0; i < std::min<size_t>(params_.zeroing_greedy_lookahead, input_order.size()); ++i) {
+      coeff_t candidate_block[kBlockSize];
+      memcpy(candidate_block, processed_block, sizeof(candidate_block));
+      const int idx = input_order[i].first;
+      candidate_block[idx] = 0;
+      for (int c = 0; c < 3; ++c) {
+        if (comp_mask & (1 << c)) {
+          img->component(c).SetCoeffBlock(block_x, block_y, &candidate_block[c * kDCTBlockSize]);
+        }
+      }
+      float max_err = 0;
+      for (int iy = 0; iy < factor_y; ++iy) {
+        for (int ix = 0; ix < factor_x; ++ix) {
+          int block_xx = block_x * factor_x + ix;
+          int block_yy = block_y * factor_y + iy;
+          if (8 * block_xx < img->width() && 8 * block_yy < img->height()) {
+            float err = static_cast<float>(comparator_->CompareBlock(*img, ix, iy, candidate_block, comp_mask));
+            max_err = std::max(max_err, err);
+          }
+        }
+      }
+      if (max_err < best_err) {
+        best_err = max_err;
+        best_i = i;
+      }
+    }
+    int idx = input_order[best_i].first;
+    processed_block[idx] = 0;
+    input_order.erase(input_order.begin() + best_i);
+    output_order->push_back({idx, best_err});
+    for (int c = 0; c < 3; ++c) {
+      if (comp_mask & (1 << c)) {
+        img->component(c).SetCoeffBlock(block_x, block_y, &processed_block[c * kDCTBlockSize]);
+      }
+    }
+    if (MODE_CPU_OPT == g_mathMode) {
+      if (best_err >= comparator_->BlockErrorLimit()) {
+        // The input_order is an ascent vector, break when best_err exceed the error limit.
+        break;
+      }
+    }
   }
   // Make the block error values monotonic.
   float min_err = 1e10;
@@ -473,26 +429,21 @@ void Processor::ComputeBlockZeroingOrder(
   }
   // Cut off at the block error limit.
   size_t num = 0;
-  while (num < output_order->size() &&
-         (*output_order)[num].block_err <= comparator_->BlockErrorLimit()) {
+  while (num < output_order->size() && (*output_order)[num].block_err <= comparator_->BlockErrorLimit()) {
     ++num;
   }
   output_order->resize(num);
   // Restore *img to the same state as it was at the start of this function.
   for (int c = 0; c < 3; ++c) {
     if (comp_mask & (1 << c)) {
-      img->component(c).SetCoeffBlock(
-          block_x, block_y, &block[c * kDCTBlockSize]);
+      img->component(c).SetCoeffBlock(block_x, block_y, &block[c * kDCTBlockSize]);
     }
   }
 }
 
 namespace {
 
-void UpdateACHistogram(const int weight,
-                       const coeff_t* coeffs,
-                       const int* q,
-                       JpegHistogram* ac_histogram) {
+void UpdateACHistogram(const int weight, const coeff_t* coeffs, const int* q, JpegHistogram* ac_histogram) {
   int r = 0;
   for (int k = 1; k < 64; ++k) {
     const int k_nat = kJPEGNaturalOrder[k];
@@ -515,18 +466,15 @@ void UpdateACHistogram(const int weight,
   }
 }
 
-size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms,
-                           std::vector<uint8_t>* depths) {
+size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths) {
   std::vector<JpegHistogram> clustered = histograms;
   size_t num = histograms.size();
   std::vector<int> indexes(histograms.size());
-  std::vector<uint8_t> clustered_depths(
-      histograms.size() * JpegHistogram::kSize);
+  std::vector<uint8_t> clustered_depths(histograms.size() * JpegHistogram::kSize);
   ClusterHistograms(&clustered[0], &num, &indexes[0], &clustered_depths[0]);
   depths->resize(clustered_depths.size());
   for (size_t i = 0; i < histograms.size(); ++i) {
-    memcpy(&(*depths)[i * JpegHistogram::kSize],
-           &clustered_depths[indexes[i] * JpegHistogram::kSize],
+    memcpy(&(*depths)[i * JpegHistogram::kSize], &clustered_depths[indexes[i] * JpegHistogram::kSize],
            JpegHistogram::kSize);
   }
   size_t histogram_size = 0;
@@ -536,12 +484,10 @@ size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms,
   return histogram_size;
 }
 
-size_t EntropyCodedDataSize(const std::vector<JpegHistogram>& histograms,
-                            const std::vector<uint8_t>& depths) {
+size_t EntropyCodedDataSize(const std::vector<JpegHistogram>& histograms, const std::vector<uint8_t>& depths) {
   size_t numbits = 0;
   for (size_t i = 0; i < histograms.size(); ++i) {
-    numbits += HistogramEntropyCost(
-        histograms[i], &depths[i * JpegHistogram::kSize]);
+    numbits += HistogramEntropyCost(histograms[i], &depths[i * JpegHistogram::kSize]);
   }
   return (numbits + 7) / 8;
 }
@@ -557,189 +503,155 @@ size_t EstimateDCSize(const JPEGData& jpg) {
 
 }  // namespace
 
-void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask, 
-                                       const double target_mul, bool stop_early)
-{
-    const int width = img->width();
-    const int height = img->height();
-    const int ncomp = narrow_cast<int>(jpg.components.size());
-    const int last_c = Log2FloorNonZero(comp_mask);
-    if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
-    const int factor_x = img->component(last_c).factor_x();
-    const int factor_y = img->component(last_c).factor_y();
-    const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
-    const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
-    const int num_blocks = block_width * block_height;
+void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask,
+                                       const double target_mul, bool stop_early) {
+  const int width = img->width();
+  const int height = img->height();
+  const int ncomp = narrow_cast<int>(jpg.components.size());
+  const int last_c = Log2FloorNonZero(comp_mask);
+  if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
+  const int factor_x = img->component(last_c).factor_x();
+  const int factor_y = img->component(last_c).factor_y();
+  const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
+  const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
+  const int num_blocks = block_width * block_height;
 
+  comparator_->StartBlockComparisons();
 
-    comparator_->StartBlockComparisons();
+  std::vector<CoeffData> output_order_gpu;
+  std::vector<CoeffData> output_order_cpu;
 
-    std::vector<CoeffData> output_order_gpu;
-    std::vector<CoeffData> output_order_cpu;
-
-	CoeffData * output_order = NULL;
+  CoeffData* output_order = NULL;
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode ||
-        MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode)
-    {
-		ButteraugliComparatorEx * comp = (ButteraugliComparatorEx*)comparator_;
+  if (MODE_OPENCL == g_mathMode || MODE_CUDA == g_mathMode || MODE_CHECKCL == g_mathMode ||
+      MODE_CHECKCUDA == g_mathMode) {
+    ButteraugliComparatorEx* comp = (ButteraugliComparatorEx*)comparator_;
 
-        channel_info orig_channel[3];
-        channel_info mayout_channel[3];
+    channel_info orig_channel[3];
+    channel_info mayout_channel[3];
 
-        for (int c = 0; c < 3; c++)
-        {
-            mayout_channel[c].factor = img->component(c).factor_x();
-            mayout_channel[c].block_width = img->component(c).width_in_blocks();
-            mayout_channel[c].block_height = img->component(c).height_in_blocks();
-            mayout_channel[c].coeff = img->component(c).coeffs();
-            mayout_channel[c].pixel = img->component(c).pixels();
+    for (int c = 0; c < 3; c++) {
+      mayout_channel[c].factor = img->component(c).factor_x();
+      mayout_channel[c].block_width = img->component(c).width_in_blocks();
+      mayout_channel[c].block_height = img->component(c).height_in_blocks();
+      mayout_channel[c].coeff = img->component(c).coeffs();
+      mayout_channel[c].pixel = img->component(c).pixels();
 
-            orig_channel[c].factor = jpg.components[c].v_samp_factor;
-            orig_channel[c].block_width = jpg.components[c].width_in_blocks;
-            orig_channel[c].block_height = jpg.components[c].height_in_blocks;
-            orig_channel[c].coeff = jpg.components[c].coeffs.data();
-        }
-        output_order_gpu.resize(num_blocks * kBlockSize);
-        output_order = output_order_gpu.data();
+      orig_channel[c].factor = jpg.components[c].v_samp_factor;
+      orig_channel[c].block_width = jpg.components[c].width_in_blocks;
+      orig_channel[c].block_height = jpg.components[c].height_in_blocks;
+      orig_channel[c].coeff = jpg.components[c].coeffs.data();
+    }
+    output_order_gpu.resize(num_blocks * kBlockSize);
+    output_order = output_order_gpu.data();
 #ifdef __USE_OPENCL__
-        if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode)
-        {
-            clComputeBlockZeroingOrder(output_order,
-                orig_channel,
-                comp->imgOpsinDynamicsBlockList.data(),
-                comp->imgMaskXyzScaleBlockList.data(),
-                width,
-                height,
-                mayout_channel,
-                factor_x,
-                comp_mask,
-                comp->BlockErrorLimit());
-        }
+    if (MODE_OPENCL == g_mathMode || MODE_CHECKCL == g_mathMode) {
+      clComputeBlockZeroingOrder(output_order, orig_channel, comp->imgOpsinDynamicsBlockList.data(),
+                                 comp->imgMaskXyzScaleBlockList.data(), width, height, mayout_channel, factor_x,
+                                 comp_mask, comp->BlockErrorLimit());
+    }
 #endif
 #ifdef __USE_CUDA__
-        if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode)
-        {
-            cuComputeBlockZeroingOrder(output_order,
-                orig_channel,
-                comp->imgOpsinDynamicsBlockList.data(),
-                comp->imgMaskXyzScaleBlockList.data(),
-                width,
-                height,
-                mayout_channel,
-                factor_x,
-                comp_mask,
-                comp->BlockErrorLimit());
-        }
-#endif
+    if (MODE_CUDA == g_mathMode || MODE_CHECKCUDA == g_mathMode) {
+      cuComputeBlockZeroingOrder(output_order, orig_channel, comp->imgOpsinDynamicsBlockList.data(),
+                                 comp->imgMaskXyzScaleBlockList.data(), width, height, mayout_channel, factor_x,
+                                 comp_mask, comp->BlockErrorLimit());
     }
 #endif
-    // CPU path: CPU modes, check modes, and any mode the GPU block above didn't handle.
-    if (output_order == NULL || MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode)
-    {
-        output_order_cpu.resize(num_blocks * kBlockSize);
-        output_order = output_order_cpu.data();
-        for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
-            for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
-                coeff_t block[kBlockSize] = { 0 };
-                coeff_t orig_block[kBlockSize] = { 0 };
-                for (int c = 0; c < 3; ++c) {
-                    if (comp_mask & (1 << c)) {
-                        assert(img->component(c).factor_x() == factor_x);
-                        assert(img->component(c).factor_y() == factor_y);
-                        img->component(c).GetCoeffBlock(block_x, block_y,
-                            &block[c * kDCTBlockSize]);
-                        const JPEGComponent& comp = jpg.components[c];
-                        int jpg_block_ix = block_y * comp.width_in_blocks + block_x;
-                        memcpy(&orig_block[c * kDCTBlockSize],
-                            &comp.coeffs[jpg_block_ix * kDCTBlockSize],
-                            kDCTBlockSize * sizeof(orig_block[0]));
-                    }
-                }
-
-                std::vector<CoeffData> block_order;
-                ComputeBlockZeroingOrder(block, orig_block, block_x, block_y, factor_x, factor_y, comp_mask, img, &block_order);
-
-                CoeffData * p = &output_order_cpu[block_ix * kBlockSize];
-                for (int i = 0; i < block_order.size(); i++)
-                {
-                    p[i].idx = block_order[i].idx;
-                    p[i].block_err = block_order[i].block_err;
-                }
-            }
+  }
+#endif
+  // CPU path: CPU modes, check modes, and any mode the GPU block above didn't handle.
+  if (output_order == NULL || MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) {
+    output_order_cpu.resize(num_blocks * kBlockSize);
+    output_order = output_order_cpu.data();
+    for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
+      for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
+        coeff_t block[kBlockSize] = {0};
+        coeff_t orig_block[kBlockSize] = {0};
+        for (int c = 0; c < 3; ++c) {
+          if (comp_mask & (1 << c)) {
+            assert(img->component(c).factor_x() == factor_x);
+            assert(img->component(c).factor_y() == factor_y);
+            img->component(c).GetCoeffBlock(block_x, block_y, &block[c * kDCTBlockSize]);
+            const JPEGComponent& comp = jpg.components[c];
+            int jpg_block_ix = block_y * comp.width_in_blocks + block_x;
+            memcpy(&orig_block[c * kDCTBlockSize], &comp.coeffs[jpg_block_ix * kDCTBlockSize],
+                   kDCTBlockSize * sizeof(orig_block[0]));
+          }
         }
+
+        std::vector<CoeffData> block_order;
+        ComputeBlockZeroingOrder(block, orig_block, block_x, block_y, factor_x, factor_y, comp_mask, img, &block_order);
+
+        CoeffData* p = &output_order_cpu[block_ix * kBlockSize];
+        for (int i = 0; i < block_order.size(); i++) {
+          p[i].idx = block_order[i].idx;
+          p[i].block_err = block_order[i].block_err;
+        }
+      }
     }
+  }
 
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    if ((MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) && !output_order_gpu.empty())
-    {
-        int count = 0;
-        int check_size = output_order_gpu.size();
-        for (int i = 0; i < check_size; i++)
-        {
-            if (output_order_cpu[i].idx != output_order_gpu[i].idx ||
-                fabs(output_order_cpu[i].block_err - output_order_gpu[i].block_err) > 0.001)
-            {
-                count++;
-            }
-        }
-        if (count > 0)
-        {
-            LogError("CHK %s(%d) %d:%d\r\n", "SelectFrequencyMasking", __LINE__, count, check_size);
-        }
+  if ((MODE_CHECKCL == g_mathMode || MODE_CHECKCUDA == g_mathMode) && !output_order_gpu.empty()) {
+    int count = 0;
+    int check_size = output_order_gpu.size();
+    for (int i = 0; i < check_size; i++) {
+      if (output_order_cpu[i].idx != output_order_gpu[i].idx ||
+          fabs(output_order_cpu[i].block_err - output_order_gpu[i].block_err) > 0.001) {
+        count++;
+      }
     }
+    if (count > 0) {
+      LogError("CHK %s(%d) %d:%d\r\n", "SelectFrequencyMasking", __LINE__, count, check_size);
+    }
+  }
 #endif
 
-    std::vector<int> candidate_coeff_offsets(num_blocks + 1);
-    std::vector<uint8_t> candidate_coeffs;
-    std::vector<float> candidate_coeff_errors;
+  std::vector<int> candidate_coeff_offsets(num_blocks + 1);
+  std::vector<uint8_t> candidate_coeffs;
+  std::vector<float> candidate_coeff_errors;
 
-    for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
-        for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
-            CoeffData * p = &output_order[block_ix * kBlockSize];
-   
-            candidate_coeff_offsets[block_ix] = narrow_cast<int>(candidate_coeffs.size());
-            for (int i = 0; i < kBlockSize; i++)
-            {
-                if (p[i].block_err > 0 && p[i].block_err <= comparator_->BlockErrorLimit())
-                {
-                    candidate_coeffs.push_back(p[i].idx);
-                    candidate_coeff_errors.push_back(p[i].block_err);
-                }
-            }
+  for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
+    for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
+      CoeffData* p = &output_order[block_ix * kBlockSize];
+
+      candidate_coeff_offsets[block_ix] = narrow_cast<int>(candidate_coeffs.size());
+      for (int i = 0; i < kBlockSize; i++) {
+        if (p[i].block_err > 0 && p[i].block_err <= comparator_->BlockErrorLimit()) {
+          candidate_coeffs.push_back(p[i].idx);
+          candidate_coeff_errors.push_back(p[i].block_err);
         }
+      }
     }
+  }
 
-    //
-    comparator_->FinishBlockComparisons();
-    candidate_coeff_offsets[num_blocks] = candidate_coeffs.size();
+  //
+  comparator_->FinishBlockComparisons();
+  candidate_coeff_offsets[num_blocks] = candidate_coeffs.size();
 
-    if (candidate_coeffs.size() == 0 || candidate_coeff_errors.size() == 0)
-        return; // Nothing to do. SelectFrequencyBackEnd will crash without coeffs.
+  if (candidate_coeffs.size() == 0 || candidate_coeff_errors.size() == 0)
+    return;  // Nothing to do. SelectFrequencyBackEnd will crash without coeffs.
 
-    SelectFrequencyBackEnd(jpg, img, comp_mask, target_mul, stop_early,
-        candidate_coeff_offsets, candidate_coeffs, candidate_coeff_errors);
-
+  SelectFrequencyBackEnd(jpg, img, comp_mask, target_mul, stop_early, candidate_coeff_offsets, candidate_coeffs,
+                         candidate_coeff_errors);
 }
 
-void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img, 
-                                        const uint8_t comp_mask,
-                                        const double target_mul, 
-                                        bool stop_early,
-                                        std::vector<int> &candidate_coeff_offsets,
-                                        std::vector<uint8_t>& candidate_coeffs,
-                                        std::vector<float> &candidate_coeff_errors)
-{
-    const int ncomp = jpg.components.size();
-    const int width = img->width();
-    const int height = img->height();
-    const int last_c = Log2FloorNonZero(comp_mask);
-    if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
-    const int factor_x = img->component(last_c).factor_x();
-    const int factor_y = img->component(last_c).factor_y();
-    const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
-    const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
-    const int num_blocks = block_width * block_height;
+void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img, const uint8_t comp_mask,
+                                       const double target_mul, bool stop_early,
+                                       std::vector<int>& candidate_coeff_offsets,
+                                       std::vector<uint8_t>& candidate_coeffs,
+                                       std::vector<float>& candidate_coeff_errors) {
+  const int ncomp = jpg.components.size();
+  const int width = img->width();
+  const int height = img->height();
+  const int last_c = Log2FloorNonZero(comp_mask);
+  if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
+  const int factor_x = img->component(last_c).factor_x();
+  const int factor_y = img->component(last_c).factor_y();
+  const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
+  const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
+  const int num_blocks = block_width * block_height;
 
   std::vector<JpegHistogram> ac_histograms(ncomp);
   int jpg_header_size, dc_size;
@@ -752,8 +664,7 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
   }
   std::vector<uint8_t> ac_depths;
   int ac_histogram_size = ComputeEntropyCodes(ac_histograms, &ac_depths);
-  int base_size = jpg_header_size + dc_size + ac_histogram_size +
-      EntropyCodedDataSize(ac_histograms, ac_depths);
+  int base_size = jpg_header_size + dc_size + ac_histogram_size + EntropyCodedDataSize(ac_histograms, ac_depths);
   int prev_size = base_size;
 
   std::vector<float> max_block_error(num_blocks);
@@ -771,7 +682,7 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
           break;
         }
       }
-      std::vector<std::pair<int, float> > global_order;
+      std::vector<std::pair<int, float>> global_order;
       int blocks_to_change;
       std::vector<float> block_weight;
       for (int rblock = 1; rblock <= 4; ++rblock) {
@@ -780,17 +691,16 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
         if (!first_up_iter) {
           distmap = comparator_->distmap();
         }
-        comparator_->ComputeBlockErrorAdjustmentWeights(
-            direction, rblock, target_mul, factor_x, factor_y, distmap,
-            &block_weight);
+        comparator_->ComputeBlockErrorAdjustmentWeights(direction, rblock, target_mul, factor_x, factor_y, distmap,
+                                                        &block_weight);
         global_order.clear();
         blocks_to_change = 0;
         for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
           for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
             const int last_index = last_indexes[block_ix];
-            const int offset = std::max(0, std::min(candidate_coeff_offsets[block_ix], ((int)candidate_coeff_errors.size() - 1)));
-            const int num_candidates =
-                candidate_coeff_offsets[block_ix + 1] - offset;
+            const int offset =
+                std::max(0, std::min(candidate_coeff_offsets[block_ix], ((int)candidate_coeff_errors.size() - 1)));
+            const int num_candidates = candidate_coeff_offsets[block_ix + 1] - offset;
             const float* candidate_errors = &candidate_coeff_errors[offset];
             const float max_err = max_block_error[block_ix];
             if (block_weight[block_ix] == 0) {
@@ -798,15 +708,13 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
             }
             if (direction > 0) {
               for (size_t i = last_index; i < num_candidates; ++i) {
-                float val = ((candidate_errors[i] - max_err) /
-                             block_weight[block_ix]);
+                float val = ((candidate_errors[i] - max_err) / block_weight[block_ix]);
                 global_order.push_back(std::make_pair(block_ix, val));
               }
               blocks_to_change += (last_index < num_candidates ? 1 : 0);
             } else {
               for (int i = last_index - 1; i >= 0; --i) {
-                float val = ((max_err - candidate_errors[i]) /
-                             block_weight[block_ix]);
+                float val = ((max_err - candidate_errors[i]) / block_weight[block_ix]);
                 global_order.push_back(std::make_pair(block_ix, val));
               }
               blocks_to_change += (last_index > 0 ? 1 : 0);
@@ -825,9 +733,7 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
       }
 
       std::sort(global_order.begin(), global_order.end(),
-                [](const std::pair<int, float>& a,
-                   const std::pair<int, float>& b) {
-                  return a.second < b.second; });
+                [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
 
       double rel_size_delta = direction > 0 ? 0.01 : 0.0005;
       if (direction > 0 && comparator_->DistanceOK(1.0)) {
@@ -835,17 +741,14 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
       }
       double min_size_delta = base_size * rel_size_delta;
 
-      float coeffs_to_change_per_block =
-          direction > 0 ? 2.0f : factor_x * factor_y * 0.2f;
+      float coeffs_to_change_per_block = direction > 0 ? 2.0f : factor_x * factor_y * 0.2f;
       int min_coeffs_to_change = coeffs_to_change_per_block * blocks_to_change;
 
       if (first_up_iter) {
         const float limit = 0.75f * comparator_->BlockErrorLimit();
         auto it = std::partition_point(global_order.begin(), global_order.end(),
-                                       [=](const std::pair<int, float>& a) {
-                                         return a.second < limit; });
-        min_coeffs_to_change = std::max<int>(min_coeffs_to_change,
-                                             it - global_order.begin());
+                                       [=](const std::pair<int, float>& a) { return a.second < limit; });
+        min_coeffs_to_change = std::max<int>(min_coeffs_to_change, it - global_order.begin());
         first_up_iter = false;
       }
 
@@ -865,24 +768,23 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
         const int k = idx % kDCTBlockSize;
         const int* quant = img->component(c).quant();
         const JPEGComponent& comp = jpg.components[c];
-        
+
         // Calculate component-specific block coordinates
         // For subsampled components, the block coordinates need to be adjusted
         const int comp_factor_x = img->component(c).factor_x();
         const int comp_factor_y = img->component(c).factor_y();
         const int comp_block_x = global_block_x / comp_factor_x;
         const int comp_block_y = global_block_y / comp_factor_y;
-        
+
         // Bounds check to prevent assertion failure
-        if (comp_block_x >= img->component(c).width_in_blocks() || 
+        if (comp_block_x >= img->component(c).width_in_blocks() ||
             comp_block_y >= img->component(c).height_in_blocks()) {
-          continue; // Skip this coefficient if out of bounds
+          continue;  // Skip this coefficient if out of bounds
         }
-        
+
         const int jpg_block_ix = comp_block_y * comp.width_in_blocks + comp_block_x;
-        const int newval = direction > 0 ? 0 : Quantize(
-            comp.coeffs[jpg_block_ix * kDCTBlockSize + k], quant[k]);
-        coeff_t block[kDCTBlockSize] = { 0 };
+        const int newval = direction > 0 ? 0 : Quantize(comp.coeffs[jpg_block_ix * kDCTBlockSize + k], quant[k]);
+        coeff_t block[kDCTBlockSize] = {0};
         img->component(c).GetCoeffBlock(comp_block_x, comp_block_y, block);
         UpdateACHistogram(-1, block, quant, &ac_histograms[c]);
         block[k] = newval;
@@ -896,10 +798,8 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
         if (i % kEntropyCodeUpdateFreq == 0) {
           ac_histogram_size = ComputeEntropyCodes(ac_histograms, &ac_depths);
         }
-        est_jpg_size = jpg_header_size + dc_size + ac_histogram_size +
-            EntropyCodedDataSize(ac_histograms, ac_depths);
-        if (changed_coeffs > min_coeffs_to_change &&
-            std::abs(est_jpg_size - prev_size) > min_size_delta) {
+        est_jpg_size = jpg_header_size + dc_size + ac_histogram_size + EntropyCodedDataSize(ac_histograms, ac_depths);
+        if (changed_coeffs > min_coeffs_to_change && std::abs(est_jpg_size - prev_size) > min_size_delta) {
           break;
         }
       }
@@ -921,12 +821,9 @@ void Processor::SelectFrequencyBackEnd(const JPEGData& jpg, OutputImage* img,
       GUETZLI_LOG(stats_,
                   "Iter %2d: %s(%d) %s Coeffs[%d/%zd] "
                   "Blocks[%zd/%d/%d] ValThres[%.4f] Out[%7zd] EstErr[%.2f%%]",
-                  stats_->counters[kNumItersCnt], img->FrameTypeStr().c_str(),
-                  comp_mask, direction > 0 ? "up" : "down", changed_coeffs,
-                  global_order_size, changed_blocks.size(),
-                  blocks_to_change, num_blocks, val_threshold,
-                  encoded_jpg.size(),
-                  100.0 - (100.0 * est_jpg_size) / encoded_jpg.size());
+                  stats_->counters[kNumItersCnt], img->FrameTypeStr().c_str(), comp_mask, direction > 0 ? "up" : "down",
+                  changed_coeffs, global_order_size, changed_blocks.size(), blocks_to_change, num_blocks, val_threshold,
+                  encoded_jpg.size(), 100.0 - (100.0 * est_jpg_size) / encoded_jpg.size());
       comparator_->Compare(*img);
       MaybeOutput(encoded_jpg);
       prev_size = est_jpg_size;
@@ -944,9 +841,8 @@ bool IsGrayscale(const JPEGData& jpg) {
   return true;
 }
 
-bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in,
-                                Comparator* comparator, GuetzliOutput* out,
-                                ProcessStats* stats) {
+bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator,
+                                GuetzliOutput* out, ProcessStats* stats) {
   params_ = params;
   comparator_ = comparator;
   final_output_ = out;
@@ -964,8 +860,7 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in,
   } else {
     fprintf(stderr, "Unsupported sampling factors:");
     for (size_t i = 0; i < jpg_in.components.size(); ++i) {
-      fprintf(stderr, " %dx%d", jpg_in.components[i].h_samp_factor,
-              jpg_in.components[i].v_samp_factor);
+      fprintf(stderr, " %dx%d", jpg_in.components[i].h_samp_factor, jpg_in.components[i].v_samp_factor);
     }
     fprintf(stderr, "\n");
     return false;
@@ -992,8 +887,7 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in,
     comparator_->Compare(img);
   }
   MaybeOutput(encoded_jpg);
-  int try_420 = (input_is_420 || params_.force_420 ||
-                 (params_.try_420 && !IsGrayscale(jpg_in))) ? 1 : 0;
+  int try_420 = (input_is_420 || params_.force_420 || (params_.try_420 && !IsGrayscale(jpg_in))) ? 1 : 0;
   int force_420 = (input_is_420 || params_.force_420) ? 1 : 0;
   for (int downsample = force_420; downsample <= try_420; ++downsample) {
     JPEGData jpg = jpg_in;
@@ -1028,29 +922,27 @@ bool Processor::ProcessJpegData(const Params& params, const JPEGData& jpg_in,
   return true;
 }
 
-bool ProcessJpegData(const Params& params, const JPEGData& jpg_in,
-                     Comparator* comparator, GuetzliOutput* out,
+bool ProcessJpegData(const Params& params, const JPEGData& jpg_in, Comparator* comparator, GuetzliOutput* out,
                      ProcessStats* stats) {
   Processor processor;
   return processor.ProcessJpegData(params, jpg_in, comparator, out, stats);
 }
 
-bool Process(const Params& params, ProcessStats* stats,
-             const std::string& data,
-             std::string* jpg_out) {
+bool Process(const Params& params, ProcessStats* stats, const std::string& data, std::string* jpg_out) {
   JPEGData jpg;
   if (!ReadJpeg(data, JPEG_READ_ALL, &jpg)) {
     fprintf(stderr, "Can't read jpg data from input file\n");
     return false;
   }
   if (!CheckJpegSanity(jpg)) {
-    fprintf(stderr, "Unsupported input JPEG (unexpectedly large coefficient "
+    fprintf(stderr,
+            "Unsupported input JPEG (unexpectedly large coefficient "
             "values).\n");
     return false;
   }
   std::vector<uint8_t> rgb = DecodeJpegToRGB(jpg);
   if (rgb.empty()) {
-    return ProcessUnsupportedJpegData(params,stats,data,jpg_out);
+    return ProcessUnsupportedJpegData(params, stats, data, jpg_out);
   }
   GuetzliOutput out;
   ProcessStats dummy_stats;
@@ -1060,13 +952,9 @@ bool Process(const Params& params, ProcessStats* stats,
   std::unique_ptr<ButteraugliComparator> comparator;
   if (jpg.width >= 32 && jpg.height >= 32) {
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    comparator.reset(
-        new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb,
-                                  params.butteraugli_target, stats));
+    comparator.reset(new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #else
-   comparator.reset(
-       new ButteraugliComparator(jpg.width, jpg.height, &rgb,
-           params.butteraugli_target, stats));
+    comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #endif
   }
   bool ok = ProcessJpegData(params, jpg, comparator.get(), &out, stats);
@@ -1075,96 +963,97 @@ bool Process(const Params& params, ProcessStats* stats,
 }
 
 #ifdef __SUPPORT_FULL_JPEG__
-static void cmyk2rgb(unsigned char *srcbuf, unsigned char *dstbuf, unsigned long size) {
-	for (int cmykOffset = 0; cmykOffset < size; cmykOffset += 4) {
-		unsigned char c = *srcbuf++;
-		unsigned char m = *srcbuf++;
-		unsigned char y = *srcbuf++;
-		unsigned char k = *srcbuf++;
-		*dstbuf++ = (c*k + c + 128) >> 8;
-		*dstbuf++ = (m*k + m + 128) >> 8;
-		*dstbuf++ = (y*k + y + 128) >> 8;
-	}
+static void cmyk2rgb(unsigned char* srcbuf, unsigned char* dstbuf, unsigned long size) {
+  for (int cmykOffset = 0; cmykOffset < size; cmykOffset += 4) {
+    unsigned char c = *srcbuf++;
+    unsigned char m = *srcbuf++;
+    unsigned char y = *srcbuf++;
+    unsigned char k = *srcbuf++;
+    *dstbuf++ = (c * k + c + 128) >> 8;
+    *dstbuf++ = (m * k + m + 128) >> 8;
+    *dstbuf++ = (y * k + y + 128) >> 8;
+  }
 }
-static void DecompressJpeg(const std::string& data, std::vector<uint8_t> &output, int &width, int &height) {
-	struct jpeg_decompress_struct cinfo;
-	struct jpeg_error_mgr jerr;
-	cinfo.err = jpeg_std_error(&jerr);
-	jpeg_create_decompress(&cinfo);
-	jpeg_mem_src(&cinfo, (unsigned char*)data.c_str(), data.length());
-	if (jpeg_read_header(&cinfo, TRUE) != 1) {
-		fprintf(stderr, "File does not seem to be a normal JPEG\n");
-		exit(EXIT_FAILURE);
-	}
-	cinfo.out_color_space = JCS_RGB; //force RGB output
-	jpeg_start_decompress(&cinfo);
-	width = cinfo.output_width;
-	height = cinfo.output_height;
-	int pixel_size = cinfo.output_components;
-	int size = width * height * pixel_size;
-	output.resize(size);
-	int row_stride = cinfo.output_width * cinfo.output_components;
-	while (cinfo.output_scanline < cinfo.output_height) {
-		unsigned char *buffer_array[1];
-		buffer_array[0] = &output.front() + (cinfo.output_scanline) * row_stride;
-		jpeg_read_scanlines(&cinfo, buffer_array, 1);
-	}
-	jpeg_finish_decompress(&cinfo);
-	jpeg_destroy_decompress(&cinfo);
+static void DecompressJpeg(const std::string& data, std::vector<uint8_t>& output, int& width, int& height) {
+  struct jpeg_decompress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_decompress(&cinfo);
+  jpeg_mem_src(&cinfo, (unsigned char*)data.c_str(), data.length());
+  if (jpeg_read_header(&cinfo, TRUE) != 1) {
+    fprintf(stderr, "File does not seem to be a normal JPEG\n");
+    exit(EXIT_FAILURE);
+  }
+  cinfo.out_color_space = JCS_RGB;  //force RGB output
+  jpeg_start_decompress(&cinfo);
+  width = cinfo.output_width;
+  height = cinfo.output_height;
+  int pixel_size = cinfo.output_components;
+  int size = width * height * pixel_size;
+  output.resize(size);
+  int row_stride = cinfo.output_width * cinfo.output_components;
+  while (cinfo.output_scanline < cinfo.output_height) {
+    unsigned char* buffer_array[1];
+    buffer_array[0] = &output.front() + (cinfo.output_scanline) * row_stride;
+    jpeg_read_scanlines(&cinfo, buffer_array, 1);
+  }
+  jpeg_finish_decompress(&cinfo);
+  jpeg_destroy_decompress(&cinfo);
 }
-static void DecompressJpegTurbo(const std::string& data, std::vector<uint8_t> &output, const tjhandle &handler, const int &width, const int &height, const int &jpegColorspace) {
-	int pitch = tjPixelSize[TJPF_RGB] * width;
-	int size = pitch*height;
-	output.resize(size);
-	if (jpegColorspace == TJCS_CMYK || jpegColorspace == TJCS_YCCK) {
-		int pitch = tjPixelSize[TJPF_CMYK] * width;
-		int size = pitch*height;
+static void DecompressJpegTurbo(const std::string& data, std::vector<uint8_t>& output, const tjhandle& handler,
+                                const int& width, const int& height, const int& jpegColorspace) {
+  int pitch = tjPixelSize[TJPF_RGB] * width;
+  int size = pitch * height;
+  output.resize(size);
+  if (jpegColorspace == TJCS_CMYK || jpegColorspace == TJCS_YCCK) {
+    int pitch = tjPixelSize[TJPF_CMYK] * width;
+    int size = pitch * height;
 
-		std::vector<uint8_t> cmyk_output(size);
-		if (tjDecompress2(handler, (unsigned char*)data.c_str(), data.length(), &cmyk_output.front(), width, pitch, height, TJPF_CMYK, 0) != 0) {
-			fprintf(stderr, "tjDecompress2() failed: %s\n for source color space %i\n", tjGetErrorStr(), jpegColorspace);
-			exit(EXIT_FAILURE);
-		}
-		cmyk2rgb(&cmyk_output.front(), &output.front(), cmyk_output.size());
-	}
-	else {
-		if (tjDecompress2(handler, (unsigned char*)data.c_str(), data.length(), &output.front(), width, pitch, height, TJPF_RGB, 0) != 0) {
-			fprintf(stderr, "tjDecompress2() failed: %s\n for source color space %i\n", tjGetErrorStr(), jpegColorspace);
-			exit(EXIT_FAILURE);
-		}
-	}
+    std::vector<uint8_t> cmyk_output(size);
+    if (tjDecompress2(handler, (unsigned char*)data.c_str(), data.length(), &cmyk_output.front(), width, pitch, height,
+                      TJPF_CMYK, 0) != 0) {
+      fprintf(stderr, "tjDecompress2() failed: %s\n for source color space %i\n", tjGetErrorStr(), jpegColorspace);
+      exit(EXIT_FAILURE);
+    }
+    cmyk2rgb(&cmyk_output.front(), &output.front(), cmyk_output.size());
+  } else {
+    if (tjDecompress2(handler, (unsigned char*)data.c_str(), data.length(), &output.front(), width, pitch, height,
+                      TJPF_RGB, 0) != 0) {
+      fprintf(stderr, "tjDecompress2() failed: %s\n for source color space %i\n", tjGetErrorStr(), jpegColorspace);
+      exit(EXIT_FAILURE);
+    }
+  }
 }
 #endif
 
-bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats,
-	const std::string& data,
-	std::string* jpg_out) {
+bool ProcessUnsupportedJpegData(const Params& params, ProcessStats* stats, const std::string& data,
+                                std::string* jpg_out) {
 #ifdef __SUPPORT_FULL_JPEG__
-	tjhandle handler = tjInitDecompress();
-	if (handler == nullptr) {
-		fprintf(stderr, "tjInitDecompress() failed: %s\n", tjGetErrorStr());
-		exit(EXIT_FAILURE);
-	}
-	int width, height, jpegSubsamp, jpegColorspace;
-	std::vector<uint8_t> output;
-	if (tjDecompressHeader3(handler, (unsigned char*)data.c_str(), data.length(), &width, &height, &jpegSubsamp, &jpegColorspace) != 0) {
-		DecompressJpeg(data, output, width, height);
-	}
-	else {
-		DecompressJpegTurbo(data, output, handler, width, height, jpegColorspace);
-	}
-	tjDestroy(handler);
-	return Process(params, stats, output, width, height, jpg_out);
+  tjhandle handler = tjInitDecompress();
+  if (handler == nullptr) {
+    fprintf(stderr, "tjInitDecompress() failed: %s\n", tjGetErrorStr());
+    exit(EXIT_FAILURE);
+  }
+  int width, height, jpegSubsamp, jpegColorspace;
+  std::vector<uint8_t> output;
+  if (tjDecompressHeader3(handler, (unsigned char*)data.c_str(), data.length(), &width, &height, &jpegSubsamp,
+                          &jpegColorspace) != 0) {
+    DecompressJpeg(data, output, width, height);
+  } else {
+    DecompressJpegTurbo(data, output, handler, width, height, jpegColorspace);
+  }
+  tjDestroy(handler);
+  return Process(params, stats, output, width, height, jpg_out);
 #else
-	fprintf(stderr, "Unsupported input JPEG file (e.g. unsupported "
-		"downsampling mode).\nPlease provide the input image as "
-		"a PNG file.\n");
-	return false;
+  fprintf(stderr,
+          "Unsupported input JPEG file (e.g. unsupported "
+          "downsampling mode).\nPlease provide the input image as "
+          "a PNG file.\n");
+  return false;
 #endif
 }
 
-bool Process(const Params& params, ProcessStats* stats,
-             const std::vector<uint8_t>& rgb, int w, int h,
+bool Process(const Params& params, ProcessStats* stats, const std::vector<uint8_t>& rgb, int w, int h,
              std::string* jpg_out) {
   JPEGData jpg;
   if (!EncodeRGBToJpeg(rgb, w, h, &jpg)) {
@@ -1179,13 +1068,9 @@ bool Process(const Params& params, ProcessStats* stats,
   std::unique_ptr<ButteraugliComparator> comparator;
   if (jpg.width >= 32 && jpg.height >= 32) {
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
-    comparator.reset(
-        new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb,
-                                  params.butteraugli_target, stats));
+    comparator.reset(new ButteraugliComparatorEx(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #else
-	  comparator.reset(
-		new ButteraugliComparator(jpg.width, jpg.height, &rgb,
-			params.butteraugli_target, stats));
+    comparator.reset(new ButteraugliComparator(jpg.width, jpg.height, &rgb, params.butteraugli_target, stats));
 #endif
   }
   bool ok = ProcessJpegData(params, jpg, comparator.get(), &out, stats);

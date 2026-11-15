@@ -23,12 +23,7 @@
 
 #include <string.h>
 
-enum READ_SOURCE_ERROR_CODE
-{
-	RSEC_SUCCESS = 0,
-	RSEC_FILE_NOT_EXIST = -1,
-	RSEC_OUT_OF_HOST_MEMORY = -2
-};
+enum READ_SOURCE_ERROR_CODE { RSEC_SUCCESS = 0, RSEC_FILE_NOT_EXIST = -1, RSEC_OUT_OF_HOST_MEMORY = -2 };
 
 // Print useful information to the default output. Same usage as with printf
 void LogInfo(const char* str, ...);

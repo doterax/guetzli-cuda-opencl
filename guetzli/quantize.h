@@ -23,8 +23,7 @@ namespace guetzli {
 
 inline coeff_t Quantize(coeff_t raw_coeff, int quant) {
   const int r = raw_coeff % quant;
-  const coeff_t delta =
-      2 * r > quant ? quant - r : (-2) * r > quant ? -quant - r : -r;
+  const coeff_t delta = 2 * r > quant ? quant - r : (-2) * r > quant ? -quant - r : -r;
   return raw_coeff + delta;
 }
 

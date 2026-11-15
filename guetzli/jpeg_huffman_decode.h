@@ -35,16 +35,15 @@ struct HuffmanTableEntry {
   // when reading the bit stream using a Huffman code with space > 0.
   HuffmanTableEntry() : bits(0), value(0xffff) {}
 
-  uint8_t bits;     // number of bits used for this symbol
-  uint16_t value;   // symbol value or table offset
+  uint8_t bits;    // number of bits used for this symbol
+  uint16_t value;  // symbol value or table offset
 };
 
 // Builds jpeg-style Huffman lookup table from the given symbols.
 // The symbols are in order of increasing bit lengths. The number of symbols
 // with bit length n is given in counts[n] for each n >= 1.
 // Returns the size of the lookup table.
-int BuildJpegHuffmanTable(const int* counts, const int* symbols,
-                          HuffmanTableEntry* lut);
+int BuildJpegHuffmanTable(const int* counts, const int* symbols, HuffmanTableEntry* lut);
 
 }  // namespace guetzli
 

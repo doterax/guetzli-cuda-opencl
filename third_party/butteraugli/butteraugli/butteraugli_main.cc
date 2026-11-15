@@ -15,8 +15,7 @@ namespace {
 // "rgb": cleared and filled with same-sized image planes (one per channel);
 // either RGB, or RGBA if the PNG contains an alpha channel.
 bool ReadPNG(FILE* f, std::vector<Image8>* rgb) {
-  png_structp png_ptr =
-      png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+  png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   if (!png_ptr) {
     return false;
   }
@@ -41,8 +40,7 @@ bool ReadPNG(FILE* f, std::vector<Image8>* rgb) {
   // strip == 16 -> 8 bits / channel,
   // shift == use sBIT dynamics, and
   // expand == palettes -> rgb, grayscale -> 8 bit images, tRNS -> alpha.
-  const unsigned int png_transforms =
-      PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_STRIP_16;
+  const unsigned int png_transforms = PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_STRIP_16;
 
   png_read_png(png_ptr, info_ptr, png_transforms, NULL);
 
@@ -138,16 +136,14 @@ const double* NewSrgbToLinearTable() {
   double* table = new double[256];
   for (int i = 0; i < 256; ++i) {
     const double srgb = i / 255.0;
-    table[i] =
-        255.0 * (srgb <= 0.04045 ? srgb / 12.92
-                                 : std::pow((srgb + 0.055) / 1.055, 2.4));
+    table[i] = 255.0 * (srgb <= 0.04045 ? srgb / 12.92 : std::pow((srgb + 0.055) / 1.055, 2.4));
   }
   return table;
 }
 
 void jpeg_catch_error(j_common_ptr cinfo) {
-  (*cinfo->err->output_message) (cinfo);
-  jmp_buf* jpeg_jmpbuf = (jmp_buf*) cinfo->client_data;
+  (*cinfo->err->output_message)(cinfo);
+  jmp_buf* jpeg_jmpbuf = (jmp_buf*)cinfo->client_data;
   jpeg_destroy(cinfo);
   longjmp(*jpeg_jmpbuf, 1);
 }
@@ -174,8 +170,7 @@ bool ReadJPEG(FILE* f, std::vector<Image8>* rgb) {
   jpeg_start_decompress(&cinfo);
 
   int row_stride = cinfo.output_width * cinfo.output_components;
-  JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)
-    ((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+  JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo, JPOOL_IMAGE, row_stride, 1);
 
   const size_t xsize = cinfo.output_width;
   const size_t ysize = cinfo.output_height;
@@ -230,8 +225,7 @@ bool ReadJPEG(FILE* f, std::vector<Image8>* rgb) {
 // is present, overlay the image over a black or white background. Overlaying
 // is done in the sRGB space; while technically incorrect, this is aligned with
 // many other software (web browsers, WebP near lossless).
-void FromSrgbToLinear(const std::vector<Image8>& rgb,
-                      std::vector<ImageF>& linear, int background) {
+void FromSrgbToLinear(const std::vector<Image8>& rgb, std::vector<ImageF>& linear, int background) {
   const size_t xsize = rgb[0].xsize();
   const size_t ysize = rgb[0].ysize();
   static const double* const kSrgbToLinearTable = NewSrgbToLinearTable();
@@ -264,8 +258,7 @@ void FromSrgbToLinear(const std::vector<Image8>& rgb,
           } else {
             const int fg_weight = row_alpha[x];
             const int bg_weight = 255 - fg_weight;
-            value =
-                (row_rgb[x] * fg_weight + background * bg_weight + 127) / 255;
+            value = (row_rgb[x] * fg_weight + background * bg_weight + 127) / 255;
           }
           row_linear[x] = kSrgbToLinearTable[value];
         }
@@ -293,8 +286,7 @@ std::vector<Image8> ReadImageOrDie(const char* filename) {
     }
   } else {
     if (!ReadPNG(f, &rgb)) {
-      fprintf(stderr, "File %s is neither a valid JPEG nor a valid PNG.\n",
-              filename);
+      fprintf(stderr, "File %s is neither a valid JPEG nor a valid PNG.\n", filename);
       exit(1);
     }
   }
@@ -302,8 +294,7 @@ std::vector<Image8> ReadImageOrDie(const char* filename) {
   return rgb;
 }
 
-void CreateHeatMapImage(const ImageF& distmap, double good_threshold,
-                        double bad_threshold, size_t xsize, size_t ysize,
+void CreateHeatMapImage(const ImageF& distmap, double good_threshold, double bad_threshold, size_t xsize, size_t ysize,
                         std::vector<uint8_t>* heatmap) {
   heatmap->resize(3 * xsize * ysize);
   for (size_t y = 0; y < ysize; ++y) {
@@ -356,17 +347,14 @@ int Run(int argc, char* argv[]) {
   std::vector<Image8> rgb2 = ReadImageOrDie(argv[2]);
 
   if (rgb1.size() != rgb2.size()) {
-    fprintf(stderr, "Different number of channels: %lu vs %lu\n", rgb1.size(),
-            rgb2.size());
+    fprintf(stderr, "Different number of channels: %lu vs %lu\n", rgb1.size(), rgb2.size());
     exit(1);
   }
 
   for (size_t c = 0; c < rgb1.size(); ++c) {
-    if (rgb1[c].xsize() != rgb2[c].xsize() ||
-        rgb1[c].ysize() != rgb2[c].ysize()) {
-      fprintf(
-          stderr, "The images are not equal in size: (%lu,%lu) vs (%lu,%lu)\n",
-          rgb1[c].xsize(), rgb2[c].xsize(), rgb1[c].ysize(), rgb2[c].ysize());
+    if (rgb1[c].xsize() != rgb2[c].xsize() || rgb1[c].ysize() != rgb2[c].ysize()) {
+      fprintf(stderr, "The images are not equal in size: (%lu,%lu) vs (%lu,%lu)\n", rgb1[c].xsize(), rgb2[c].xsize(),
+              rgb1[c].ysize(), rgb2[c].ysize());
       return 1;
     }
   }
@@ -379,8 +367,7 @@ int Run(int argc, char* argv[]) {
   FromSrgbToLinear(rgb2, linear2, 0);
   ImageF diff_map, diff_map_on_white;
   double diff_value;
-  if (!butteraugli::ButteraugliInterface(linear1, linear2, diff_map,
-                                         diff_value)) {
+  if (!butteraugli::ButteraugliInterface(linear1, linear2, diff_map, diff_value)) {
     fprintf(stderr, "Butteraugli comparison failed\n");
     return 1;
   }
@@ -391,8 +378,7 @@ int Run(int argc, char* argv[]) {
     FromSrgbToLinear(rgb1, linear1, 255);
     FromSrgbToLinear(rgb2, linear2, 255);
     double diff_value_on_white;
-    if (!butteraugli::ButteraugliInterface(linear1, linear2, diff_map_on_white,
-                                           diff_value_on_white)) {
+    if (!butteraugli::ButteraugliInterface(linear1, linear2, diff_map_on_white, diff_value_on_white)) {
       fprintf(stderr, "Butteraugli comparison failed\n");
       return 1;
     }
@@ -407,8 +393,7 @@ int Run(int argc, char* argv[]) {
     const double good_quality = ::butteraugli::ButteraugliFuzzyInverse(1.5);
     const double bad_quality = ::butteraugli::ButteraugliFuzzyInverse(0.5);
     std::vector<uint8_t> rgb;
-    CreateHeatMapImage(*diff_map_ptr, good_quality, bad_quality,
-                       rgb1[0].xsize(), rgb2[0].ysize(), &rgb);
+    CreateHeatMapImage(*diff_map_ptr, good_quality, bad_quality, rgb1[0].xsize(), rgb2[0].ysize(), &rgb);
     FILE* const fmap = fopen(argv[3], "wb");
     if (fmap == NULL) {
       fprintf(stderr, "Cannot open %s\n", argv[3]);
@@ -416,8 +401,7 @@ int Run(int argc, char* argv[]) {
       return 1;
     }
     bool ok = true;
-    if (fprintf(fmap, "P6\n%lu %lu\n255\n",
-                      rgb1[0].xsize(), rgb1[0].ysize()) < 0){
+    if (fprintf(fmap, "P6\n%lu %lu\n255\n", rgb1[0].xsize(), rgb1[0].ysize()) < 0) {
       perror("fprintf");
       ok = false;
     }
@@ -438,4 +422,6 @@ int Run(int argc, char* argv[]) {
 }  // namespace
 }  // namespace butteraugli
 
-int main(int argc, char** argv) { return butteraugli::Run(argc, argv); }
+int main(int argc, char** argv) {
+  return butteraugli::Run(argc, argv);
+}

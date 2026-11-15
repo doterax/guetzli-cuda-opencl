@@ -27,11 +27,11 @@ bool verbose_cl = false;
 void PrintDeviceCapabilities(const Device_Info& deviceInfo);
 
 string opencl_c_container() {
-	LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
-	if (!decompressed.isValid()) {
-		throw GpuError("failed to decompress embedded OpenCL source");
-	}
-	return string((char*)decompressed.getData(), decompressed.getSize());
+  LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
+  if (!decompressed.isValid()) {
+    throw GpuError("failed to decompress embedded OpenCL source");
+  }
+  return string((char*)decompressed.getData(), decompressed.getSize());
 }
 
 //inline Device_Info select_device_oclgrind_or_with_most_flops(const vector<Device_Info>& devices = get_devices()) { // returns device with best floating-point performance
@@ -52,604 +52,614 @@ string opencl_c_container() {
 //	return devices[best_i];
 //}
 
-ocl_args_d_t& getOcl()
-{
-    static bool bInit = false;
-    static ocl_args_d_t ocl;
+ocl_args_d_t& getOcl() {
+  static bool bInit = false;
+  static ocl_args_d_t ocl;
 
-    if (bInit == true) return ocl;
+  if (bInit == true) return ocl;
 
-	MaybeInjectGpuFailure("OpenCL");
+  MaybeInjectGpuFailure("OpenCL");
 
-	// bInit is set only after successful initialization: on failure a GpuError
-	// propagates and nothing half-initialized is handed out later.
-	vector<Device_Info> devices = get_devices(true);
+  // bInit is set only after successful initialization: on failure a GpuError
+  // propagates and nothing half-initialized is handed out later.
+  vector<Device_Info> devices = get_devices(true);
 
-	if (devices.empty()) {
-		LogError("No OpenCL devices found");
-		throw GpuError("No OpenCL devices found");
-	}
+  if (devices.empty()) {
+    LogError("No OpenCL devices found");
+    throw GpuError("No OpenCL devices found");
+  }
 
-	// Select device: use user-specified index if valid, otherwise pick best by flops
-	Device_Info best_device;
-	if (g_deviceIndex >= 0 && g_deviceIndex < (int)devices.size()) {
-		best_device = select_device_with_id((uint)g_deviceIndex, devices);
-	} else {
-		if (g_deviceIndex >= 0) {
-			fprintf(stderr, "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
-				g_deviceIndex, (int)devices.size());
-		}
-		best_device = select_device_with_most_flops(devices);
-	}
-	
+  // Select device: use user-specified index if valid, otherwise pick best by flops
+  Device_Info best_device;
+  if (g_deviceIndex >= 0 && g_deviceIndex < (int)devices.size()) {
+    best_device = select_device_with_id((uint)g_deviceIndex, devices);
+  } else {
+    if (g_deviceIndex >= 0) {
+      fprintf(stderr, "Warning: OpenCL device %d not found (only %d devices available), using best device\n",
+              g_deviceIndex, (int)devices.size());
+    }
+    best_device = select_device_with_most_flops(devices);
+  }
 
-	// Check if device is AMD for optimization
-	bool isAmd = contains(to_lower(best_device.vendor), "amd") ||
-		contains(to_lower(best_device.vendor), "advanced micro devices");
+  // Check if device is AMD for optimization
+  bool isAmd =
+      contains(to_lower(best_device.vendor), "amd") || contains(to_lower(best_device.vendor), "advanced micro devices");
 
-	string opencl_source = opencl_c_container();
-	Clock clock;
-	static Device device(best_device, opencl_source);
-	std::string info = "OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n";
-	print_info(info);
+  string opencl_source = opencl_c_container();
+  Clock clock;
+  static Device device(best_device, opencl_source);
+  std::string info = "OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n";
+  print_info(info);
 
-    
-	ocl.isAmd = isAmd;
+  ocl.isAmd = isAmd;
 
-	ocl.program = device.get_cl_program().get();
-	ocl.commandQueue = device.get_cl_queue().get();
-	ocl.context = device.get_cl_context().get();
-	ocl.device = &device;
+  ocl.program = device.get_cl_program().get();
+  ocl.commandQueue = device.get_cl_queue().get();
+  ocl.context = device.get_cl_context().get();
+  ocl.device = &device;
 
-	cl_int  err = 0;
+  cl_int err = 0;
 
-    ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
-	LOG_CL_RESULT(err);
-	
-    ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_SQUARESAMPLE] = clCreateKernel(ocl.program, "clSquareSampleEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_OPSINDYNAMICSIMAGE] = clCreateKernel(ocl.program, "clOpsinDynamicsImageEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_MASKHIGHINTENSITYCHANGE] = clCreateKernel(ocl.program, "clMaskHighIntensityChangeEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_EDGEDETECTOR] = clCreateKernel(ocl.program, "clEdgeDetectorMapEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_BLOCKDIFFMAP] = clCreateKernel(ocl.program, "clBlockDiffMapEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_EDGEDETECTORLOWFREQ] = clCreateKernel(ocl.program, "clEdgeDetectorLowFreqEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_DIFFPRECOMPUTE] = clCreateKernel(ocl.program, "clDiffPrecomputeEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
-	LOG_CL_RESULT(err);
-    ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_APPLYGLOBALQUANTIZATION] = clCreateKernel(ocl.program, "clApplyGlobalQuantizationEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COMPONENTSTOPIXELS] = clCreateKernel(ocl.program, "clComponentsToPixels", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_SRGBTOLINEAR] = clCreateKernel(ocl.program, "clSrgbToLinearEx", &err);
-	LOG_CL_RESULT(err);
-	ocl.kernel[KERNEL_CONVOLUTIONSCALE] = clCreateKernel(ocl.program, "clConvolutionScaleEx", &err);
-	LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_CONVOLUTION] = clCreateKernel(ocl.program, "clConvolutionEx", &err);
+  LOG_CL_RESULT(err);
 
-	print_info("OpenCL created\n");
+  ocl.kernel[KERNEL_CONVOLUTIONX] = clCreateKernel(ocl.program, "clConvolutionXEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_CONVOLUTIONY] = clCreateKernel(ocl.program, "clConvolutionYEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_SQUARESAMPLE] = clCreateKernel(ocl.program, "clSquareSampleEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_OPSINDYNAMICSIMAGE] = clCreateKernel(ocl.program, "clOpsinDynamicsImageEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_MASKHIGHINTENSITYCHANGE] = clCreateKernel(ocl.program, "clMaskHighIntensityChangeEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_EDGEDETECTOR] = clCreateKernel(ocl.program, "clEdgeDetectorMapEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_BLOCKDIFFMAP] = clCreateKernel(ocl.program, "clBlockDiffMapEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_EDGEDETECTORLOWFREQ] = clCreateKernel(ocl.program, "clEdgeDetectorLowFreqEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_DIFFPRECOMPUTE] = clCreateKernel(ocl.program, "clDiffPrecomputeEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_SCALEIMAGE] = clCreateKernel(ocl.program, "clScaleImageEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_AVERAGE5X5] = clCreateKernel(ocl.program, "clAverage5x5Ex", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_MINSQUAREVAL] = clCreateKernel(ocl.program, "clMinSquareValEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_DOMASK] = clCreateKernel(ocl.program, "clDoMaskEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COMBINECHANNELS] = clCreateKernel(ocl.program, "clCombineChannelsEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_UPSAMPLESQUAREROOT] = clCreateKernel(ocl.program, "clUpsampleSquareRootEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_REMOVEBORDER] = clCreateKernel(ocl.program, "clRemoveBorderEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_ADDBORDER] = clCreateKernel(ocl.program, "clAddBorderEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COMPUTEBLOCKZEROINGORDER] = clCreateKernel(ocl.program, "clComputeBlockZeroingOrderEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COPYFROMJPEGCOMPONENT] = clCreateKernel(ocl.program, "clCopyFromJpegComponentEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_APPLYGLOBALQUANTIZATION] = clCreateKernel(ocl.program, "clApplyGlobalQuantizationEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COMPONENTSTOPIXELS] = clCreateKernel(ocl.program, "clComponentsToPixels", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX1] = clCreateKernel(ocl.program, "clComponentsToPixelsEx1", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COMPONENTSTOPIXELS_EX2] = clCreateKernel(ocl.program, "clComponentsToPixelsEx2", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_COLORTRANSFORMYCBCRTORGB] = clCreateKernel(ocl.program, "clColorTransformYCbCrToRGB", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_SRGBTOLINEAR] = clCreateKernel(ocl.program, "clSrgbToLinearEx", &err);
+  LOG_CL_RESULT(err);
+  ocl.kernel[KERNEL_CONVOLUTIONSCALE] = clCreateKernel(ocl.program, "clConvolutionScaleEx", &err);
+  LOG_CL_RESULT(err);
 
-	if(verbose_cl) PrintDeviceCapabilities(device.info);
+  print_info("OpenCL created\n");
 
-	bInit = true;
-    return ocl;
+  if (verbose_cl) PrintDeviceCapabilities(device.info);
+
+  bInit = true;
+  return ocl;
 }
 
 /*
 * Print detailed device capabilities and information
 */
-void PrintDeviceCapabilities(const Device_Info& deviceInfo)
-{
-	// Get platform information from the device's context
-	cl_platform_id platform = nullptr;
-	cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
-	
-	std::string platformName = "Unknown";
-	std::string platformVersion = "Unknown";
-	std::string platformVendor = "Unknown";
-	
-	if (err == CL_SUCCESS && platform) {
-		size_t nameLen = 0;
-		clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
-		std::vector<char> platformNameVec(nameLen + 1);
-		clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformNameVec[0], NULL);
-		platformName = std::string(platformNameVec.data());
+void PrintDeviceCapabilities(const Device_Info& deviceInfo) {
+  // Get platform information from the device's context
+  cl_platform_id platform = nullptr;
+  cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
 
-		size_t versionLen = 0;
-		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionLen);
-		std::vector<char> platformVersionVec(versionLen);
-		clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionLen, &platformVersionVec[0], NULL);
-		platformVersion = std::string(platformVersionVec.data());
+  std::string platformName = "Unknown";
+  std::string platformVersion = "Unknown";
+  std::string platformVendor = "Unknown";
 
-		size_t vendorLen = 0;
-		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendorLen);
-		std::vector<char> platformVendorVec(vendorLen);
-		clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendorLen, &platformVendorVec[0], NULL);
-		platformVendor = std::string(platformVendorVec.data());
-	}
+  if (err == CL_SUCCESS && platform) {
+    size_t nameLen = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
+    std::vector<char> platformNameVec(nameLen + 1);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformNameVec[0], NULL);
+    platformName = std::string(platformNameVec.data());
 
-	// Get additional device information not available in Device_Info
-	cl_device_id device = deviceInfo.cl_device();
-	
-	size_t maxWorkGroupSize = 0; // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
-	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+    size_t versionLen = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionLen);
+    std::vector<char> platformVersionVec(versionLen);
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionLen, &platformVersionVec[0], NULL);
+    platformVersion = std::string(platformVersionVec.data());
 
-	size_t maxWorkItemSizes[3] = { 0 };
-	clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+    size_t vendorLen = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendorLen);
+    std::vector<char> platformVendorVec(vendorLen);
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendorLen, &platformVendorVec[0], NULL);
+    platformVendor = std::string(platformVendorVec.data());
+  }
 
-	cl_bool compilerAvailable = CL_FALSE;
-	clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+  // Get additional device information not available in Device_Info
+  cl_device_id device = deviceInfo.cl_device();
 
-	cl_bool linkerAvailable = CL_FALSE;
-	clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+  size_t maxWorkGroupSize = 0;  // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
 
-	cl_device_fp_config fpConfig = 0;
-	clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+  size_t maxWorkItemSizes[3] = {0};
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
 
-	char deviceVersion[256] = { 0 };
-	clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, NULL);
+  cl_bool compilerAvailable = CL_FALSE;
+  clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
 
-	cl_device_exec_capabilities execCapabilities = 0;
-	clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+  cl_bool linkerAvailable = CL_FALSE;
+  clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
 
-	// Print comprehensive device report
-	LogError("=== OpenCL Device Capabilities Report ===\n");
-	LogError("Platform: %s\n", platformName.c_str());
-	LogError("Platform Version: %s\n", platformVersion.c_str());
-	LogError("Platform Vendor: %s\n", platformVendor.c_str());
-	LogError("Device: %s\n", deviceInfo.name.c_str());
-	LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
-	LogError("Device Version: %s\n", deviceVersion);
-	LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
-	LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
-	LogError("\n=== Memory Information ===\n");
-	LogError("Global Memory Size: %u MB\n", deviceInfo.memory);
-	LogError("Local Memory Size: %u KB\n", deviceInfo.local_cache);
-	LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
-	LogError("\n=== Compute Capabilities ===\n");
-	LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
-	LogError("Max Work Group Size: %zu\n", maxWorkGroupSize);
-	LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
-	LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
-	LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
-	LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
-	LogError("Double Precision Support: %s\n", fpConfig != 0 ? "Yes" : "No"); // non-zero DOUBLE_FP_CONFIG => fp64 supported
-	LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
-	LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
-	LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
-	LogError("Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
-	LogError("Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
-	LogError("Execution Capabilities: %s%s%s\n",
-		(execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
-		(execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "",
-		"");
-	LogError("==========================================\n\n");
+  cl_device_fp_config fpConfig = 0;
+  clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+
+  char deviceVersion[256] = {0};
+  clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, NULL);
+
+  cl_device_exec_capabilities execCapabilities = 0;
+  clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+
+  // Print comprehensive device report
+  LogError("=== OpenCL Device Capabilities Report ===\n");
+  LogError("Platform: %s\n", platformName.c_str());
+  LogError("Platform Version: %s\n", platformVersion.c_str());
+  LogError("Platform Vendor: %s\n", platformVendor.c_str());
+  LogError("Device: %s\n", deviceInfo.name.c_str());
+  LogError("Device Vendor: %s\n", deviceInfo.vendor.c_str());
+  LogError("Device Version: %s\n", deviceVersion);
+  LogError("OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
+  LogError("Driver Version: %s\n", deviceInfo.driver_version.c_str());
+  LogError("\n=== Memory Information ===\n");
+  LogError("Global Memory Size: %u MB\n", deviceInfo.memory);
+  LogError("Local Memory Size: %u KB\n", deviceInfo.local_cache);
+  LogError("Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
+  LogError("\n=== Compute Capabilities ===\n");
+  LogError("Max Compute Units: %u\n", deviceInfo.compute_units);
+  LogError("Max Work Group Size: %zu\n", maxWorkGroupSize);
+  LogError("Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1], maxWorkItemSizes[2]);
+  LogError("Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
+  LogError("Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
+  LogError("Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+  LogError("Double Precision Support: %s\n",
+           fpConfig != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
+  LogError("FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
+  LogError("FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
+  LogError("FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
+  LogError("Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
+  LogError("Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
+  LogError("Execution Capabilities: %s%s%s\n", (execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+           (execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
+  LogError("==========================================\n\n");
 }
 
-ocl_args_d_t::ocl_args_d_t() :
-	context(NULL),
-	commandQueue(NULL),
-	device(NULL),
-	program(NULL),
-	allocations(0),
-	isAmd(false),
-	srgbLut(NULL)
-{
-	for (int i = 0; i < KERNEL_COUNT; i++)
-	{
-		kernel[i] = NULL;
-	}
-	for (int i = 0; i < 6; i++)
-	{
-		maskLut[i] = NULL;
-	}
+ocl_args_d_t::ocl_args_d_t()
+    : context(NULL), commandQueue(NULL), device(NULL), program(NULL), allocations(0), isAmd(false), srgbLut(NULL) {
+  for (int i = 0; i < KERNEL_COUNT; i++) {
+    kernel[i] = NULL;
+  }
+  for (int i = 0; i < 6; i++) {
+    maskLut[i] = NULL;
+  }
 }
 
-ocl_args_d_t::~ocl_args_d_t()
-{
-	cl_int err = CL_SUCCESS;
-	for (int i = 0; i < KERNEL_COUNT; i++)
-	{
-		if (kernel[i] == NULL) continue; // never created (init failed or not used)
-		err = clReleaseKernel(kernel[i]);
-		if (CL_SUCCESS != err)
-		{
-			LogError("Error: clReleaseKernel returned '%s'.\n", TranslateOpenCLError(err));
-		}
-	}
+ocl_args_d_t::~ocl_args_d_t() {
+  cl_int err = CL_SUCCESS;
+  for (int i = 0; i < KERNEL_COUNT; i++) {
+    if (kernel[i] == NULL) continue;  // never created (init failed or not used)
+    err = clReleaseKernel(kernel[i]);
+    if (CL_SUCCESS != err) {
+      LogError("Error: clReleaseKernel returned '%s'.\n", TranslateOpenCLError(err));
+    }
+  }
 
-	if (allocations != 0) {
-		LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
-	}
+  if (allocations != 0) {
+    LogError("Error: Memory leack detected. Allocations: %d\n", allocations);
+  }
 
-	// Constant tables and pooled buffers. Never throw from here.
-	for (std::map<unsigned int, cl_mem>::iterator it = blurWeights.begin(); it != blurWeights.end(); ++it)
-		clReleaseMemObject(it->second);
-	for (int i = 0; i < 6; i++)
-		if (maskLut[i]) clReleaseMemObject(maskLut[i]);
-	if (srgbLut) clReleaseMemObject(srgbLut);
-	for (std::map<std::vector<size_t>, cl_mem>::iterator it = convScales.begin(); it != convScales.end(); ++it)
-		clReleaseMemObject(it->second);
-	for (std::map<cl_mem, size_t>::iterator it = bufferSizes.begin(); it != bufferSizes.end(); ++it)
-		clReleaseMemObject(it->first);
+  // Constant tables and pooled buffers. Never throw from here.
+  for (std::map<unsigned int, cl_mem>::iterator it = blurWeights.begin(); it != blurWeights.end(); ++it)
+    clReleaseMemObject(it->second);
+  for (int i = 0; i < 6; i++)
+    if (maskLut[i]) clReleaseMemObject(maskLut[i]);
+  if (srgbLut) clReleaseMemObject(srgbLut);
+  for (std::map<std::vector<size_t>, cl_mem>::iterator it = convScales.begin(); it != convScales.end(); ++it)
+    clReleaseMemObject(it->second);
+  for (std::map<cl_mem, size_t>::iterator it = bufferSizes.begin(); it != bufferSizes.end(); ++it)
+    clReleaseMemObject(it->first);
 
-	//not needed, owned by wrapper
-	//if (program)
-	//{
-	//	err = clReleaseProgram(program);
-	//	if (CL_SUCCESS != err)
-	//	{
-	//		LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
-	//	}
-	//}
-	//if (commandQueue)
-	//{
-	//	err = clReleaseCommandQueue(commandQueue);
-	//	if (CL_SUCCESS != err)
-	//	{
-	//		LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
-	//	}
-	//}
+  //not needed, owned by wrapper
+  //if (program)
+  //{
+  //	err = clReleaseProgram(program);
+  //	if (CL_SUCCESS != err)
+  //	{
+  //		LogError("Error: clReleaseProgram returned '%s'.\n", TranslateOpenCLError(err));
+  //	}
+  //}
+  //if (commandQueue)
+  //{
+  //	err = clReleaseCommandQueue(commandQueue);
+  //	if (CL_SUCCESS != err)
+  //	{
+  //		LogError("Error: clReleaseCommandQueue returned '%s'.\n", TranslateOpenCLError(err));
+  //	}
+  //}
 }
 
-cl_mem ocl_args_d_t::createBuffer(size_t s)
-{
-	cl_int err = CL_SUCCESS;
-	cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
-	if (err == CL_MEM_OBJECT_ALLOCATION_FAILURE || err == CL_OUT_OF_RESOURCES) {
-		// Idle pooled buffers still hold device memory: free them and retry once.
-		drainPool();
-		mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
-	}
-	if (CL_SUCCESS != err) {
-		LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
-	}
-	LOG_CL_RESULT(err);
-	return mem;
+cl_mem ocl_args_d_t::createBuffer(size_t s) {
+  cl_int err = CL_SUCCESS;
+  cl_mem mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
+  if (err == CL_MEM_OBJECT_ALLOCATION_FAILURE || err == CL_OUT_OF_RESOURCES) {
+    // Idle pooled buffers still hold device memory: free them and retry once.
+    drainPool();
+    mem = clCreateBuffer(this->context, CL_MEM_READ_WRITE, s, nullptr, &err);
+  }
+  if (CL_SUCCESS != err) {
+    LogError("Failed to clCreateBuffer(ctx, CL_MEM_READ_WRITE, %zu, nullptr, ...)\n", s);
+  }
+  LOG_CL_RESULT(err);
+  return mem;
 }
 
-cl_mem ocl_args_d_t::allocMemUninit(size_t s)
-{
-	cl_mem mem = NULL;
-	std::map<size_t, std::vector<cl_mem> >::iterator it = freeBuffers.find(s);
-	if (it != freeBuffers.end() && !it->second.empty()) {
-		mem = it->second.back();
-		it->second.pop_back();
-	}
-	else {
-		mem = createBuffer(s);
-		bufferSizes[mem] = s;
-	}
-	++allocations;
-	return mem;
+cl_mem ocl_args_d_t::allocMemUninit(size_t s) {
+  cl_mem mem = NULL;
+  std::map<size_t, std::vector<cl_mem>>::iterator it = freeBuffers.find(s);
+  if (it != freeBuffers.end() && !it->second.empty()) {
+    mem = it->second.back();
+    it->second.pop_back();
+  } else {
+    mem = createBuffer(s);
+    bufferSizes[mem] = s;
+  }
+  ++allocations;
+  return mem;
 }
 
-cl_mem ocl_args_d_t::allocMem(size_t s, const void *init)
-{
-	cl_mem mem = allocMemUninit(s);
+cl_mem ocl_args_d_t::allocMem(size_t s, const void* init) {
+  cl_mem mem = allocMemUninit(s);
 
-	cl_int err;
-	if (init)
-	{
-		// Blocking: the caller's host buffer may go away right after this call.
-		err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_TRUE, 0, s, init, 0, NULL, NULL);
-		if (CL_SUCCESS != (err)) {
-			LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
-		}
-		LOG_CL_RESULT(err);
-	}
-	else
-	{
-		cl_char cc = 0;
-		err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
-		if (CL_SUCCESS != (err)) {
-			LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
-		}
-		LOG_CL_RESULT(err);
-		// No clFinish: the pattern is copied at enqueue time and the in-order queue
-		// orders the fill before any later use of the buffer.
-	}
+  cl_int err;
+  if (init) {
+    // Blocking: the caller's host buffer may go away right after this call.
+    err = clEnqueueWriteBuffer(this->commandQueue, mem, CL_TRUE, 0, s, init, 0, NULL, NULL);
+    if (CL_SUCCESS != (err)) {
+      LogError("Failed to clEnqueueWriteBuffer(..., %zu, ...)\n", s);
+    }
+    LOG_CL_RESULT(err);
+  } else {
+    cl_char cc = 0;
+    err = clEnqueueFillBuffer(this->commandQueue, mem, &cc, sizeof(cc), 0, s / sizeof(cc), 0, NULL, NULL);
+    if (CL_SUCCESS != (err)) {
+      LogError("Failed to clEnqueueFillBuffer(..., %zu, ...)\n", s);
+    }
+    LOG_CL_RESULT(err);
+    // No clFinish: the pattern is copied at enqueue time and the in-order queue
+    // orders the fill before any later use of the buffer.
+  }
 
-	return mem;
+  return mem;
 }
 
 void ocl_args_d_t::releaseMem(cl_mem mem) {
-	if (!mem) {
-		LogError("called releaseMem(NULL)\n");
-		return;
-	}
-	std::map<cl_mem, size_t>::iterator it = bufferSizes.find(mem);
-	if (it == bufferSizes.end()) {
-		LogError("releaseMem: buffer not from the pool\n");
-		LOG_CL_RESULT(clReleaseMemObject(mem));
-	}
-	else {
-		// Back to the pool. No clFinish needed: the queue is in-order, so any command
-		// that later reuses the buffer runs after the ones already enqueued on it.
-		freeBuffers[it->second].push_back(mem);
-	}
+  if (!mem) {
+    LogError("called releaseMem(NULL)\n");
+    return;
+  }
+  std::map<cl_mem, size_t>::iterator it = bufferSizes.find(mem);
+  if (it == bufferSizes.end()) {
+    LogError("releaseMem: buffer not from the pool\n");
+    LOG_CL_RESULT(clReleaseMemObject(mem));
+  } else {
+    // Back to the pool. No clFinish needed: the queue is in-order, so any command
+    // that later reuses the buffer runs after the ones already enqueued on it.
+    freeBuffers[it->second].push_back(mem);
+  }
 
-	--allocations;
+  --allocations;
 }
 
-void ocl_args_d_t::drainPool()
-{
-	for (std::map<size_t, std::vector<cl_mem> >::iterator it = freeBuffers.begin(); it != freeBuffers.end(); ++it)
-	{
-		for (size_t i = 0; i < it->second.size(); i++)
-		{
-			bufferSizes.erase(it->second[i]);
-			clReleaseMemObject(it->second[i]);
-		}
-	}
-	freeBuffers.clear();
-}
-
-ocl_channels ocl_args_d_t::allocMemChannelsUninit(size_t s)
-{
-	ocl_channels img;
-	for (int i = 0; i < 3; i++)
-	{
-		img.ch[i] = allocMemUninit(s);
-	}
-	return img;
-}
-
-cl_mem ocl_args_d_t::getBlurWeights(float sigma, const std::vector<float>& weights)
-{
-	unsigned int key;
-	memcpy(&key, &sigma, sizeof(key));
-	std::map<unsigned int, cl_mem>::iterator it = blurWeights.find(key);
-	if (it != blurWeights.end()) return it->second;
-
-	const size_t s = weights.size() * sizeof(float);
-	cl_mem mem = createBuffer(s);
-	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, weights.data(), 0, NULL, NULL);
-	if (CL_SUCCESS != err) clReleaseMemObject(mem);
-	LOG_CL_RESULT(err);
-	blurWeights[key] = mem;
-	return mem;
-}
-
-cl_mem ocl_args_d_t::getMaskLut(int i, const float* lut512)
-{
-	if (maskLut[i]) return maskLut[i];
-
-	const size_t s = 512 * sizeof(float);
-	cl_mem mem = createBuffer(s);
-	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, lut512, 0, NULL, NULL);
-	if (CL_SUCCESS != err) clReleaseMemObject(mem);
-	LOG_CL_RESULT(err);
-	maskLut[i] = mem;
-	return mem;
-}
-
-cl_mem ocl_args_d_t::getSrgbToLinearLut()
-{
-	if (srgbLut) return srgbLut;
-
-	// Same values as OutputImage::ToLinearRGB (the double table cast to float).
-	const double* lut = guetzli::Srgb8ToLinearTable();
-	float table[256];
-	for (int i = 0; i < 256; i++) table[i] = static_cast<float>(lut[i]);
-
-	cl_mem mem = createBuffer(sizeof(table));
-	cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, sizeof(table), table, 0, NULL, NULL);
-	if (CL_SUCCESS != err) clReleaseMemObject(mem);
-	LOG_CL_RESULT(err);
-	srgbLut = mem;
-	return mem;
-}
-
-ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void *c0, const void *c1, const void *c2)
-{
-	const void *c[3] = { c0, c1, c2 };
-
-	ocl_channels img;
-    for (int i = 0; i < 3; i++)
-    {
-        img.ch[i] = allocMem(s, c[i]);
+void ocl_args_d_t::drainPool() {
+  for (std::map<size_t, std::vector<cl_mem>>::iterator it = freeBuffers.begin(); it != freeBuffers.end(); ++it) {
+    for (size_t i = 0; i < it->second.size(); i++) {
+      bufferSizes.erase(it->second[i]);
+      clReleaseMemObject(it->second[i]);
     }
-
-	return img;
+  }
+  freeBuffers.clear();
 }
 
-void ocl_args_d_t::releaseMemChannels(ocl_channels &rgb)
-{
-    for (int i = 0; i < 3; i++)
-    {
-		releaseMem(rgb.ch[i]);
-        rgb.ch[i] = NULL;
-    }
+ocl_channels ocl_args_d_t::allocMemChannelsUninit(size_t s) {
+  ocl_channels img;
+  for (int i = 0; i < 3; i++) {
+    img.ch[i] = allocMemUninit(s);
+  }
+  return img;
 }
 
-const char* TranslateOpenCLError(cl_int errorCode)
-{
-	switch (errorCode)
-	{
-	case CL_SUCCESS:                            return "CL_SUCCESS";
-	case CL_DEVICE_NOT_FOUND:                   return "CL_DEVICE_NOT_FOUND";
-	case CL_DEVICE_NOT_AVAILABLE:               return "CL_DEVICE_NOT_AVAILABLE";
-	case CL_COMPILER_NOT_AVAILABLE:             return "CL_COMPILER_NOT_AVAILABLE";
-	case CL_MEM_OBJECT_ALLOCATION_FAILURE:      return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
-	case CL_OUT_OF_RESOURCES:                   return "CL_OUT_OF_RESOURCES";
-	case CL_OUT_OF_HOST_MEMORY:                 return "CL_OUT_OF_HOST_MEMORY";
-	case CL_PROFILING_INFO_NOT_AVAILABLE:       return "CL_PROFILING_INFO_NOT_AVAILABLE";
-	case CL_MEM_COPY_OVERLAP:                   return "CL_MEM_COPY_OVERLAP";
-	case CL_IMAGE_FORMAT_MISMATCH:              return "CL_IMAGE_FORMAT_MISMATCH";
-	case CL_IMAGE_FORMAT_NOT_SUPPORTED:         return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
-	case CL_BUILD_PROGRAM_FAILURE:              return "CL_BUILD_PROGRAM_FAILURE";
-	case CL_MAP_FAILURE:                        return "CL_MAP_FAILURE";
-	case CL_MISALIGNED_SUB_BUFFER_OFFSET:       return "CL_MISALIGNED_SUB_BUFFER_OFFSET";                          //-13
-	case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:    return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";   //-14
-	case CL_COMPILE_PROGRAM_FAILURE:            return "CL_COMPILE_PROGRAM_FAILURE";                               //-15
-	case CL_LINKER_NOT_AVAILABLE:               return "CL_LINKER_NOT_AVAILABLE";                                  //-16
-	case CL_LINK_PROGRAM_FAILURE:               return "CL_LINK_PROGRAM_FAILURE";                                  //-17
-	case CL_DEVICE_PARTITION_FAILED:            return "CL_DEVICE_PARTITION_FAILED";                               //-18
-	case CL_KERNEL_ARG_INFO_NOT_AVAILABLE:      return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";                         //-19
-	case CL_INVALID_VALUE:                      return "CL_INVALID_VALUE";
-	case CL_INVALID_DEVICE_TYPE:                return "CL_INVALID_DEVICE_TYPE";
-	case CL_INVALID_PLATFORM:                   return "CL_INVALID_PLATFORM";
-	case CL_INVALID_DEVICE:                     return "CL_INVALID_DEVICE";
-	case CL_INVALID_CONTEXT:                    return "CL_INVALID_CONTEXT";
-	case CL_INVALID_QUEUE_PROPERTIES:           return "CL_INVALID_QUEUE_PROPERTIES";
-	case CL_INVALID_COMMAND_QUEUE:              return "CL_INVALID_COMMAND_QUEUE";
-	case CL_INVALID_HOST_PTR:                   return "CL_INVALID_HOST_PTR";
-	case CL_INVALID_MEM_OBJECT:                 return "CL_INVALID_MEM_OBJECT";
-	case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:    return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
-	case CL_INVALID_IMAGE_SIZE:                 return "CL_INVALID_IMAGE_SIZE";
-	case CL_INVALID_SAMPLER:                    return "CL_INVALID_SAMPLER";
-	case CL_INVALID_BINARY:                     return "CL_INVALID_BINARY";
-	case CL_INVALID_BUILD_OPTIONS:              return "CL_INVALID_BUILD_OPTIONS";
-	case CL_INVALID_PROGRAM:                    return "CL_INVALID_PROGRAM";
-	case CL_INVALID_PROGRAM_EXECUTABLE:         return "CL_INVALID_PROGRAM_EXECUTABLE";
-	case CL_INVALID_KERNEL_NAME:                return "CL_INVALID_KERNEL_NAME";
-	case CL_INVALID_KERNEL_DEFINITION:          return "CL_INVALID_KERNEL_DEFINITION";
-	case CL_INVALID_KERNEL:                     return "CL_INVALID_KERNEL";
-	case CL_INVALID_ARG_INDEX:                  return "CL_INVALID_ARG_INDEX";
-	case CL_INVALID_ARG_VALUE:                  return "CL_INVALID_ARG_VALUE";
-	case CL_INVALID_ARG_SIZE:                   return "CL_INVALID_ARG_SIZE";
-	case CL_INVALID_KERNEL_ARGS:                return "CL_INVALID_KERNEL_ARGS";
-	case CL_INVALID_WORK_DIMENSION:             return "CL_INVALID_WORK_DIMENSION";
-	case CL_INVALID_WORK_GROUP_SIZE:            return "CL_INVALID_WORK_GROUP_SIZE";
-	case CL_INVALID_WORK_ITEM_SIZE:             return "CL_INVALID_WORK_ITEM_SIZE";
-	case CL_INVALID_GLOBAL_OFFSET:              return "CL_INVALID_GLOBAL_OFFSET";
-	case CL_INVALID_EVENT_WAIT_LIST:            return "CL_INVALID_EVENT_WAIT_LIST";
-	case CL_INVALID_EVENT:                      return "CL_INVALID_EVENT";
-	case CL_INVALID_OPERATION:                  return "CL_INVALID_OPERATION";
-	case CL_INVALID_GL_OBJECT:                  return "CL_INVALID_GL_OBJECT";
-	case CL_INVALID_BUFFER_SIZE:                return "CL_INVALID_BUFFER_SIZE";
-	case CL_INVALID_MIP_LEVEL:                  return "CL_INVALID_MIP_LEVEL";
-	case CL_INVALID_GLOBAL_WORK_SIZE:           return "CL_INVALID_GLOBAL_WORK_SIZE";                           //-63
-	case CL_INVALID_PROPERTY:                   return "CL_INVALID_PROPERTY";                                   //-64
-	case CL_INVALID_IMAGE_DESCRIPTOR:           return "CL_INVALID_IMAGE_DESCRIPTOR";                           //-65
-	case CL_INVALID_COMPILER_OPTIONS:           return "CL_INVALID_COMPILER_OPTIONS";                           //-66
-	case CL_INVALID_LINKER_OPTIONS:             return "CL_INVALID_LINKER_OPTIONS";                             //-67
-	case CL_INVALID_DEVICE_PARTITION_COUNT:     return "CL_INVALID_DEVICE_PARTITION_COUNT";                     //-68
-																												//    case CL_INVALID_PIPE_SIZE:                  return "CL_INVALID_PIPE_SIZE";                                  //-69
-																												//    case CL_INVALID_DEVICE_QUEUE:               return "CL_INVALID_DEVICE_QUEUE";                               //-70    
+cl_mem ocl_args_d_t::getBlurWeights(float sigma, const std::vector<float>& weights) {
+  unsigned int key;
+  memcpy(&key, &sigma, sizeof(key));
+  std::map<unsigned int, cl_mem>::iterator it = blurWeights.find(key);
+  if (it != blurWeights.end()) return it->second;
 
-	default:
-		return "UNKNOWN ERROR CODE";
-	}
+  const size_t s = weights.size() * sizeof(float);
+  cl_mem mem = createBuffer(s);
+  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, weights.data(), 0, NULL, NULL);
+  if (CL_SUCCESS != err) clReleaseMemObject(mem);
+  LOG_CL_RESULT(err);
+  blurWeights[key] = mem;
+  return mem;
 }
 
+cl_mem ocl_args_d_t::getMaskLut(int i, const float* lut512) {
+  if (maskLut[i]) return maskLut[i];
+
+  const size_t s = 512 * sizeof(float);
+  cl_mem mem = createBuffer(s);
+  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, s, lut512, 0, NULL, NULL);
+  if (CL_SUCCESS != err) clReleaseMemObject(mem);
+  LOG_CL_RESULT(err);
+  maskLut[i] = mem;
+  return mem;
+}
+
+cl_mem ocl_args_d_t::getSrgbToLinearLut() {
+  if (srgbLut) return srgbLut;
+
+  // Same values as OutputImage::ToLinearRGB (the double table cast to float).
+  const double* lut = guetzli::Srgb8ToLinearTable();
+  float table[256];
+  for (int i = 0; i < 256; i++) table[i] = static_cast<float>(lut[i]);
+
+  cl_mem mem = createBuffer(sizeof(table));
+  cl_int err = clEnqueueWriteBuffer(commandQueue, mem, CL_TRUE, 0, sizeof(table), table, 0, NULL, NULL);
+  if (CL_SUCCESS != err) clReleaseMemObject(mem);
+  LOG_CL_RESULT(err);
+  srgbLut = mem;
+  return mem;
+}
+
+ocl_channels ocl_args_d_t::allocMemChannels(size_t s, const void* c0, const void* c1, const void* c2) {
+  const void* c[3] = {c0, c1, c2};
+
+  ocl_channels img;
+  for (int i = 0; i < 3; i++) {
+    img.ch[i] = allocMem(s, c[i]);
+  }
+
+  return img;
+}
+
+void ocl_args_d_t::releaseMemChannels(ocl_channels& rgb) {
+  for (int i = 0; i < 3; i++) {
+    releaseMem(rgb.ch[i]);
+    rgb.ch[i] = NULL;
+  }
+}
+
+const char* TranslateOpenCLError(cl_int errorCode) {
+  switch (errorCode) {
+    case CL_SUCCESS:
+      return "CL_SUCCESS";
+    case CL_DEVICE_NOT_FOUND:
+      return "CL_DEVICE_NOT_FOUND";
+    case CL_DEVICE_NOT_AVAILABLE:
+      return "CL_DEVICE_NOT_AVAILABLE";
+    case CL_COMPILER_NOT_AVAILABLE:
+      return "CL_COMPILER_NOT_AVAILABLE";
+    case CL_MEM_OBJECT_ALLOCATION_FAILURE:
+      return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+    case CL_OUT_OF_RESOURCES:
+      return "CL_OUT_OF_RESOURCES";
+    case CL_OUT_OF_HOST_MEMORY:
+      return "CL_OUT_OF_HOST_MEMORY";
+    case CL_PROFILING_INFO_NOT_AVAILABLE:
+      return "CL_PROFILING_INFO_NOT_AVAILABLE";
+    case CL_MEM_COPY_OVERLAP:
+      return "CL_MEM_COPY_OVERLAP";
+    case CL_IMAGE_FORMAT_MISMATCH:
+      return "CL_IMAGE_FORMAT_MISMATCH";
+    case CL_IMAGE_FORMAT_NOT_SUPPORTED:
+      return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+    case CL_BUILD_PROGRAM_FAILURE:
+      return "CL_BUILD_PROGRAM_FAILURE";
+    case CL_MAP_FAILURE:
+      return "CL_MAP_FAILURE";
+    case CL_MISALIGNED_SUB_BUFFER_OFFSET:
+      return "CL_MISALIGNED_SUB_BUFFER_OFFSET";  //-13
+    case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:
+      return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";  //-14
+    case CL_COMPILE_PROGRAM_FAILURE:
+      return "CL_COMPILE_PROGRAM_FAILURE";  //-15
+    case CL_LINKER_NOT_AVAILABLE:
+      return "CL_LINKER_NOT_AVAILABLE";  //-16
+    case CL_LINK_PROGRAM_FAILURE:
+      return "CL_LINK_PROGRAM_FAILURE";  //-17
+    case CL_DEVICE_PARTITION_FAILED:
+      return "CL_DEVICE_PARTITION_FAILED";  //-18
+    case CL_KERNEL_ARG_INFO_NOT_AVAILABLE:
+      return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";  //-19
+    case CL_INVALID_VALUE:
+      return "CL_INVALID_VALUE";
+    case CL_INVALID_DEVICE_TYPE:
+      return "CL_INVALID_DEVICE_TYPE";
+    case CL_INVALID_PLATFORM:
+      return "CL_INVALID_PLATFORM";
+    case CL_INVALID_DEVICE:
+      return "CL_INVALID_DEVICE";
+    case CL_INVALID_CONTEXT:
+      return "CL_INVALID_CONTEXT";
+    case CL_INVALID_QUEUE_PROPERTIES:
+      return "CL_INVALID_QUEUE_PROPERTIES";
+    case CL_INVALID_COMMAND_QUEUE:
+      return "CL_INVALID_COMMAND_QUEUE";
+    case CL_INVALID_HOST_PTR:
+      return "CL_INVALID_HOST_PTR";
+    case CL_INVALID_MEM_OBJECT:
+      return "CL_INVALID_MEM_OBJECT";
+    case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:
+      return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+    case CL_INVALID_IMAGE_SIZE:
+      return "CL_INVALID_IMAGE_SIZE";
+    case CL_INVALID_SAMPLER:
+      return "CL_INVALID_SAMPLER";
+    case CL_INVALID_BINARY:
+      return "CL_INVALID_BINARY";
+    case CL_INVALID_BUILD_OPTIONS:
+      return "CL_INVALID_BUILD_OPTIONS";
+    case CL_INVALID_PROGRAM:
+      return "CL_INVALID_PROGRAM";
+    case CL_INVALID_PROGRAM_EXECUTABLE:
+      return "CL_INVALID_PROGRAM_EXECUTABLE";
+    case CL_INVALID_KERNEL_NAME:
+      return "CL_INVALID_KERNEL_NAME";
+    case CL_INVALID_KERNEL_DEFINITION:
+      return "CL_INVALID_KERNEL_DEFINITION";
+    case CL_INVALID_KERNEL:
+      return "CL_INVALID_KERNEL";
+    case CL_INVALID_ARG_INDEX:
+      return "CL_INVALID_ARG_INDEX";
+    case CL_INVALID_ARG_VALUE:
+      return "CL_INVALID_ARG_VALUE";
+    case CL_INVALID_ARG_SIZE:
+      return "CL_INVALID_ARG_SIZE";
+    case CL_INVALID_KERNEL_ARGS:
+      return "CL_INVALID_KERNEL_ARGS";
+    case CL_INVALID_WORK_DIMENSION:
+      return "CL_INVALID_WORK_DIMENSION";
+    case CL_INVALID_WORK_GROUP_SIZE:
+      return "CL_INVALID_WORK_GROUP_SIZE";
+    case CL_INVALID_WORK_ITEM_SIZE:
+      return "CL_INVALID_WORK_ITEM_SIZE";
+    case CL_INVALID_GLOBAL_OFFSET:
+      return "CL_INVALID_GLOBAL_OFFSET";
+    case CL_INVALID_EVENT_WAIT_LIST:
+      return "CL_INVALID_EVENT_WAIT_LIST";
+    case CL_INVALID_EVENT:
+      return "CL_INVALID_EVENT";
+    case CL_INVALID_OPERATION:
+      return "CL_INVALID_OPERATION";
+    case CL_INVALID_GL_OBJECT:
+      return "CL_INVALID_GL_OBJECT";
+    case CL_INVALID_BUFFER_SIZE:
+      return "CL_INVALID_BUFFER_SIZE";
+    case CL_INVALID_MIP_LEVEL:
+      return "CL_INVALID_MIP_LEVEL";
+    case CL_INVALID_GLOBAL_WORK_SIZE:
+      return "CL_INVALID_GLOBAL_WORK_SIZE";  //-63
+    case CL_INVALID_PROPERTY:
+      return "CL_INVALID_PROPERTY";  //-64
+    case CL_INVALID_IMAGE_DESCRIPTOR:
+      return "CL_INVALID_IMAGE_DESCRIPTOR";  //-65
+    case CL_INVALID_COMPILER_OPTIONS:
+      return "CL_INVALID_COMPILER_OPTIONS";  //-66
+    case CL_INVALID_LINKER_OPTIONS:
+      return "CL_INVALID_LINKER_OPTIONS";  //-67
+    case CL_INVALID_DEVICE_PARTITION_COUNT:
+      return "CL_INVALID_DEVICE_PARTITION_COUNT";  //-68
+      //    case CL_INVALID_PIPE_SIZE:                  return "CL_INVALID_PIPE_SIZE";                                  //-69
+      //    case CL_INVALID_DEVICE_QUEUE:               return "CL_INVALID_DEVICE_QUEUE";                               //-70
+
+    default:
+      return "UNKNOWN ERROR CODE";
+  }
+}
 
 /*
 * Check whether an OpenCL platform is the required platform
 * (based on the platform's name)
 */
-bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredPlatform)
-{
-	size_t stringLength = 0;
-	cl_int err = CL_SUCCESS;
-	bool match = false;
+bool CheckPreferredPlatformMatch(cl_platform_id platform, const char* preferredPlatform) {
+  size_t stringLength = 0;
+  cl_int err = CL_SUCCESS;
+  bool match = false;
 
-	// In order to read the platform's name, we first read the platform's name string length (param_value is NULL).
-	// The value returned in stringLength
-	err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &stringLength);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetPlatformInfo() to get CL_PLATFORM_NAME length returned '%s'.\n", TranslateOpenCLError(err));
-		return false;
-	}
+  // In order to read the platform's name, we first read the platform's name string length (param_value is NULL).
+  // The value returned in stringLength
+  err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &stringLength);
+  if (CL_SUCCESS != err) {
+    LogError("Error: clGetPlatformInfo() to get CL_PLATFORM_NAME length returned '%s'.\n", TranslateOpenCLError(err));
+    return false;
+  }
 
-	// Now, that we know the platform's name string length, we can allocate enough space before read it
-	std::vector<char> platformName(stringLength);
+  // Now, that we know the platform's name string length, we can allocate enough space before read it
+  std::vector<char> platformName(stringLength);
 
-	// Read the platform's name string
-	// The read value returned in platformName
-	err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, stringLength, &platformName[0], NULL);
-	if (CL_SUCCESS != err)
-	{
-		LogError("Error: clGetplatform_ids() to get CL_PLATFORM_NAME returned %s.\n", TranslateOpenCLError(err));
-		return false;
-	}
+  // Read the platform's name string
+  // The read value returned in platformName
+  err = clGetPlatformInfo(platform, CL_PLATFORM_NAME, stringLength, &platformName[0], NULL);
+  if (CL_SUCCESS != err) {
+    LogError("Error: clGetplatform_ids() to get CL_PLATFORM_NAME returned %s.\n", TranslateOpenCLError(err));
+    return false;
+  }
 
-	// Now check if the platform's name is the required one
-	if (strstr(&platformName[0], preferredPlatform) != 0)
-	{
-		// The checked platform is the one we're looking for
-		match = true;
-	}
+  // Now check if the platform's name is the required one
+  if (strstr(&platformName[0], preferredPlatform) != 0) {
+    // The checked platform is the one we're looking for
+    match = true;
+  }
 
-	return match;
+  return match;
 }
 
-
-bool supportsOpenCl()
-{
-	// Full initialization (device selection, kernel compile, kernel creation), so a
-	// compile failure is detected here rather than mid-run. The result is reused.
-	try {
-		getOcl();
-	}
-	catch (const std::exception& e) {
-		LogError("OpenCL not usable: %s\n", e.what());
-		return false;
-	}
-	return true;
+bool supportsOpenCl() {
+  // Full initialization (device selection, kernel compile, kernel creation), so a
+  // compile failure is detected here rather than mid-run. The result is reused.
+  try {
+    getOcl();
+  } catch (const std::exception& e) {
+    LogError("OpenCL not usable: %s\n", e.what());
+    return false;
+  }
+  return true;
 }
 
-void enumOpenClDevices()
-{
-	vector<cl::Platform> cl_platforms;
-	cl::Platform::get(&cl_platforms);
+void enumOpenClDevices() {
+  vector<cl::Platform> cl_platforms;
+  cl::Platform::get(&cl_platforms);
 
-	if (cl_platforms.empty()) {
-		fprintf(stdout, "OpenCL:\n  (no platforms found)\n\n");
-		return;
-	}
+  if (cl_platforms.empty()) {
+    fprintf(stdout, "OpenCL:\n  (no platforms found)\n\n");
+    return;
+  }
 
-	fprintf(stdout, "OpenCL:\n");
-	uint id = 0;
-	for (uint i = 0; i < (uint)cl_platforms.size(); i++) {
-		vector<cl::Device> cl_devices;
-		cl_platforms[i].getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
-		for (uint j = 0; j < (uint)cl_devices.size(); j++) {
-			string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
-			// trim whitespace
-			size_t start = name.find_first_not_of(" \t\r\n");
-			size_t end = name.find_last_not_of(" \t\r\n");
-			if (start != string::npos)
-				name = name.substr(start, end - start + 1);
-			fprintf(stdout, "  %u: %s\n", id, name.c_str());
-			id++;
-		}
-	}
-	fprintf(stdout, "\n");
+  fprintf(stdout, "OpenCL:\n");
+  uint id = 0;
+  for (uint i = 0; i < (uint)cl_platforms.size(); i++) {
+    vector<cl::Device> cl_devices;
+    cl_platforms[i].getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
+    for (uint j = 0; j < (uint)cl_devices.size(); j++) {
+      string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
+      // trim whitespace
+      size_t start = name.find_first_not_of(" \t\r\n");
+      size_t end = name.find_last_not_of(" \t\r\n");
+      if (start != string::npos) name = name.substr(start, end - start + 1);
+      fprintf(stdout, "  %u: %s\n", id, name.c_str());
+      id++;
+    }
+  }
+  fprintf(stdout, "\n");
 }
 
 #endif

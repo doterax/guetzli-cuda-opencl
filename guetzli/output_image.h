@@ -46,15 +46,13 @@ class OutputImageComponent {
   // (block_x, block_y).
   // NOTE: If the component is 2x2 subsampled, this corresponds to the 16x16
   // pixel area with upper-left corner (16 * block_x, 16 * block_y).
-  void GetCoeffBlock(int block_x, int block_y,
-                     coeff_t block[kDCTBlockSize]) const;
+  void GetCoeffBlock(int block_x, int block_y, coeff_t block[kDCTBlockSize]) const;
 
   // Fills in out[] array with the 8-bit pixel view of this component cropped
   // to the specified window. The window's upper-left corner, (xmin, ymin) must
   // be within the image, but the window may extend past the image. In that
   // case the edge pixels are duplicated.
-  void ToPixels(int xmin, int ymin, int xsize, int ysize,
-                uint8_t* out, int stride) const;
+  void ToPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const;
 
   // Fills in out[] array with the floating-point precision pixel view of the
   // component.
@@ -66,23 +64,17 @@ class OutputImageComponent {
   // NOTE: If the component is 2x2 subsampled, this corresponds to the 16x16
   // pixel area with upper-left corner (16 * block_x, 16 * block_y).
   // REQUIRES: block[k] % quant()[k] == 0 for each coefficient index k.
-  void SetCoeffBlock(int block_x, int block_y,
-                     const coeff_t block[kDCTBlockSize]);
+  void SetCoeffBlock(int block_x, int block_y, const coeff_t block[kDCTBlockSize]);
 
   // Requires that comp is not downsampled.
-  void CopyFromJpegComponent(const JPEGComponent& comp,
-                             int factor_x, int factor_y,
-                             const int* quant);
+  void CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y, const int* quant);
 
   void ApplyGlobalQuantization(const int q[kDCTBlockSize]);
 
  private:
-  void UpdatePixelsForBlock(int block_x, int block_y,
-                            const uint8_t idct[kDCTBlockSize]);
+  void UpdatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDCTBlockSize]);
 
-  void _CopyFromJpegComponent(const JPEGComponent& comp,
-							  int factor_x, int factor_y,
-							  const int* quant);
+  void _CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y, const int* quant);
 
   void _ApplyGlobalQuantization(const int q[kDCTBlockSize]);
 
@@ -123,11 +115,16 @@ class OutputImage {
   // v_blur: blur the v channel in some areas to reduce file size
   struct DownsampleConfig {
     // Default is YUV420.
-    DownsampleConfig() : u_factor_x(2), u_factor_y(2),
-                         v_factor_x(2), v_factor_y(2),
-                         u_sharpen(true), u_blur(true),
-                         v_sharpen(true), v_blur(true),
-                         use_silver_screen(false) {}
+    DownsampleConfig()
+        : u_factor_x(2),
+          u_factor_y(2),
+          v_factor_x(2),
+          v_factor_y(2),
+          u_sharpen(true),
+          u_blur(true),
+          v_sharpen(true),
+          v_blur(true),
+          use_silver_screen(false) {}
     int u_factor_x;
     int u_factor_y;
     int v_factor_x;
@@ -147,16 +144,14 @@ class OutputImage {
 
   std::vector<uint8_t> ToSRGB(int xmin, int ymin, int xsize, int ysize) const;
 
-  void ToLinearRGB(std::vector<std::vector<float> >* rgb) const;
+  void ToLinearRGB(std::vector<std::vector<float>>* rgb) const;
 
-  void ToLinearRGB(int xmin, int ymin, int xsize, int ysize,
-                   std::vector<std::vector<float> >* rgb) const;
+  void ToLinearRGB(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const;
 
   std::string FrameTypeStr() const;
 
-private:
-  void _ToSRGB(std::vector<uint8_t> &rgb, int xmin, int ymin,
-		       int xsize, int ysize) const;
+ private:
+  void _ToSRGB(std::vector<uint8_t>& rgb, int xmin, int ymin, int xsize, int ysize) const;
 
  private:
   const int width_;

@@ -29,67 +29,57 @@
 #include <assert.h>
 
 //we want to use POSIX functions
-#pragma warning( push )
-#pragma warning( disable : 4996 )
+#pragma warning(push)
+#pragma warning(disable : 4996)
 
+void LogInfo(const char* str, ...) {
+  if (str) {
+    va_list args;
+    va_start(args, str);
 
-void LogInfo(const char* str, ...)
-{
-    if (str)
-    {
-        va_list args;
-        va_start(args, str);
+    vfprintf(stdout, str, args);
 
-        vfprintf(stdout, str, args);
-
-        va_end(args);
-    }
+    va_end(args);
+  }
 }
 
-void LogError(const char* str, ...)
-{
-    if (str)
-    {
-        va_list args;
-        va_start(args, str);
+void LogError(const char* str, ...) {
+  if (str) {
+    va_list args;
+    va_start(args, str);
 
-        vfprintf(stderr, str, args);
+    vfprintf(stderr, str, args);
 
-        va_end(args);
-    }
+    va_end(args);
+  }
 }
 
 // Upload the OpenCL C source code to output argument source
 // The memory resource is implicitly allocated in the function
 // and should be deallocated by the caller
-int ReadSourceFromFile(const char* fileName, char** source, size_t* sourceSize)
-{
-    int errorCode = RSEC_SUCCESS;
+int ReadSourceFromFile(const char* fileName, char** source, size_t* sourceSize) {
+  int errorCode = RSEC_SUCCESS;
 
-    FILE* fp = fopen(fileName, "rb");
-    if (fp == NULL)
-    {
-        LogError("Error: Couldn't find program source file '%s'.\n", fileName);
-        errorCode = RSEC_FILE_NOT_EXIST;
-    }
-    else {
-        fseek(fp, 0, SEEK_END);
-        *sourceSize = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
+  FILE* fp = fopen(fileName, "rb");
+  if (fp == NULL) {
+    LogError("Error: Couldn't find program source file '%s'.\n", fileName);
+    errorCode = RSEC_FILE_NOT_EXIST;
+  } else {
+    fseek(fp, 0, SEEK_END);
+    *sourceSize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
 
-        *source = new char[*sourceSize + 1];
-        if (*source == NULL)
-        {
-            LogError("Error: Couldn't allocate %d bytes for program source from file '%s'.\n", *sourceSize, fileName);
-            errorCode = RSEC_OUT_OF_HOST_MEMORY;
-        }
-        else {
-            fread(*source, 1, *sourceSize, fp);
-			(*source)[*sourceSize] = '\0';
-        }
+    *source = new char[*sourceSize + 1];
+    if (*source == NULL) {
+      LogError("Error: Couldn't allocate %d bytes for program source from file '%s'.\n", *sourceSize, fileName);
+      errorCode = RSEC_OUT_OF_HOST_MEMORY;
+    } else {
+      fread(*source, 1, *sourceSize, fp);
+      (*source)[*sourceSize] = '\0';
     }
-    return errorCode;
+  }
+  return errorCode;
 }
-#pragma warning( pop )
+#pragma warning(pop)
 
 #endif

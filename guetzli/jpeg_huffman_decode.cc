@@ -39,21 +39,20 @@ static inline int NextTableBitSize(const int* count, int len) {
   return len - kJpegHuffmanRootTableBits;
 }
 
-int BuildJpegHuffmanTable(const int* count_in, const int* symbols,
-                          HuffmanTableEntry* lut) {
+int BuildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableEntry* lut) {
   HuffmanTableEntry code;    // current table entry
   HuffmanTableEntry* table;  // next available space in table
-  int len;         // current code length
-  int idx;         // symbol index
-  int key;         // prefix code
-  int reps;        // number of replicate key values in current table
-  int low;         // low bits for current root entry
-  int table_bits;  // key length of current table
-  int table_size;  // size of current table
-  int total_size;  // sum of root table size and 2nd level table sizes
+  int len;                   // current code length
+  int idx;                   // symbol index
+  int key;                   // prefix code
+  int reps;                  // number of replicate key values in current table
+  int low;                   // low bits for current root entry
+  int table_bits;            // key length of current table
+  int table_size;            // size of current table
+  int total_size;            // sum of root table size and 2nd level table sizes
 
   // Make a local copy of the input bit length histogram.
-  int count[kJpegHuffmanMaxBitLength + 1] = { 0 };
+  int count[kJpegHuffmanMaxBitLength + 1] = {0};
   int total_count = 0;
   for (len = 1; len <= kJpegHuffmanMaxBitLength; ++len) {
     count[len] = count_in[len];
@@ -93,8 +92,7 @@ int BuildJpegHuffmanTable(const int* count_in, const int* symbols,
   table += table_size;
   table_size = 0;
   low = 0;
-  for (len = kJpegHuffmanRootTableBits + 1;
-       len <= kJpegHuffmanMaxBitLength; ++len) {
+  for (len = kJpegHuffmanRootTableBits + 1; len <= kJpegHuffmanMaxBitLength; ++len) {
     for (; count[len] > 0; --count[len]) {
       // Start a new sub-table if the previous one is full.
       if (low >= table_size) {

@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, master, develop, refactor/modern-cpp]
   push:
-    branches: [main, master]
+    branches: [main, master, refactor/modern-cpp]
     tags: ['v*']
 
 concurrency:
@@ -12,6 +12,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Formatting of host C++ (.clang-format; .clang-format-ignore lists the exclusions).
+  # clang-format is pinned: other versions format differently.
+  format:
+    runs-on: ubuntu-latest
+    name: clang-format
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting (clang-format 21.1.5)
+        run: |
+          pipx run clang-format==21.1.5 --version
+          git ls-files '*.cc' '*.cpp' '*.h' | xargs pipx run clang-format==21.1.5 --dry-run --Werror
+
   build:
     strategy:
       fail-fast: false
