@@ -15,7 +15,7 @@ jobs:
   # Formatting of host C++ (.clang-format; .clang-format-ignore lists the exclusions).
   # clang-format is pinned: other versions format differently.
   format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: clang-format
     steps:
       - uses: actions/checkout@v5
@@ -268,7 +268,7 @@ jobs:
   # ====================================================================
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
