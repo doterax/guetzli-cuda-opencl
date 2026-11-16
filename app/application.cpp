@@ -31,7 +31,7 @@ constexpr const char* kSupportMessage =
 
 void Application::logMemoryLimitExceeded() {
   logger_.log(LogLevel::Error, "Memory limit (%zu MB) would be exceeded. Failing. Use --memlimit or --nomemlimit.\n",
-              *config_.io.memlimit_mb);
+              config_.io.memlimit_mb.value_or(0));
 }
 
 bool Application::withinMemoryLimit(double pixels) const {

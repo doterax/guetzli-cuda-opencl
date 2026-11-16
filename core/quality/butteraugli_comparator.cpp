@@ -131,7 +131,7 @@ double ButteraugliComparator::compareBlock(const OutputImage& img, int off_x, in
     diff += diff_xyz_ac[c] * scale[c];
     diff_edge += diff_xyz_edge_dc[c] * scale[c];
   }
-  return sqrt((1 - kEdgeWeight) * diff + kEdgeWeight * diff_edge);
+  return std::sqrt((1 - kEdgeWeight) * diff + kEdgeWeight * diff_edge);
 }
 
 float ButteraugliComparator::blockErrorLimit() const {

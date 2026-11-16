@@ -323,11 +323,11 @@ void OpenClKernels::blur(cl_mem image, const unsigned int xsize, const unsigned 
   float m = 2.25;  // Accuracy increases when m is increased.
   const float scaler = -1.0 / (2 * sigma * sigma);
   // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
-  const int diff = std::max<int>(1, m * fabs(sigma));
+  const int diff = std::max<int>(1, m * std::fabs(sigma));
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = exp(scaler * i * i);
+    expn[i + diff] = std::exp(scaler * i * i);
   }
 
   const int xstep = std::max<int>(1, int(sigma / 3));

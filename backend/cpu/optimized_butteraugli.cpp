@@ -53,11 +53,11 @@ void blurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float bord
   float m = 2.25;  // Accuracy increases when m is increased.
   const float scaler = -1.0f / (2.0f * sigma * sigma);
   // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
-  const int diff = std::max<int>(1, m * fabs(sigma));
+  const int diff = std::max<int>(1, m * std::fabs(sigma));
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = exp(scaler * i * i);
+    expn[i + diff] = std::exp(scaler * i * i);
   }
   const int xstep = std::max(1, int(sigma / 3));
   const int ystep = xstep;
@@ -184,7 +184,7 @@ const float* getLowFreqColorDiffDyOpt() {
 }
 
 inline float interpolateOpt(const float* array, int size, float sx) {
-  float ix = fabs(sx);
+  float ix = std::fabs(sx);
   assert(ix < 10000);
   int baseix = static_cast<int>(ix);
   float res = 0.0f;
@@ -203,7 +203,7 @@ inline float interpolateOpt(const float* array, int size, float sx) {
 
 inline float interpolateClampNegativeOpt(const float* array, int size, float sx) {
   sx = std::max<float>(sx, 0);
-  float ix = fabs(sx);
+  float ix = std::fabs(sx);
   int baseix = static_cast<int>(ix);
   float res = 0.0f;
   if (baseix >= size - 1) {
@@ -617,8 +617,8 @@ void butteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
     diff_xyb_ac[0] += d * kXmul * x_halfdiff_squared[i];
     diff_xyb_ac[2] += d * kZmul * z_halfdiff_squared[i];
 
-    y_avg[i] = sqrt(y_avg[i]);
-    y_halfdiff[i] = sqrt(y_halfdiff[i]);
+    y_avg[i] = std::sqrt(y_avg[i]);
+    y_halfdiff[i] = std::sqrt(y_halfdiff[i]);
     float y0 = y_avg[i] - y_halfdiff[i];
     float y1 = y_avg[i] + y_halfdiff[i];
     // Remove the impact of small absolute values.
@@ -1065,8 +1065,8 @@ void diffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
         xybToValsOpt(x1, y1, z1, &valsv1[0], &valsv1[1], &valsv1[2]);
       }
       for (int i = 0; i < 3; ++i) {
-        float sup0 = fabs(valsh0[i]) + fabs(valsv0[i]);
-        float sup1 = fabs(valsh1[i]) + fabs(valsv1[i]);
+        float sup0 = std::fabs(valsh0[i]) + std::fabs(valsv0[i]);
+        float sup1 = std::fabs(valsh1[i]) + std::fabs(valsv1[i]);
         float m = std::min(sup0, sup1);
         (*mask)[i][ix] = m;
       }

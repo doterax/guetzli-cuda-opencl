@@ -88,11 +88,11 @@ void blur(size_t xsize, size_t ysize, float* channel, double sigma, double borde
   double m = 2.25;  // Accuracy increases when m is increased.
   const double scaler = -1.0 / (2 * sigma * sigma);
   // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
-  const int diff = std::max<int>(1, m * fabs(sigma));
+  const int diff = std::max<int>(1, m * std::fabs(sigma));
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = static_cast<float>(exp(scaler * i * i));
+    expn[i + diff] = static_cast<float>(std::exp(scaler * i * i));
   }
   const int xstep = std::max(1, int(sigma / 3));
   const int ystep = xstep;
@@ -221,7 +221,7 @@ const double* getLowFreqColorDiffDy() {
 }
 
 inline double interpolate(const double* array, int size, double sx) {
-  double ix = fabs(sx);
+  double ix = std::fabs(sx);
   assert(ix < 10000);
   int baseix = static_cast<int>(ix);
   double res = 0.0;
@@ -240,7 +240,7 @@ inline double interpolate(const double* array, int size, double sx) {
 
 inline double interpolateClampNegative(const double* array, int size, double sx) {
   sx = std::max<double>(sx, 0);
-  double ix = fabs(sx);
+  double ix = std::fabs(sx);
   int baseix = static_cast<int>(ix);
   double res = 0.0;
   if (baseix >= size - 1) {
@@ -656,8 +656,8 @@ void butteraugliBlockDiff(double xyb0[3 * kBlockSize], double xyb1[3 * kBlockSiz
     diff_xyb_ac[0] += d * kXmul * x_halfdiff_squared[i];
     diff_xyb_ac[2] += d * kZmul * z_halfdiff_squared[i];
 
-    y_avg[i] = sqrt(y_avg[i]);
-    y_halfdiff[i] = sqrt(y_halfdiff[i]);
+    y_avg[i] = std::sqrt(y_avg[i]);
+    y_halfdiff[i] = std::sqrt(y_halfdiff[i]);
     double y0 = y_avg[i] - y_halfdiff[i];
     double y1 = y_avg[i] + y_halfdiff[i];
     // Remove the impact of small absolute values.
@@ -821,7 +821,7 @@ double simpleGamma(double v) {
   }
   static const double kOffset = 0.156775786057;
   static const double kScale = 8.898059160493739;
-  double retval = kScale * (kOffset + pow(v, kGamma));
+  double retval = kScale * (kOffset + std::pow(v, kGamma));
   return retval;
 }
 
@@ -1275,7 +1275,7 @@ void minSquareVal(size_t square_size, size_t offset, size_t xsize, size_t ysize,
         float tmpf = values[x + j * xsize];
         if (tmpf < min) min = tmpf;
 #else
-        min = fmin(min, values[x + j * xsize]);
+        min = std::fmin(min, values[x + j * xsize]);
 #endif
       }
       tmp[x + y * xsize] = static_cast<float>(min);
@@ -1291,7 +1291,7 @@ void minSquareVal(size_t square_size, size_t offset, size_t xsize, size_t ysize,
         float tmpf = tmp[j + y * xsize];
         if (tmpf < min) min = tmpf;
 #else
-        min = fmin(min, tmp[j + y * xsize]);
+        min = std::fmin(min, tmp[j + y * xsize]);
 #endif
       }
       values[x + y * xsize] = static_cast<float>(min);
@@ -1396,8 +1396,8 @@ void diffPrecompute(const std::vector<std::vector<float>>& xyb0, const std::vect
         xybToVals(x1, y1, z1, &valsv1[0], &valsv1[1], &valsv1[2]);
       }
       for (int i = 0; i < 3; ++i) {
-        double sup0 = fabs(valsh0[i]) + fabs(valsv0[i]);
-        double sup1 = fabs(valsh1[i]) + fabs(valsv1[i]);
+        double sup0 = std::fabs(valsh0[i]) + std::fabs(valsv0[i]);
+        double sup1 = std::fabs(valsh1[i]) + std::fabs(valsv1[i]);
         double m = std::min(sup0, sup1);
         (*mask)[i][ix] = static_cast<float>(m);
       }

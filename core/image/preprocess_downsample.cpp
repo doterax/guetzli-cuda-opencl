@@ -250,7 +250,7 @@ std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, flo
       if (!darkmap[index]) {
         continue;
       }
-      if (fabs(edge[index]) < threshold && v < -0.162 * u) {
+      if (std::fabs(edge[index]) < threshold && v < -0.162 * u) {
         blurmap[index] = true;
       }
     }
