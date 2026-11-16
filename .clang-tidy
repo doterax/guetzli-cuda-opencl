@@ -3,15 +3,18 @@
 # snake_case_ private/protected members, snake_case public fields/parameters/locals,
 # kPascalCase constants, PascalCase enum class values, UPPER_CASE plain-enum values and macros.
 # Acronyms are words: JpegData, toSrgb, kDctBlockSize.
-# Not enforced yet: the tree is cleaned up phase by phase and must be
-# clang-tidy clean at the end of phase 6, when CI starts failing on findings.
+# Enforced in CI (linux-full job, clang-tidy 21.1.6 from PyPI, every finding is an error); the tree is
+# also clean without GPU backends and without full JPEG. Silence a finding only with NOLINT + reason.
 # Off on purpose: readability-math-missing-parentheses (would parenthesize every product in the
-# butteraugli formulas, (a * x) + b) and performance-enum-size (`: uint8_t` on small enums gains nothing).
+# butteraugli formulas, (a * x) + b), performance-enum-size (`: uint8_t` on small enums gains nothing) and
+# bugprone-implicit-widening-of-multiplication-result (int index math like y * w + x: overflowing it needs
+# > 2^31 pixels, hundreds of GB at 300 MB/MPix; byte sizes for allocations are size_t already).
 Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
   modernize-*,
   -modernize-use-trailing-return-type,
   -modernize-avoid-c-arrays,
@@ -89,3 +92,7 @@ CheckOptions:
     value: UPPER_CASE
   - key: cppcoreguidelines-init-variables.MathHeader
     value: '<cmath>'
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: true
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted
+    value: true

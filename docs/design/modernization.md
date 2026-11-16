@@ -45,7 +45,19 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    byte-identical to the previous commit (compared COFF code sections + relocations, ignoring names), except one
    intended change, `kRangeLimit` becoming a `const` pointer (integer code in the YCbCr->RGB inline). Builds without
    GPU backends and without full JPEG (the `#else` branches clang-tidy did not see) compile and pass their tests.
-5. clang-tidy clean, in its own commit(s); then `GUETZLI_WARNINGS_AS_ERRORS` in CI.
+5. clang-tidy clean. Done (commits `807590e`, `2803b28`, `60c2179`, `b195b58` + enforcement). The tree is clean
+   with the release, no-GPU and no-full-JPEG configurations; CI runs clang-tidy 21.1.6 (PyPI, pinned like
+   clang-format) in the `linux-full` job with every finding an error, and the CI presets build with
+   `GUETZLI_WARNINGS_AS_ERRORS` (the only warnings were the Khronos C++ header's legacy-API deprecations, now
+   switched off with `CL_USE_DEPRECATED_OPENCL_*_APIS`). Turned off on purpose (reasons in `.clang-tidy`):
+   `readability-math-missing-parentheses`, `performance-enum-size`, `bugprone-implicit-widening-of-multiplication-result`.
+   Auto-fixes were applied check by check (fixes deduplicated per diagnostic, braces in rounds: nested statements
+   insert `}` at the same offset, which clang-apply-replacements merges) and gated on machine code (production
+   objects byte-identical where expected), regress, and `--c --verbose` traces on larger images. Lessons: the
+   implicit-bool fix wrote `while (n >>= 1 != 0u)` (same value by luck; check precedence after it); a mid-line
+   `NOLINT` comment once commented out the rest of a coefficient table line (regress caught it; use
+   `NOLINTNEXTLINE`); `bugprone-reserved-identifier`'s fix renamed `__restrict__` and half a header guard;
+   `modernize-use-std-numbers` would replace a tuned coefficient that only resembles 1/sqrt(3).
 6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7).
 7. OpenCL/CUDA launcher deduplication of the butteraugli pipeline (phase 4 note).
 

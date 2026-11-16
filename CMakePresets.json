@@ -23,7 +23,8 @@
     {
       "name": "ci-linux",
       "displayName": "CI: Linux (features set by the workflow)",
-      "inherits": "release"
+      "inherits": "release",
+      "cacheVariables": { "GUETZLI_WARNINGS_AS_ERRORS": "ON" }
     },
     {
       "name": "ci-linux-asan",
@@ -35,13 +36,18 @@
       "name": "ci-windows-mingw",
       "displayName": "CI: Windows MinGW-w64, static",
       "inherits": "release",
-      "cacheVariables": { "GUETZLI_STATIC": "ON", "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+      "cacheVariables": {
+        "GUETZLI_STATIC": "ON",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "GUETZLI_WARNINGS_AS_ERRORS": "ON"
+      }
     },
     {
       "name": "ci-macos",
       "displayName": "CI: macOS (OpenCL framework, no CUDA)",
       "inherits": "release",
-      "cacheVariables": { "GUETZLI_WITH_CUDA": "OFF" }
+      "cacheVariables": { "GUETZLI_WITH_CUDA": "OFF", "GUETZLI_WARNINGS_AS_ERRORS": "ON" }
     }
   ],
   "buildPresets": [

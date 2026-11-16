@@ -209,6 +209,17 @@ jobs:
             GUETZLI_TEST_GPU_FAIL=1 "$BIN" $backend tests/regress/input/yuv420_150x118.jpg "$RUNNER_TEMP/out.jpg"
           done
 
+      # Static analysis (.clang-tidy). The linux-full job builds both GPU backends, so it sees the most
+      # code; clang-tidy is pinned like clang-format (other versions report differently).
+      - name: clang-tidy (21.1.6)
+        if: matrix.name == 'linux-full'
+        run: |
+          pipx install clang-tidy==21.1.6
+          clang-tidy --version
+          git ls-files 'app/*.cpp' 'backend/*.cpp' 'config/*.cpp' 'core/*.cpp' 'kernels/*.cpp' 'logging/*.cpp' \
+                       'tests/unit/*.cpp' \
+            | xargs -P "$(nproc)" -n 1 clang-tidy -p "build/${{ matrix.preset }}" --quiet --warnings-as-errors='*'
+
       # The embedded kernel headers are committed; CI must never regenerate them.
       - name: Verify embedded kernel headers
         run: |

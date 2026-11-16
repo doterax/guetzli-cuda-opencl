@@ -84,6 +84,7 @@ endif()
 add_library(guetzli_backend OBJECT
   ${BACKEND_SOURCES}
   third_party/minilzo/minilzo.c)
+# Keep this order: the bundled OpenCL headers must come before the CUDA toolkit's older CL/ headers.
 target_include_directories(guetzli_backend PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/OpenCL/include"
@@ -95,8 +96,12 @@ if(GUETZLI_WITH_CUDA)
   target_compile_definitions(guetzli_backend PUBLIC __USE_CUDA__)
 endif()
 if(GUETZLI_WITH_OPENCL)
+  # CL_HPP_MINIMUM_OPENCL_VERSION / CL_HPP_TARGET_OPENCL_VERSION are set by the OpenCL wrapper. The
+  # CL_USE_DEPRECATED_* switches keep the Khronos C++ header's use of legacy APIs from warning.
   target_compile_definitions(guetzli_backend PUBLIC __USE_OPENCL__ CL_TARGET_OPENCL_VERSION=300
-                                                    CL_HPP_MINIMUM_OPENCL_VERSION=200)
+                             CL_USE_DEPRECATED_OPENCL_1_0_APIS CL_USE_DEPRECATED_OPENCL_1_1_APIS
+                             CL_USE_DEPRECATED_OPENCL_1_2_APIS CL_USE_DEPRECATED_OPENCL_2_0_APIS
+                             CL_USE_DEPRECATED_OPENCL_2_1_APIS CL_USE_DEPRECATED_OPENCL_2_2_APIS)
 endif()
 
 # Link interface (libraries, options) for executables built from the object libraries; link the

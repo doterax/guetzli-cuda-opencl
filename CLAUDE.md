@@ -59,6 +59,7 @@ Changes to `guetzli.cl` must stay valid in both dialects. It is not compiled as 
 
 ## Conventions
 
+- Static analysis: `.clang-tidy` is enforced in CI (clang-tidy 21.1.6, every finding an error) and CI builds with `GUETZLI_WARNINGS_AS_ERRORS`. Locally: `python "C:/Program Files/LLVM/bin/run-clang-tidy" -p build/release -quiet` (also run on a `-DGUETZLI_WITH_CUDA=OFF -DGUETZLI_WITH_OPENCL=OFF` build for the `#else` branches). Silence a finding only with `NOLINT(check)` plus a reason, and never mid-line inside an initializer (use `NOLINTNEXTLINE`). Verify tidy auto-fixes in numeric code with regress and `--c --verbose` traces: under `-ffast-math` even cosmetic edits can move the register allocation.
 - Naming (enforced by `readability-identifier-naming` in `.clang-tidy`): `PascalCase` types, `camelCase` functions and methods, `snake_case_` private/protected members, `snake_case` public fields, parameters and locals, `kPascalCase` constants, `PascalCase` `enum class` values, `UPPER_CASE` plain-enum values and macros. Acronyms are words: `JpegData`, `toSrgb`, `kDctBlockSize`. The deliberately non-const float tables in `core/quality/opsin_block.cpp` are `g_*`.
 
 - Version string lives in `app/version.h` (`kVersion`); releases are bumped there and tagged `v*`, which triggers the GitHub Release job in `.github/workflows/ci.yml`.
