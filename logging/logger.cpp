@@ -9,9 +9,9 @@ void ILogger::log(LogLevel level, const char* format, ...) {
   if (!enabled(level)) {
     return;
   }
-  va_list args = nullptr;
+  va_list args;  // NOLINT(cppcoreguidelines-init-variables): set by va_start; not a pointer on every ABI
   va_start(args, format);
-  va_list copy = nullptr;
+  va_list copy;  // NOLINT(cppcoreguidelines-init-variables): set by va_copy
   va_copy(copy, args);
   const int n = std::vsnprintf(nullptr, 0, format, copy);
   va_end(copy);
