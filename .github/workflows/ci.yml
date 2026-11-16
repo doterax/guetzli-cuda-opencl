@@ -192,9 +192,14 @@ jobs:
           # Linux runs the smoke test without --c so pocl exercises the OpenCL path.
           cmake --preset ${{ matrix.preset }}             -DGUETZLI_WITH_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}             -DGUETZLI_WITH_OPENCL=${{ matrix.opencl && 'ON' || 'OFF' }}             ${{ runner.os == 'Linux' && !matrix.sanitize && '-DGUETZLI_SMOKE_FLAGS=' || '' }}
 
+      # Compiler errors and warnings also become annotations (visible on the run page and via the API).
       - name: Build guetzli
         run: |
-          cmake --build --preset ${{ matrix.preset }}
+          set -o pipefail
+          cmake --build --preset ${{ matrix.preset }} 2>&1 | tee build.log || {
+            grep -E 'error|warning' build.log | head -20 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          }
 
       - name: Unit and smoke tests
         run: |
