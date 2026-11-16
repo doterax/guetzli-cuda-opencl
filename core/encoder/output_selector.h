@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "core/quality/comparator.h"
+#include "core/image/output_image.h"
 #include "core/jpeg/jpeg_data.h"
 #include "logging/logger.h"
 
@@ -18,6 +19,11 @@ class OutputSelector {
 
   // The JPEG file for jpg. Throws std::logic_error if jpg cannot be written.
   [[nodiscard]] std::string serialize(const JpegData& jpg) const;
+
+  // The JPEG file for img with jpg's metadata, i.e. serialize() of a copy of jpg after img.saveToJpegData().
+  // scratch (owned by the caller, empty at first, used with the same jpg) holds that copy between calls, so the
+  // coefficients are not copied for every candidate: saveToJpegData() rewrites everything it does not inherit.
+  [[nodiscard]] std::string serialize(const OutputImage& img, const JpegData& jpg, JpegData* scratch) const;
 
   // Scores encoded (the comparator's last Compare() must have been on its image) and keeps it if
   // it beats the best so far. Logs " Score[...]", " (*)" if kept, and the end of the line.

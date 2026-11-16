@@ -173,17 +173,12 @@ void QuantMatrixGenerator::getQuantMatrixWithHeuristicScore(double score, int q[
 }
 
 QuantData QuantMatrixSearch::tryMatrix(const JpegData& jpg, const float target_mul, int q[3][kDctBlockSize],
-                                       OutputImage& img) {
+                                       OutputImage& img, JpegData* scratch) {
   QuantData data{};
   std::memcpy(data.q, q, sizeof(data.q));
   img.copyFromJpegData(jpg);
   img.applyGlobalQuantization(data.q);
-  std::string encoded_jpg;
-  {
-    JpegData jpg_out = jpg;
-    img.saveToJpegData(&jpg_out);
-    encoded_jpg = selector_->serialize(jpg_out);
-  }
+  const std::string encoded_jpg = selector_->serialize(img, jpg, scratch);
   logger_->log(LogLevel::Debug, "Iter %2d: %s quantization matrix:\n", stats_->iterations + 1,
                img.frameTypeStr().c_str());
   logQuantMatrix(*logger_, q);
@@ -206,14 +201,15 @@ bool QuantMatrixSearch::run(const JpegData& jpg, const bool downsample, int best
   const float target_mul_high = 0.97f;
   const float target_mul_low = 0.95f;
 
-  QuantData best = tryMatrix(jpg, target_mul_high, best_q, img);
+  JpegData scratch;
+  QuantData best = tryMatrix(jpg, target_mul_high, best_q, img, &scratch);
   for (;;) {
     int q_next[3][kDctBlockSize];
     if (!qgen.getNext(q_next)) {
       break;
     }
 
-    QuantData data = tryMatrix(jpg, target_mul_high, q_next, img);
+    QuantData data = tryMatrix(jpg, target_mul_high, q_next, img, &scratch);
     qgen.add(data);
     if (compareQuantData(data, best)) {
       best = data;

@@ -24,6 +24,16 @@ std::string OutputSelector::serialize(const JpegData& jpg) const {
   return out;
 }
 
+std::string OutputSelector::serialize(const OutputImage& img, const JpegData& jpg, JpegData* scratch) const {
+  // A different component count means saveToJpegData() dropped or added components: start from jpg again so the
+  // fields it does not set are jpg's.
+  if (scratch->components.size() != jpg.components.size()) {
+    *scratch = jpg;
+  }
+  img.saveToJpegData(scratch);
+  return serialize(*scratch);
+}
+
 void OutputSelector::offer(const std::string& encoded, const Comparator& comparator) {
   const double score = comparator.scoreOutputSize(static_cast<int>(encoded.size()));
   logger_->log(LogLevel::Debug, " Score[%.4f]", score);

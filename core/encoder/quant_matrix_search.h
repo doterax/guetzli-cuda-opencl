@@ -73,7 +73,9 @@ class QuantMatrixSearch {
   bool run(const JpegData& jpg, bool downsample, int best_q[3][kDctBlockSize], OutputImage& img);
 
  private:
-  QuantData tryMatrix(const JpegData& jpg, float target_mul, int q[3][kDctBlockSize], OutputImage& img);
+  // scratch: see OutputSelector::serialize.
+  QuantData tryMatrix(const JpegData& jpg, float target_mul, int q[3][kDctBlockSize], OutputImage& img,
+                      JpegData* scratch);
 
   Comparator* comparator_;
   OutputSelector* selector_;

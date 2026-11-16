@@ -111,11 +111,9 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
   const int block_height = grid.block_height;
   const int num_blocks = grid.num_blocks;
 
-  JpegSizeEstimator size_estimator = [&] {
-    JpegData jpg_out = jpg;
-    img.saveToJpegData(&jpg_out);
-    return JpegSizeEstimator(jpg_out, jpg.components.size(), params_->clear_metadata);
-  }();
+  JpegData jpg_out = jpg;  // scratch for the candidates below (OutputSelector::serialize)
+  img.saveToJpegData(&jpg_out);
+  JpegSizeEstimator size_estimator(jpg_out, jpg.components.size(), params_->clear_metadata);
   const int base_size = static_cast<int>(size_estimator.estimate());
   int prev_size = base_size;
 
@@ -253,12 +251,7 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
 
       ++stats_->iterations;
       ++(direction > 0 ? stats_->iterations_up : stats_->iterations_down);
-      std::string encoded_jpg;
-      {
-        JpegData jpg_out = jpg;
-        img.saveToJpegData(&jpg_out);
-        encoded_jpg = selector_->serialize(jpg_out);
-      }
+      const std::string encoded_jpg = selector_->serialize(img, jpg, &jpg_out);
       logger_->log(LogLevel::Debug,
                    "Iter %2d: %s(%d) %s Coeffs[%d/%zd] "
                    "Blocks[%zd/%d/%d] ValThres[%.4f] Out[%7zd] EstErr[%.2f%%]",
