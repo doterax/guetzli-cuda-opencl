@@ -27,13 +27,8 @@ ipch/
 *.vcxproj.user
 
 # Generated / intermediate
-clguetzli/clguetzli.cu.ptx*
-clguetzli/clguetzli_amd.cl.lzo
-clguetzli/clguetzli.cl.lzo
 *.ptx64
 *.zip
-minilzoc/minilzoc
-minilzoc/minilzoc.exe
 
 # Test output
 test/

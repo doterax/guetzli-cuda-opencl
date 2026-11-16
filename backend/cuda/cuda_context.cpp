@@ -10,8 +10,7 @@
 #include <string>
 #include <utility>
 
-#include "clguetzli/clguetzli_cu_ptx.h"
-#include "clguetzli/lzodec.h"
+#include "kernels/embedded_kernels.h"
 
 namespace guetzli {
 
@@ -78,18 +77,14 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
     }
 
     {
-      LzoDec decompressed(clguetzli_cu64_lzo, sizeof(clguetzli_cu64_lzo));
-      if (!decompressed.isValid()) {
-        throw GpuError("failed to decompress embedded CUDA PTX");
-      }
-      // getData() is NUL-terminated, as cuModuleLoadDataEx expects for PTX text.
-      const char* ptx = (const char*)decompressed.getData();
+      // c_str() is NUL-terminated, as cuModuleLoadDataEx expects for PTX text.
+      const std::string ptx = kernels::cudaPtx();
 
       CUjit_option jit_options[1];
       void* jit_optvals[1];
       jit_options[0] = CU_JIT_CACHE_MODE;
       jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
-      CU_CHECK(driver_.moduleLoadDataEx(&module_, ptx, 1, jit_options, jit_optvals));
+      CU_CHECK(driver_.moduleLoadDataEx(&module_, ptx.c_str(), 1, jit_options, jit_optvals));
     }
 
     for (int i = 0; i < KERNEL_COUNT; i++) {

@@ -1,4 +1,4 @@
-// The kernels of clguetzli.cl, as looked up by the OpenCL and CUDA contexts.
+// The kernels of kernels/guetzli.cl, as looked up by the OpenCL and CUDA contexts.
 #ifndef GUETZLI_BACKEND_GPU_KERNEL_NAMES_H_
 #define GUETZLI_BACKEND_GPU_KERNEL_NAMES_H_
 
@@ -34,7 +34,7 @@ enum KernelName {
   KERNEL_COUNT,
 };
 
-// Entry point names in clguetzli.cl, indexed by KernelName.
+// Entry point names in kernels/guetzli.cl, indexed by KernelName.
 inline constexpr const char* kKernelEntryPoints[KERNEL_COUNT] = {
     "clConvolutionXEx",
     "clConvolutionYEx",

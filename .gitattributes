@@ -1,4 +1,4 @@
 # Embedded kernel sources are compressed byte-for-byte into committed headers
-# (clguetzli_cl_src.h); keep them LF on every OS so CI can verify the header.
+# (kernels/guetzli_cl_src.h); keep them LF on every OS so CI can verify the header.
 *.cl text eol=lf
 *.cu text eol=lf

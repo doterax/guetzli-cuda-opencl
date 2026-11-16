@@ -1,8 +1,8 @@
 # Embedded kernel headers (docs/design/modernization.md §6.2 and §7).
 #
-# clguetzli/clguetzli_cl_src.h and clguetzli/clguetzli_cu_ptx.h are committed and consumed as-is;
-# the normal build never regenerates them. Explicit targets:
-#   check-kernel-headers  the committed OpenCL header matches clguetzli.cl (run in CI)
+# kernels/guetzli_cl_src.h and kernels/guetzli_cu_ptx.h are committed and consumed as-is; the normal
+# build never regenerates them. Explicit targets:
+#   check-kernel-headers  the committed OpenCL header matches kernels/guetzli.cl (run in CI)
 #   kernel-headers        regenerate both headers (PTX needs the pinned CUDA toolkit)
 #
 # Kernel-header options:
@@ -16,25 +16,21 @@ set(GUETZLI_CUDA_ARCH "compute_75" CACHE STRING "PTX target architecture of the 
 set(GUETZLI_NVCC_CCBIN "" CACHE PATH "Host compiler (directory) passed to nvcc -ccbin")
 set(GUETZLI_NVCC_EXTRA_FLAGS "" CACHE STRING "Extra nvcc flags for the PTX build")
 
-# LZO compressor used to embed the kernels (host tool, not part of the default build).
-add_executable(minilzoc EXCLUDE_FROM_ALL minilzoc/minilzoc.cpp third_party/minilzo/minilzo.c)
-set_source_files_properties(third_party/minilzo/minilzo.c TARGET_DIRECTORY minilzoc PROPERTIES LANGUAGE CXX)
-target_include_directories(minilzoc PRIVATE third_party/minilzo)
-set_target_properties(minilzoc PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
-
-find_package(Python3 COMPONENTS Interpreter)
+# Host tool that LZO-compresses a kernel into a header (not part of the default build).
+add_executable(embed_kernel EXCLUDE_FROM_ALL kernels/tools/embed_kernel.cpp third_party/minilzo/minilzo.c)
+target_include_directories(embed_kernel PRIVATE third_party/minilzo)
+set_target_properties(embed_kernel PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools")
 
 set(_kh_script "${CMAKE_CURRENT_SOURCE_DIR}/cmake/kernel_headers_script.cmake")
 set(_kh_common
   -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
   -DWORK_DIR=${CMAKE_BINARY_DIR}/kernel_headers
-  -DMINILZOC=$<TARGET_FILE:minilzoc>
-  -DPYTHON=${Python3_EXECUTABLE})
+  -DEMBED=$<TARGET_FILE:embed_kernel>)
 
 add_custom_target(check-kernel-headers
   COMMAND "${CMAKE_COMMAND}" ${_kh_common} -DMODE=check -P "${_kh_script}"
-  DEPENDS minilzoc
-  COMMENT "Checking the committed OpenCL kernel header against clguetzli.cl"
+  DEPENDS embed_kernel
+  COMMENT "Checking the committed OpenCL kernel header against kernels/guetzli.cl"
   VERBATIM)
 
 file(TO_CMAKE_PATH "$ENV{CUDA_PATH}" _kh_cuda_path)
@@ -48,6 +44,6 @@ add_custom_target(kernel-headers
           -DNVCC_CCBIN=${GUETZLI_NVCC_CCBIN}
           "-DNVCC_EXTRA_FLAGS=${GUETZLI_NVCC_EXTRA_FLAGS}"
           -P "${_kh_script}"
-  DEPENDS minilzoc
+  DEPENDS embed_kernel
   COMMENT "Regenerating the embedded kernel headers (commit both headers afterwards)"
   VERBATIM)

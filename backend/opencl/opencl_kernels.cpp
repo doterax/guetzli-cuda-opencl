@@ -1,4 +1,4 @@
-// OpenCL launchers for the kernels in clguetzli.cl.
+// OpenCL launchers for the kernels in kernels/guetzli.cl.
 //
 // Author: strongtu@tencent.com
 //         ianhuang@tencent.com

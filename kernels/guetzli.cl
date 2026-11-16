@@ -14,7 +14,7 @@
 #if defined(__USE_OPENCL__) || defined(__USE_CUDA__)
 
 // Kernel-side dialect glue (OpenCL C / CUDA) and shared types.
-// channel_info must keep the same layout as the host copy in clguetzli.cl.h.
+// channel_info must keep the same layout as the host copy in clguetzli/clguetzli.cl.h.
 #ifndef __CLGUETZLI_CL_H__
 #define __CLGUETZLI_CL_H__
 

@@ -9,9 +9,25 @@ opening a PR against the refactor branch.
 
 All decisions in §3 are made; there are no open questions. **Phases 0 to 5 are done** (phase 0: `4b8d3f5`..`ff9f07f`,
 phase 1: `7e1a9a4` + C++20 switch, phase 2: `7eba7f4`..`661a6ad`, phase 3: `cd2d241`..`74f75a0`, phase 4:
-`4979de3`..`fe63f82`, phase 5: `3747847`..`925d84d`, on `refactor/modern-cpp`). Next action: **phase 6** (§10, C++20
-sweep + cleanup: naming, dead code, Makefile removed, clang-tidy clean). Merge `master` into the branch first if it
-moved (§10).
+`4979de3`..`fe63f82`, phase 5: `3747847`..`925d84d`, on `refactor/modern-cpp`). **Phase 6 is in progress** (§10;
+notes below). The branch is pushed to `origin` since 2026-11-16, so CI runs on every push. Merge `master` into the
+branch first if it moved (§10).
+
+Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
+1. Push the branch and fix CI. Done: everything passed on the first run (including `linux-asan`) except macOS,
+   whose `macos-14` runner image is retired; the job now runs on `macos-15`.
+2. Makefile removed; kernel tooling in CMake. Done. The kernel source moved to `kernels/` (`guetzli.cl`,
+   `guetzli.cu`, generated `guetzli_cl_src.h` / `guetzli_cu_ptx.h`). `kernels/tools/embed_kernel.cpp` replaces
+   `minilzoc` + `format_header.py` (no Python needed any more); the headers define `guetzli::kernels::k<Name>Lzo` and
+   `k<Name>Size` (the uncompressed size). `kernels/embedded_kernels.{h,cpp}` replaces `lzodec` and decompresses to the
+   exact size (no more guessing the ratio). minilzo is compiled as C. `cmake --install` replaces `make install`; the
+   Makefile-era test scripts (`tests/run_tests.bat`, `tests/test_guetzli.bat`, `tests/output.md5`) are gone. The PTX
+   rebuilt with nvcc 11.8 from the moved source is byte-identical to the committed one.
+3. File moves into `core/jpeg`, `core/image`, `core/quality` (pure renames).
+4. Naming sweep (§9: `PascalCase` types, `camelCase` functions, `snake_case_` members), one mechanical commit.
+5. clang-tidy clean, in its own commit(s); then `GUETZLI_WARNINGS_AS_ERRORS` in CI.
+6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7).
+7. OpenCL/CUDA launcher deduplication of the butteraugli pipeline (phase 4 note).
 
 Phase 5 notes:
 - **Where things are.** `guetzli/processor.{h,cc}` is gone; the encoder is in `core/encoder/`: `Encoder` (one image:
@@ -487,8 +503,9 @@ configure step if the prefix is missing.
 
 ### 6.2 Kernels
 
-- `kernels/cmake/embed_kernel.cmake` replaces `minilzoc` + `format_header.py` + the Makefile rules: a small host tool
-  (built as part of the project) LZO-compresses the input and writes a header with the **uncompressed size** included.
+- `kernels/tools/embed_kernel.cpp` (driven by `cmake/KernelHeaders.cmake`) replaced `minilzoc` + `format_header.py` +
+  the Makefile rules in phase 6: a small host tool (built as part of the project) LZO-compresses the input and writes a
+  header with the **uncompressed size** included.
 - Both kernel headers are committed and consumed as-is. Regeneration is an explicit developer target
   (`cmake --build <dir> --target kernel-headers`), never part of the normal or CI build; the PTX recipe checks for the
   pinned `nvcc` (§7). CI verifies the OpenCL header against the source and that the build left both headers untouched.
@@ -507,7 +524,7 @@ What matters for users is the driver. The driver JIT-compiles the embedded PTX a
    back to OpenCL; CUDA "worked in every other app", so users see it as guetzli dropping CUDA support.
 2. **Target architecture.** PTX compiled for `compute_XX` can only be JIT-compiled for GPUs of architecture XX or newer.
 
-Current state (2026-11-15): the committed `clguetzli_cu_ptx.h` is ISA 7.8 (CUDA 11.8) → OK for drivers ≥ R520, but
+Current state (2026-11-15): the committed PTX header (now `kernels/guetzli_cu_ptx.h`) is ISA 7.8 (CUDA 11.8) → OK for drivers ≥ R520, but
 **`.target sm_75`** → Pascal (GTX 10xx, sm_61) and Maxwell GPUs cannot use the CUDA backend at all and silently fall
 back to OpenCL. The same issue also reports **~30 s JIT compilation on first run** (cached afterwards).
 
@@ -525,10 +542,10 @@ Policy:
   `--auto` output, instead of a bare "CUDA is not supported". Issue #15 needed a special build to see the cause.
 - The kernel source stays within the subset that both the pinned toolkit and OpenCL C accept (no C++20 in kernels).
 - **Kernels are built locally and committed with the code; CI never rebuilds them** (decided 2026-11-15, implemented on
-  `master` before the refactor). `make cuda-headers` is the only way to regenerate the headers and refuses any `nvcc`
-  other than the pinned release; normal builds no longer depend on it. CI only installs the toolkit for `cuda.h`,
-  then runs `make check-kernel-headers` (the OpenCL header must match `clguetzli.cl`) and `git diff --exit-code` on
-  both headers (the build must not have touched them). The CMake build (§6.2) keeps the same rule.
+  `master` before the refactor). The `kernel-headers` CMake target (`make cuda-headers` before phase 6) is the only way
+  to regenerate the headers and refuses any `nvcc` other than the pinned release; normal builds do not depend on it.
+  CI only installs the toolkit for `cuda.h`, then runs the `check-kernel-headers` target (the OpenCL header must
+  match `kernels/guetzli.cl`) and `git diff --exit-code` on both headers (the build must not have touched them).
 
 ## 8. Testing
 
@@ -598,7 +615,8 @@ After phase 3 the GPU performance items (todo G1–G4) can be developed against 
 | `clguetzli/ocu.*`, `cuguetzli.cpp`, `cumem_pool.*`, `cuda_dynload.*` | `backend/cuda/` |
 | `clguetzli/clbutter_comparator.*`, `clguetzli.cl.cpp` (comparator part) | `backend/{cpu,opencl,cuda}/comparator` (the kernel-emulation part is deleted, §3) |
 | `clguetzli/clguetzli_test.*` | replaced by `backend/check/` decorators (deleted in phase 3) |
-| `clguetzli/clguetzli.cl`, `.cu`, `.cl.h` | `kernels/` |
-| `clguetzli/lzodec.*`, `minilzoc/`, `format_header.py` | `kernels/` embed tooling |
+| `clguetzli/clguetzli.cl`, `.cu` | `kernels/guetzli.cl`, `kernels/guetzli.cu` (done, phase 6) |
+| `clguetzli/clguetzli.cl.h` (host-side kernel types) | `backend/gpu/` |
+| `clguetzli/lzodec.*`, `minilzoc/`, `format_header.py` | `kernels/embedded_kernels.*`, `kernels/tools/embed_kernel.cpp` (done, phase 6) |
 | `clguetzli/gpu_error.h` | `backend/gpu_error.h` |
-| `Makefile` | `CMakeLists.txt` + `CMakePresets.json` (removed in phase 6) |
+| `Makefile` | `CMakeLists.txt` + `CMakePresets.json` (removed in phase 6) (done) |

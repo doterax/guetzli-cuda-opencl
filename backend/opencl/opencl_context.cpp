@@ -12,23 +12,10 @@
 #include <utility>
 #include <vector>
 
-#include "clguetzli/clguetzli_cl_src.h"
-#include "clguetzli/lzodec.h"
+#include "kernels/embedded_kernels.h"
 #include "third_party/OpenCL-Wrapper/opencl.hpp"
 
 namespace guetzli {
-
-namespace {
-
-std::string openClSource() {
-  LzoDec decompressed(clguetzli_cl_src_lzo, sizeof(clguetzli_cl_src_lzo));
-  if (!decompressed.isValid()) {
-    throw GpuError("failed to decompress embedded OpenCL source");
-  }
-  return std::string((char*)decompressed.getData(), decompressed.getSize());
-}
-
-}  // namespace
 
 void throwOpenClError(cl_int err, const char* where) {
   throw GpuError(std::string("OpenCL call failed in ") + where + ": " + TranslateOpenCLError(err));
@@ -77,7 +64,7 @@ OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logge
     best_device = select_device_with_most_flops(devices);
   }
 
-  const std::string source = openClSource();
+  const std::string source = kernels::openClSource();
   Clock clock;
   device_ = std::make_unique<Device>(best_device, source);
   print_info("OpenCL C code compilation time: ~" + to_string(clock.stop() * 1000, 3) + "ms\n");

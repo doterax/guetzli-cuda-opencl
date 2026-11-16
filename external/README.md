@@ -30,7 +30,7 @@ external/install/
 └── lib/       (libpng16.a, libz.a, libtiff.a, libjpeg.a, libturbojpeg.a, libOpenCL.a, ...)
 ```
 
-The main Makefile automatically picks these up via `-Iexternal/install/include -Lexternal/install/lib`.
+The main CMake build picks these up from `external/install` (`GUETZLI_EXTERNAL_PREFIX`).
 
 ## Selective builds
 

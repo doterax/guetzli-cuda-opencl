@@ -1,4 +1,4 @@
-// CUDA launchers for the kernels in clguetzli.cl (compiled to PTX via clguetzli.cu).
+// CUDA launchers for the kernels in kernels/guetzli.cl (compiled to PTX via kernels/guetzli.cu).
 //
 // Author: strongtu@tencent.com
 //         ianhuang@tencent.com

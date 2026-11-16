@@ -23,12 +23,15 @@ the program.
 
 ```bash
 # Build dependencies (one-time)
-make external
+cmake -S external -B external/build -DCMAKE_BUILD_TYPE=Release
+cmake --build external/build
 
-# Build
-make CONFIG=release
+# Build and test (Windows/MinGW: add -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++)
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 
-# Run
+# Run (build/release/bin/guetzli)
 guetzli [--quality Q] [--verbose] input.png output.jpg
 ```
 
@@ -70,12 +73,11 @@ guetzli --auto   input.png output.jpg   # Auto-detect best backend (default)
 
 | Step | Command |
 |------|---------|
-| Build external deps | `make external` |
-| Release build | `make CONFIG=release` |
-| Debug build | `make CONFIG=debug` |
-| OpenCL-only | `make FEATURES="OPENCL FULL_JPEG"` |
-| Run tests | `make test` |
-| Show help | `make help` |
+| Build external deps | `cmake -S external -B external/build -DCMAKE_BUILD_TYPE=Release && cmake --build external/build` |
+| Release build | `cmake --preset release && cmake --build --preset release` |
+| Debug build | `cmake --preset debug && cmake --build --preset debug` |
+| OpenCL-only | `cmake --preset release -DGUETZLI_WITH_CUDA=OFF` |
+| Run tests | `ctest --preset release` |
 
 Full details (prerequisites, GitHub Actions setup, troubleshooting) are in
 [BUILD.md](BUILD.md).
@@ -92,9 +94,14 @@ instructions.
 ## Project Structure
 
 ```
-guetzli/          Core JPEG optimiser (C++)
-clguetzli/        GPU acceleration — CUDA & OpenCL kernels + host code
-third_party/      Bundled: butteraugli, minilzo, OpenCL headers
+app/              Command line and composition root
+config/, logging/ Configuration value types, logger
+core/             Encoder pipeline, image I/O
+guetzli/          JPEG data, reader/writer, output image, butteraugli comparator
+backend/          CPU, OpenCL, CUDA and check-mode backends (GPU host code)
+kernels/          The GPU kernel source (OpenCL C, also compiled to PTX) and its embedded headers
+clguetzli/        Optimized CPU butteraugli, host-side kernel types
+third_party/      Bundled: butteraugli, minilzo, OpenCL headers, CLI11, doctest
 external/         CMake superbuild for zlib, libpng, libtiff, libjpeg-turbo,
                   OpenCL ICD loader
 tests/            Smoke-test suite + sample images
@@ -104,7 +111,7 @@ tests/            Smoke-test suite + sample images
 ## Contributing
 
 1. Fork and create a feature branch.
-2. Ensure `make test` passes on at least one platform.
+2. Ensure `ctest --preset release` passes on at least one platform.
 3. Open a pull request — CI will build on all three platforms.
 4. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 

@@ -8,8 +8,8 @@
 # then `cmake --build external/build`), installed to external/install. GUETZLI_EXTERNAL_PREFIX
 # points elsewhere if needed; libraries not found there are taken from the system.
 #
-# The embedded kernel headers (clguetzli_cl_src.h, clguetzli_cu_ptx.h) are committed and only
-# consumed. Regenerate them explicitly with the `kernel-headers` target (pinned CUDA toolkit, §7);
+# The embedded kernel headers (kernels/guetzli_cl_src.h, kernels/guetzli_cu_ptx.h) are committed and
+# only consumed. Regenerate them explicitly with the `kernel-headers` target (pinned CUDA toolkit, §7);
 # `check-kernel-headers` verifies the OpenCL one (CI).
 cmake_minimum_required(VERSION 3.24)
 project(guetzli LANGUAGES C CXX)
@@ -43,7 +43,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-# Same optimization flags as the Makefile build. -ffast-math is part of the output contract:
+# -ffast-math is part of the output contract:
 # changing it changes the generated JPEGs (tests/regress).
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math")
@@ -55,13 +55,14 @@ include(cmake/Dependencies.cmake)
 # ---------------------------------------------------------------------------------------------
 # Library objects (everything except main), shared by the executable and the unit tests.
 #   guetzli_core     encoder, image/JPEG code, butteraugli, config, logging, I/O -- no GPU code
-#   guetzli_backend  backend/ (CPU, OpenCL, CUDA, --check) and the GPU layer in clguetzli/
+#   guetzli_backend  backend/ (CPU, OpenCL, CUDA, --check), the CPU butteraugli in clguetzli/ and the
+#                    embedded kernels (kernels/)
 # The dependency rule (core never includes backend/ or GPU headers) is checked by the `layering` test.
 # ---------------------------------------------------------------------------------------------
 file(GLOB GUETZLI_SOURCES CONFIGURE_DEPENDS guetzli/*.cc)
 file(GLOB CLGUETZLI_SOURCES CONFIGURE_DEPENDS clguetzli/*.cpp)
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS config/*.cpp logging/*.cpp core/*/*.cpp)
-file(GLOB BACKEND_SOURCES CONFIGURE_DEPENDS backend/*.cpp backend/*/*.cpp)
+file(GLOB BACKEND_SOURCES CONFIGURE_DEPENDS backend/*.cpp backend/*/*.cpp kernels/*.cpp)
 
 # Warning flags shared by all host code.
 add_library(guetzli_flags INTERFACE)
@@ -93,9 +94,7 @@ add_library(guetzli_backend OBJECT
   ${BACKEND_SOURCES}
   ${CLGUETZLI_SOURCES}
   third_party/minilzo/minilzo.c)
-# The Makefile compiles minilzo.c with the C++ compiler; keep that until parity is no longer needed.
-set_source_files_properties(third_party/minilzo/minilzo.c PROPERTIES LANGUAGE CXX)
-# Include order matches the Makefile (some headers rely on it).
+# Keep this include order (some headers rely on it).
 target_include_directories(guetzli_backend PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/butteraugli"
@@ -156,3 +155,7 @@ add_test(NAME layering COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=${CMAKE_CURRENT_S
                                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckLayering.cmake")
 
 include(cmake/KernelHeaders.cmake)
+
+# `cmake --install build/release [--prefix /usr/local]` installs the executable to <prefix>/bin.
+include(GNUInstallDirs)
+install(TARGETS guetzli RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")

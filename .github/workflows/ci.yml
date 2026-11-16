@@ -101,10 +101,7 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-make
             mingw-w64-x86_64-pkg-config
-            make
-            python3
 
       # ------------------------------------------------------------------
       # 3. Cache external dependencies
@@ -123,7 +120,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build python3 pkg-config
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config
           if [ "${{ matrix.opencl }}" = "true" ]; then
             sudo apt-get install -y opencl-headers ocl-icd-opencl-dev ocl-icd-libopencl1 pocl-opencl-icd
           fi
@@ -134,13 +131,13 @@ jobs:
       - name: Install packages (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja pkg-config python3
+          brew install cmake ninja pkg-config
 
       # ------------------------------------------------------------------
       # 6. Install CUDA Toolkit (conditional)
       #    Only for the cuda.h driver-API header: nvcc is NOT used here. The
-      #    embedded PTX (clguetzli/clguetzli_cu_ptx.h) is generated locally with
-      #    the pinned toolkit and committed (`make cuda-headers`, see
+      #    embedded PTX (kernels/guetzli_cu_ptx.h) is generated locally with
+      #    the pinned toolkit and committed (`kernel-headers` target, see
       #    docs/design/modernization.md section 7 and issue #15).
       # ------------------------------------------------------------------
       - name: Install CUDA
@@ -220,7 +217,7 @@ jobs:
       - name: Verify the build did not modify committed kernel headers
         shell: bash
         run: |
-          git diff --exit-code -- clguetzli/clguetzli_cu_ptx.h clguetzli/clguetzli_cl_src.h
+          git diff --exit-code -- kernels/guetzli_cu_ptx.h kernels/guetzli_cl_src.h
 
       # ------------------------------------------------------------------
       # 9. Binary diagnostics
