@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     name: clang-format
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check formatting (clang-format 21.1.5)
         run: |
           pipx run clang-format==21.1.5 --version
@@ -86,7 +86,7 @@ jobs:
       # ------------------------------------------------------------------
       # 1. Checkout
       # ------------------------------------------------------------------
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # ------------------------------------------------------------------
       # 2. MSYS2 setup (Windows only)
@@ -107,7 +107,7 @@ jobs:
       # 3. Cache external dependencies
       # ------------------------------------------------------------------
       - name: Cache external deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: ext-cache
         with:
           path: external/install
@@ -142,7 +142,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Install CUDA
         if: matrix.cuda && runner.os != 'Windows'
-        uses: Jimver/cuda-toolkit@v0.2.30
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: '12.6.2'
           method: 'network'
@@ -150,7 +150,7 @@ jobs:
 
       - name: Install CUDA (Windows)
         if: matrix.cuda && runner.os == 'Windows'
-        uses: Jimver/cuda-toolkit@v0.2.30
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: '12.6.2'
           method: 'network'
@@ -258,7 +258,7 @@ jobs:
 
       - name: Upload artifact
         if: ${{ !matrix.sanitize }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: guetzli-${{ matrix.name }}
           path: dist/
@@ -273,7 +273,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: artifacts/
 
@@ -298,7 +298,7 @@ jobs:
           ls -la *.tar.gz *.zip 2>/dev/null || true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: |
