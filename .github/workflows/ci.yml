@@ -304,9 +304,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Only for the release notes (docs/release-notes/<tag without -suffix>.md).
+      - uses: actions/checkout@v5
+
       - uses: actions/download-artifact@v7
         with:
           path: artifacts/
+
+      - name: Release notes
+        run: |
+          tag="${GITHUB_REF_NAME%%-*}"
+          if [ -f "docs/release-notes/$tag.md" ]; then
+            cp "docs/release-notes/$tag.md" release-notes.md
+          else
+            : > release-notes.md
+          fi
 
       - name: Package release archives
         run: |
@@ -331,7 +343,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          body_path: release-notes.md
           generate_release_notes: true
+          # Tags with a suffix (v3.0.0-rc1) are pre-releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             guetzli-cuda-opencl-linux-x64.tar.gz
             guetzli-cuda-opencl-win-x64.zip
