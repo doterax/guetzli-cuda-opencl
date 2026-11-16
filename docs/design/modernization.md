@@ -7,10 +7,39 @@ opening a PR against the refactor branch.
 
 ### Start here (handoff, 2026-11-15)
 
-All decisions in §3 are made; there are no open questions. **Phases 0 to 4 are done** (phase 0: `4b8d3f5`..`ff9f07f`,
+All decisions in §3 are made; there are no open questions. **Phases 0 to 5 are done** (phase 0: `4b8d3f5`..`ff9f07f`,
 phase 1: `7e1a9a4` + C++20 switch, phase 2: `7eba7f4`..`661a6ad`, phase 3: `cd2d241`..`74f75a0`, phase 4:
-`4979de3`..`fe63f82`, on `refactor/modern-cpp`). Next action: **phase 5** (§10, encoder split: `Processor` into encoder
-classes, `OutputImage` cleanup, incremental size estimator). Merge `master` into the branch first if it moved (§10).
+`4979de3`..`fe63f82`, phase 5: `3747847`..`925d84d`, on `refactor/modern-cpp`). Next action: **phase 6** (§10, C++20
+sweep + cleanup: naming, dead code, Makefile removed, clang-tidy clean). Merge `master` into the branch first if it
+moved (§10).
+
+Phase 5 notes:
+- **Where things are.** `guetzli/processor.{h,cc}` is gone; the encoder is in `core/encoder/`: `Encoder` (one image:
+  `encodeJpeg`/`encodeRgb`/`encodeJpegData`; owns the `ProcessStats`, takes `EncoderParams`, `Backend&`, `ILogger&`),
+  `QuantMatrixSearch` + `QuantMatrixGenerator` (`quant_matrix_search`), `FrequencyMasking` +
+  `CollectZeroingCandidates()` (`frequency_masking`), `OutputSelector` (serializes candidates, keeps the best by
+  score), `JpegSizeEstimator` (`size_estimator`, also `EntropyCodedDataSize`/`ComputeEntropyCodes`/`EstimateDCSize`),
+  `EncoderParams` (was `Params`). `narrow_cast` moved to `core/util/narrow_cast.h`. The libjpeg-turbo fallback decoder
+  for JPEGs the encoder cannot take as coefficients moved to `core/io/jpeg_decode` (`decodeJpegPixels`).
+  `OutputImage` stays in `guetzli/` (moving the rest of `guetzli/` into `core/jpeg`, `core/image` is left for phase 6).
+- **Size estimator (todo S7).** Per histogram it keeps the code bits before the escape-byte estimate, so a changed
+  symbol updates the total in constant time; the code lengths are still refreshed every 10th change (changing that
+  would change the output). Exact: a unit test checks it against a full recomputation after every change.
+- **OutputImage cleanup.** The requantization that a 2025 commit (`693dc7a`) added to `SetCoeffBlock()`,
+  `SaveToJpegData()` and `SetDownsampledCoefficients()` is gone: every caller passes quantized blocks (now asserted;
+  the debug build runs clean on a 4:4:4, a 4:2:0 and a grayscale regress input). `max_v_samp_factor` typo fixed (same result for 4:4:4 / 4:2:0).
+  `exit()` replaced by an exception. `DownsampleConfig` with default member initializers.
+- **Two encoder bugs fixed** (output changes, own commits, baselines updated; see the release list): the 4:2:0
+  chroma pass changed the wrong blocks (todo 21, first half), and blocks without zeroing candidates could get a
+  bogus one.
+- Verified: the pure refactoring commits (`3747847`, `1af8289`) keep regress byte-identical in all 7 modes, and the
+  old vs new `--c --verbose` traces (which print the size estimates) are identical on the regress inputs and two larger
+  images. After the fixes all 7 modes pass with the new baselines (check modes still equal `--c`). CMake release,
+  debug and a no-GPU/no-full-JPEG build, the Makefile build and `make unit-test` pass. New unit tests:
+  `tests/unit/encoder_test.cpp`, `tests/unit/output_image_test.cpp` (68 test cases in total).
+- Left for later: `GUETZLI_LOG` / `ProcessStats` counters are still used for the `--verbose` trace (§5.7); quantization
+  matrices are still `int[3][64]`; `FrequencyMasking::adjust()` is still one long function (its float expressions are
+  output-sensitive under `-ffast-math`, so it was moved verbatim).
 
 Phase 4 notes:
 - **Where things are.** The host GPU code moved from `clguetzli/` to `backend/` (pure renames in `7f20984`):
@@ -129,6 +158,14 @@ release notes:
   "GPU processing failed (...); falling back to CPU" message, which already contains the error. (phase 4)
 - An OpenCL kernel argument rejected by the driver now fails the GPU run (CPU fallback); before, it was logged and the
   kernel was launched anyway. (phase 4)
+- 4:2:0 output: the frequency-masking chroma pass applied each change meant for chroma block (x, y) to block
+  (x/2, y/2) (bug since 2025, `50a6558`). Fixed; 4:2:0 outputs get smaller (regress: -2 and -50 bytes; two larger
+  photos -1.8% and -0.4%). (`a5f1923`)
+- Frequency masking: trailing blocks without zeroing candidates got a bogus one (the last candidate of an earlier
+  block), so a coefficient could be zeroed that was never scored for that block (bug since 2017). Fixed; outputs change
+  by a few bytes either way. (`925d84d`)
+- JPEG inputs decoded through libjpeg-turbo (unsupported subsampling, CMYK, ...): a decoding error is reported and the
+  run fails with exit code 3; before, the process exited with code 1 (or libjpeg terminated it). (phase 5)
 
 Phase 1 notes:
 - CMake (`CMakeLists.txt`, `CMakePresets.json`, `cmake/`) builds `guetzli` and `guetzli_tests` from one OBJECT library
@@ -530,7 +567,7 @@ All work lands on `refactor/modern-cpp`. `master` keeps receiving fixes; they ar
 | 2. Config + CLI11 | `Config`, CLI11, legacy aliases; `Params`/`g_deviceIndex`/`verbose_cl`/memlimit globals removed; logger injected | No `extern` config globals; CLI unit tests |
 | 3. Backend interfaces (done) | `IComparator`, `IBlockZeroingSearch`, `IDctOps`; factory; check-mode decorators; `g_mathMode` removed | `grep g_mathMode` empty; `core/` has no GPU includes |
 | 4. GPU RAII (done) | Contexts, buffers, constant cache, typed launchers, `CudaDriver` object; singletons removed | No manual `releaseMem`; ASan/leak check clean on CPU path |
-| 5. Encoder split | `Processor` → encoder classes; `OutputImage` cleanup; incremental size estimator (todo S7) | Unit tests per class |
+| 5. Encoder split (done) | `Processor` → encoder classes; `OutputImage` cleanup; incremental size estimator (todo S7) | Unit tests per class |
 | 6. C++20 sweep + cleanup | Remaining modernization, naming, dead code (`clguetzli_test.cpp`), Makefile removed | clang-tidy clean |
 | 7. Merge | Branch merged to `master`, version bump, release notes | Release artifacts from CI identical in behaviour |
 
