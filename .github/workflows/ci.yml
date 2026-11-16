@@ -68,7 +68,7 @@ jobs:
             shell: msys2 {0}
 
           # macOS — OpenCL (Apple framework)
-          - os: macos-14
+          - os: macos-15
             name: macos-opencl
             preset: ci-macos
             features: "OPENCL FULL_JPEG"
