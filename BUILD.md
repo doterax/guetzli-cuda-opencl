@@ -20,18 +20,31 @@ GitHub Actions CI/CD pipeline works.
 
 ## Quick Start
 
+The CMake build (CMake ≥ 3.24 and Ninja) is the primary build, and CI uses it:
+
 ```bash
-# 1. Build third-party libraries (one-time)
-make external
+# 1. Build third-party libraries (one-time; installs to external/install)
+cmake -S external -B external/build -DCMAKE_BUILD_TYPE=Release
+cmake --build external/build
 
-# 2. Build guetzli
-make CONFIG=release
-
-# 3. Run smoke tests
-make test
+# 2. Configure, build, test
+cmake --preset release            # on Windows/MinGW add: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+cmake --build --preset release    # -> build/release/bin/guetzli[.exe], guetzli_tests[.exe]
+ctest --preset release            # unit tests + smoke test
 ```
 
-The binary is written to `bin/release/guetzli` (or `guetzli.exe` on Windows).
+Presets: `release`, `debug`, `ci-linux`, `ci-windows-mingw`, `ci-macos`. Options:
+`GUETZLI_WITH_CUDA`, `GUETZLI_WITH_OPENCL`, `GUETZLI_WITH_FULL_JPEG` (all ON), `GUETZLI_STATIC`
+(ON on Windows), `GUETZLI_EXTERNAL_PREFIX`, `GUETZLI_SMOKE_FLAGS` (default `--c`).
+Kernel headers: `cmake --build --preset release --target check-kernel-headers` (verify) or
+`--target kernel-headers` (regenerate; CUDA 11.8 nvcc only, `-DGUETZLI_NVCC_CCBIN=<MSVC bin dir>`
+and `-DGUETZLI_NVCC_EXTRA_FLAGS=...` for host-compiler quirks).
+
+The legacy Makefile still works until it is removed (modernization phase 6):
+
+```bash
+make external && make CONFIG=release && make test   # -> bin/release/guetzli
+```
 
 ---
 
@@ -75,11 +88,19 @@ brew install cmake python3 pkg-config
 
 ### Optional: CUDA
 
-Install the [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
-(version ≥ 11.0) and ensure `CUDA_PATH` points to the installation directory.
-The CUDA driver library (`nvcuda.dll` / `libcuda.so`) is loaded at **runtime**
-— the binary will start and fall back gracefully on machines without an
-NVIDIA GPU.
+Building with CUDA support only needs the CUDA Toolkit's `cuda.h` header (any version ≥ 11.0;
+set `CUDA_PATH` to the installation directory). The CUDA driver library (`nvcuda.dll` /
+`libcuda.so`) is loaded at **runtime** — the binary will start and fall back gracefully on
+machines without an NVIDIA GPU.
+
+The GPU kernels are **embedded pre-built**: `clguetzli/clguetzli_cu_ptx.h` (PTX) and
+`clguetzli/clguetzli_cl_src.h` (OpenCL source) are committed, and normal builds (and CI)
+never regenerate them. If you change `clguetzli/clguetzli.cl`, `clguetzli.cl.h` or
+`clguetzli.cu`, regenerate both headers with `make cuda-headers` and commit them with your
+change. The PTX must be built with the pinned toolkit (**CUDA 11.8**, `KERNEL_NVCC_VERSION`):
+drivers only JIT-compile PTX versions they know, and PTX from a newer toolkit is rejected by
+older drivers ([issue #15](https://github.com/doterax/guetzli-cuda-opencl/issues/15)).
+`make cuda-headers` refuses other `nvcc` versions.
 
 ### Optional: OpenCL
 
@@ -176,7 +197,9 @@ keep CI time low.
 | `CONFIG` | `release` | `debug` or `release` |
 | `FEATURES` | `CUDA OPENCL FULL_JPEG` | Space-separated feature list |
 | `CXX` | auto-detected | C++ compiler |
-| `CUDA_ARCH` | `compute_75` | CUDA virtual architecture for PTX |
+| `CUDA_ARCH` | `compute_75` | CUDA virtual architecture for the embedded PTX (`make cuda-headers`) |
+| `KERNEL_NVCC_VERSION` | `11.8` | Required `nvcc` release for `make cuda-headers` |
+| `NVCC_EXTRA_FLAGS` | (unset) | Extra `nvcc` flags for local toolchain quirks (e.g. `-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`) |
 | `LTO` | (unset) | Set to `1` to enable link-time optimisation |
 
 ### Targets
@@ -187,7 +210,9 @@ keep CI time low.
 | `static` | Build static library |
 | `external` | Build external dependencies via CMake |
 | `test` | Run smoke tests |
-| `cuda-headers` | (Re)generate embedded CUDA/OpenCL kernel headers |
+| `cuda-headers` | Regenerate both embedded kernel headers (explicit only; commit the result) |
+| `cl-header` | Regenerate only the OpenCL source header (no CUDA toolkit needed) |
+| `check-kernel-headers` | Fail if the committed OpenCL header does not match `clguetzli.cl` (run in CI) |
 | `install` | Install to `PREFIX` (Linux/macOS) |
 | `dist` | Create release archive |
 | `clean` | Remove all build artefacts |
@@ -234,12 +259,15 @@ The CI pipeline lives in `.github/workflows/ci.yml` and runs automatically.
 2. **MSYS2** setup (Windows only — provides MinGW-w64 GCC + make + cmake).
 3. **Cache** `external/install/` keyed on `external/CMakeLists.txt` hash.
 4. **Install system packages** (apt / brew / MSYS2 pacman).
-5. **Install CUDA Toolkit** (conditional, via `Jimver/cuda-toolkit` action).
+5. **Install CUDA Toolkit** (conditional, via `Jimver/cuda-toolkit` action) — only for the `cuda.h`
+   header; `nvcc` is not used in CI.
 6. **Build external dependencies** (if cache miss).
 7. **Build guetzli** (`make CONFIG=release FEATURES="..."`)
-8. **Run smoke tests** (`make test` — uses only `fro_small.png`, 6 KB).
-9. **Upload** build artefact.
-10. *(On `v*` tag)* **Create GitHub Release** via `softprops/action-gh-release`.
+8. **Verify kernel headers**: `make check-kernel-headers`, then `git diff --exit-code` on both
+   committed headers (the build must not have regenerated them).
+9. **Run smoke tests** (`make test` — uses only `fro_small.png`, 6 KB).
+10. **Upload** build artefact.
+11. *(On `v*` tag)* **Create GitHub Release** via `softprops/action-gh-release`.
 
 ### Release Automation
 
@@ -297,6 +325,7 @@ When you push a tag like `v1.3.0`:
 
 ### "nvcc: command not found"
 
+- Only `make cuda-headers` needs `nvcc` (CUDA 11.8). Normal builds use the committed headers.
 - Install the CUDA Toolkit and set the `CUDA_PATH` environment variable.
 - CUDA is **optional** — you can build without it: `make FEATURES="OPENCL FULL_JPEG"`
 
