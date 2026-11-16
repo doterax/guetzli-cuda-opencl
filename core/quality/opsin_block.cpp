@@ -13,7 +13,8 @@
 namespace guetzli {
 namespace {
 
-float kSrgb8ToLinearTableF[256] = {
+// Not const, like the tables below (the kernel's __constant expanded to nothing in the old C++ build).
+float g_srgb8_to_linear_table_f[256] = {
     0.000000f,   0.077399f,   0.154799f,   0.232198f,   0.309598f,   0.386997f,   0.464396f,   0.541796f,   0.619195f,
     0.696594f,   0.773994f,   0.853367f,   0.937509f,   1.026303f,   1.119818f,   1.218123f,   1.321287f,   1.429375f,
     1.542452f,   1.660583f,   1.783830f,   1.912253f,   2.045914f,   2.184872f,   2.329185f,   2.478910f,   2.634105f,
@@ -63,17 +64,17 @@ float g_gamma_q[5 + 1] = {
     4.711532733641639f,  0.899112889751053f,  0.035662329617191f,
 };
 
-int _min_i(int a, int b) {
+int minInt(int a, int b) {
   return a < b ? a : b;
 }
 
-void OpsinAbsorbance(const float in[3], float out[3]) {
+void opsinAbsorbance(const float in[3], float out[3]) {
   out[0] = g_mix[0] * in[0] + g_mix[1] * in[1] + g_mix[2] * in[2] + g_mix[3];
   out[1] = g_mix[4] * in[0] + g_mix[5] * in[1] + g_mix[6] * in[2] + g_mix[7];
   out[2] = g_mix[8] * in[0] + g_mix[9] * in[1] + g_mix[10] * in[2] + g_mix[11];
 }
 
-float EvaluatePolynomial(const float x, const float* coefficients, int n) {
+float evaluatePolynomial(const float x, const float* coefficients, int n) {
   float b1 = 0.0f;
   float b2 = 0.0f;
 
@@ -92,19 +93,19 @@ float EvaluatePolynomial(const float x, const float* coefficients, int n) {
   return b1;
 }
 
-float Gamma(float v) {
+float gamma(float v) {
   const float min_value = 0.770000000000000f;
   const float max_value = 274.579999999999984f;
   const float x01 = (v - min_value) / (max_value - min_value);
   const float xc = 2.0f * x01 - 1.0f;
 
-  const float yp = EvaluatePolynomial(xc, g_gamma_p, 6);
-  const float yq = EvaluatePolynomial(xc, g_gamma_q, 6);
+  const float yp = evaluatePolynomial(xc, g_gamma_p, 6);
+  const float yq = evaluatePolynomial(xc, g_gamma_q, 6);
   if (yq == 0.0f) return 0.0f;
   return (float)(yp / yq);
 }
 
-void RgbToXyb(const float r, const float g, const float b, float* valx, float* valy, float* valz) {
+void rgbToXyb(const float r, const float g, const float b, float* valx, float* valy, float* valz) {
   const float a0 = 1.01611726948f;
   const float a1 = 0.982482243696f;
   const float a2 = 1.43571362627f;
@@ -114,7 +115,7 @@ void RgbToXyb(const float r, const float g, const float b, float* valx, float* v
   *valz = b;
 }
 
-void Convolution(const unsigned int xsize, const unsigned int ysize, const int xstep, const int len, const int offset,
+void convolution(const unsigned int xsize, const unsigned int ysize, const int xstep, const int len, const int offset,
                  const float* multipliers, const float* inp, const float border_ratio, float* result) {
   float weight_no_border = 0;
 
@@ -123,7 +124,7 @@ void Convolution(const unsigned int xsize, const unsigned int ysize, const int x
   }
   for (int x = 0, ox = 0; x < (int)xsize; x += xstep, ox++) {
     int minx = x < offset ? 0 : x - offset;
-    int maxx = _min_i((int)xsize, (int)(x + len - offset)) - 1;
+    int maxx = minInt((int)xsize, (int)(x + len - offset)) - 1;
     float weight = 0.0f;
     for (int j = minx; j <= maxx; ++j) {
       weight += multipliers[j - x + offset];
@@ -141,7 +142,7 @@ void Convolution(const unsigned int xsize, const unsigned int ysize, const int x
   }
 }
 
-void BlurEx(const float* r, const int xsize, const int ysize, const float border_ratio, float* output) {
+void blurEx(const float* r, const int xsize, const int ysize, const float border_ratio, float* output) {
   // sigma = 1.1 (the only value the kernel uses).
   const float scaler = -0.41322314049586772f;
   const int diff = 2;
@@ -155,11 +156,11 @@ void BlurEx(const float* r, const int xsize, const int ysize, const float border
   int dxsize = (xsize + xstep - 1) / xstep;
 
   float tmp[8 * 8];  // fully written by the first pass
-  Convolution(xsize, ysize, xstep, expn_size, diff, expn, r, border_ratio, tmp);
-  Convolution(ysize, dxsize, ystep, expn_size, diff, expn, tmp, border_ratio, output);
+  convolution(xsize, ysize, xstep, expn_size, diff, expn, r, border_ratio, tmp);
+  convolution(ysize, dxsize, ystep, expn_size, diff, expn, tmp, border_ratio, output);
 }
 
-void OpsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurred, const float* g_blurred,
+void opsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurred, const float* g_blurred,
                              const float* b_blurred, const int size) {
   for (int i = 0; i < size; ++i) {
     float sensitivity[3];
@@ -167,19 +168,19 @@ void OpsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurre
       // Calculate sensitivity[3] based on the smoothed image gamma derivative.
       float pre_rgb[3] = {r_blurred[i], g_blurred[i], b_blurred[i]};
       float pre_mixed[3];
-      OpsinAbsorbance(pre_rgb, pre_mixed);
-      sensitivity[0] = Gamma(pre_mixed[0]) / pre_mixed[0];
-      sensitivity[1] = Gamma(pre_mixed[1]) / pre_mixed[1];
-      sensitivity[2] = Gamma(pre_mixed[2]) / pre_mixed[2];
+      opsinAbsorbance(pre_rgb, pre_mixed);
+      sensitivity[0] = gamma(pre_mixed[0]) / pre_mixed[0];
+      sensitivity[1] = gamma(pre_mixed[1]) / pre_mixed[1];
+      sensitivity[2] = gamma(pre_mixed[2]) / pre_mixed[2];
     }
     float cur_rgb[3] = {r[i], g[i], b[i]};
     float cur_mixed[3];
-    OpsinAbsorbance(cur_rgb, cur_mixed);
+    opsinAbsorbance(cur_rgb, cur_mixed);
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
     float x, y, z;
-    RgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
+    rgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     r[i] = (float)(x);
     g[i] = (float)(y);
     b[i] = (float)(z);
@@ -188,16 +189,16 @@ void OpsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurre
 
 }  // namespace
 
-const float* Srgb8ToLinearTableF() {
-  return kSrgb8ToLinearTableF;
+const float* srgb8ToLinearTableF() {
+  return g_srgb8_to_linear_table_f;
 }
 
-void OpsinDynamicsBlock8x8(float rgb[3][kOpsinBlockSize]) {
+void opsinDynamicsBlock8x8(float rgb[3][kOpsinBlockSize]) {
   float rgb_blurred[3][kOpsinBlockSize];
   for (int i = 0; i < 3; ++i) {
-    BlurEx(rgb[i], 8, 8, 0, rgb_blurred[i]);
+    blurEx(rgb[i], 8, 8, 0, rgb_blurred[i]);
   }
-  OpsinDynamicsImageBlock(rgb[0], rgb[1], rgb[2], rgb_blurred[0], rgb_blurred[1], rgb_blurred[2], kOpsinBlockSize);
+  opsinDynamicsImageBlock(rgb[0], rgb[1], rgb[2], rgb_blurred[0], rgb_blurred[1], rgb_blurred[2], kOpsinBlockSize);
 }
 
 }  // namespace guetzli

@@ -27,17 +27,17 @@ namespace {
 
 static const int kIQuantBits = 16;
 // Output of the DCT is upscaled by 16.
-static const int kDCTBits = kIQuantBits + 4;
-static const int kBias = 0x80 << (kDCTBits - 8);
+static const int kDctBits = kIQuantBits + 4;
+static const int kBias = 0x80 << (kDctBits - 8);
 
-void Quantize(coeff_t* v, int iquant) {
-  *v = (*v * iquant + kBias) >> kDCTBits;
+void quantize(coeff_t* v, int iquant) {
+  *v = (*v * iquant + kBias) >> kDctBits;
 }
 
 // Single pixel rgb to 16-bit yuv conversion.
 // The returned yuv values are signed integers in the
 // range [-128, 127] inclusive.
-inline static void RGBToYUV16(const uint8_t* const rgb, coeff_t* out) {
+inline static void rgbToYuv16(const uint8_t* const rgb, coeff_t* out) {
   enum { FRAC = 16, HALF = 1 << (FRAC - 1) };
   const int r = rgb[0];
   const int g = rgb[1];
@@ -49,28 +49,28 @@ inline static void RGBToYUV16(const uint8_t* const rgb, coeff_t* out) {
 
 }  // namespace
 
-void AddApp0Data(JPEGData* jpg) {
-  const unsigned char kApp0Data[] = {
+void addApp0Data(JpegData* jpg) {
+  const unsigned char app0_data[] = {
       0xe0, 0x00, 0x10,              // APP0
       0x4a, 0x46, 0x49, 0x46, 0x00,  // 'JFIF'
       0x01, 0x01,                    // v1.01
       0x00, 0x00, 0x01, 0x00, 0x01,  // aspect ratio = 1:1
       0x00, 0x00                     // thumbnail width/height
   };
-  jpg->app_data.push_back(std::string(reinterpret_cast<const char*>(kApp0Data), sizeof(kApp0Data)));
+  jpg->app_data.push_back(std::string(reinterpret_cast<const char*>(app0_data), sizeof(app0_data)));
 }
 
-bool EncodeRGBToJpeg(const std::vector<uint8_t>& rgb, int w, int h, const int* quant, JPEGData* jpg) {
+bool encodeRgbToJpeg(const std::vector<uint8_t>& rgb, int w, int h, const int* quant, JpegData* jpg) {
   if (w < 0 || w >= 1 << 16 || h < 0 || h >= 1 << 16 || rgb.size() != 3 * w * h) {
     return false;
   }
-  InitJPEGDataForYUV444(w, h, jpg);
-  AddApp0Data(jpg);
+  initJpegDataForYuv444(w, h, jpg);
+  addApp0Data(jpg);
 
-  int iquant[3 * kDCTBlockSize];
+  int iquant[3 * kDctBlockSize];
   int idx = 0;
   for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < kDCTBlockSize; ++j) {
+    for (int j = 0; j < kDctBlockSize; ++j) {
       int v = quant[idx];
       jpg->quant[i].values[j] = v;
       iquant[idx++] = ((1 << kIQuantBits) + 1) / v;
@@ -79,30 +79,30 @@ bool EncodeRGBToJpeg(const std::vector<uint8_t>& rgb, int w, int h, const int* q
 
   // Compute YUV444 DCT coefficients.
   int block_ix = 0;
-  for (int block_y = 0; block_y < jpg->MCU_rows; ++block_y) {
-    for (int block_x = 0; block_x < jpg->MCU_cols; ++block_x) {
-      coeff_t block[3 * kDCTBlockSize];
+  for (int block_y = 0; block_y < jpg->mcu_rows; ++block_y) {
+    for (int block_x = 0; block_x < jpg->mcu_cols; ++block_x) {
+      coeff_t block[3 * kDctBlockSize];
       // RGB->YUV transform.
       for (int iy = 0; iy < 8; ++iy) {
         for (int ix = 0; ix < 8; ++ix) {
           int y = std::min(h - 1, 8 * block_y + iy);
           int x = std::min(w - 1, 8 * block_x + ix);
           int p = y * w + x;
-          RGBToYUV16(&rgb[3 * p], &block[8 * iy + ix]);
+          rgbToYuv16(&rgb[3 * p], &block[8 * iy + ix]);
         }
       }
       // DCT
       for (int i = 0; i < 3; ++i) {
-        ComputeBlockDCT(&block[i * kDCTBlockSize]);
+        computeBlockDct(&block[i * kDctBlockSize]);
       }
       // Quantization
       for (int i = 0; i < 3 * 64; ++i) {
-        Quantize(&block[i], iquant[i]);
+        quantize(&block[i], iquant[i]);
       }
       // Copy the resulting coefficients to *jpg.
       for (int i = 0; i < 3; ++i) {
-        memcpy(&jpg->components[i].coeffs[block_ix * kDCTBlockSize], &block[i * kDCTBlockSize],
-               kDCTBlockSize * sizeof(block[0]));
+        memcpy(&jpg->components[i].coeffs[block_ix * kDctBlockSize], &block[i * kDctBlockSize],
+               kDctBlockSize * sizeof(block[0]));
       }
       ++block_ix;
     }
@@ -111,8 +111,8 @@ bool EncodeRGBToJpeg(const std::vector<uint8_t>& rgb, int w, int h, const int* q
   return true;
 }
 
-bool EncodeRGBToJpeg(const std::vector<uint8_t>& rgb, int w, int h, JPEGData* jpg) {
-  static const int quant[3 * kDCTBlockSize] = {
+bool encodeRgbToJpeg(const std::vector<uint8_t>& rgb, int w, int h, JpegData* jpg) {
+  static const int kQuant[3 * kDctBlockSize] = {
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -120,7 +120,7 @@ bool EncodeRGBToJpeg(const std::vector<uint8_t>& rgb, int w, int h, JPEGData* jp
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   };
-  return EncodeRGBToJpeg(rgb, w, h, quant, jpg);
+  return encodeRgbToJpeg(rgb, w, h, kQuant, jpg);
 }
 
 }  // namespace guetzli

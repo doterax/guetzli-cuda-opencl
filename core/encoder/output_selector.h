@@ -17,7 +17,7 @@ class OutputSelector {
   OutputSelector(bool clear_metadata, ProcessStats& stats) : clear_metadata_(clear_metadata), stats_(&stats) {}
 
   // The JPEG file for jpg. Throws std::logic_error if jpg cannot be written.
-  [[nodiscard]] std::string serialize(const JPEGData& jpg) const;
+  [[nodiscard]] std::string serialize(const JpegData& jpg) const;
 
   // Scores encoded (the comparator's last Compare() must have been on its image) and keeps it if
   // it beats the best so far. Logs " Score[...]", " (*)" if kept, and the end of the line.

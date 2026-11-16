@@ -25,7 +25,7 @@
 
 namespace guetzli {
 
-void PrintDebug(ProcessStats* stats, std::string s);
+void printDebug(ProcessStats* stats, std::string s);
 
 }  // namespace guetzli
 
@@ -36,7 +36,7 @@ void PrintDebug(ProcessStats* stats, std::string s);
     assert(res > 0 && "expected successful printing");                   \
     (void)res;                                                           \
     debug_string[sizeof(debug_string) - 1] = '\0';                       \
-    ::guetzli::PrintDebug(stats, std::string(debug_string));             \
+    ::guetzli::printDebug(stats, std::string(debug_string));             \
   } while (0)
 #define GUETZLI_LOG_QUANT(stats, q)                                              \
   for (int y = 0; y < 8; ++y) {                                                  \

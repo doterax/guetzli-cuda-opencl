@@ -39,9 +39,9 @@ enum JpegReadMode {
 // If mode is JPEG_READ_HEADER, it fills in only the image dimensions in *jpg.
 // Returns false if the data is not valid jpeg, or if it contains an unsupported
 // jpeg feature.
-bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JPEGData* jpg);
+bool readJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JpegData* jpg);
 // string variant
-bool ReadJpeg(const std::string& data, JpegReadMode mode, JPEGData* jpg);
+bool readJpeg(const std::string& data, JpegReadMode mode, JpegData* jpg);
 
 }  // namespace guetzli
 

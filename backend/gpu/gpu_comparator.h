@@ -18,10 +18,10 @@ class GpuButteraugliOps final : public ButteraugliOps {
  public:
   explicit GpuButteraugliOps(std::shared_ptr<GpuButteraugliKernels> kernels) : kernels_(std::move(kernels)) {}
 
-  void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) override;
-  void Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
+  void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) override;
+  void mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
             size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc) override;
-  void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+  void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
                                std::vector<std::vector<float>>& xyb1) override;
 
@@ -36,9 +36,9 @@ class GpuButteraugliComparator final : public ButteraugliComparator {
   ~GpuButteraugliComparator() override;
 
   // The original image stays on the device; the output image is converted to linear RGB there.
-  void Compare(const OutputImage& img) override;
+  void compare(const OutputImage& img) override;
   // Also builds the per-block lists for the device block-zeroing search (once per image).
-  void StartBlockComparisons() override;
+  void startBlockComparisons() override;
   std::optional<BlockReferenceData> blockReferenceData() const override;
 
  private:

@@ -46,21 +46,21 @@ class ButteraugliComparator {
   // Computes the butteraugli map between xyb0 and xyb1 and updates result.
   // Both xyb0 and xyb1 are in opsin-dynamics space.
   // NOTE: The xyb0 and xyb1 images are mutated by this function in-place.
-  virtual void DiffmapOpsinDynamicsImage(std::vector<std::vector<float>>& xyb0, std::vector<std::vector<float>>& xyb1,
+  virtual void diffmapOpsinDynamicsImage(std::vector<std::vector<float>>& xyb0, std::vector<std::vector<float>>& xyb1,
                                          std::vector<float>& result);
   int step() { return step_; }
 
  protected:
-  virtual void BlockDiffMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
+  virtual void blockDiffMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
                             std::vector<float>* block_diff_dc, std::vector<float>* block_diff_ac);
 
-  virtual void EdgeDetectorMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
+  virtual void edgeDetectorMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
                                std::vector<float>* edge_detector_map);
 
-  virtual void EdgeDetectorLowFreq(const std::vector<std::vector<float>>& rgb0,
+  virtual void edgeDetectorLowFreq(const std::vector<std::vector<float>>& rgb0,
                                    const std::vector<std::vector<float>>& rgb1, std::vector<float>* block_diff_ac);
 
-  virtual void CombineChannels(const std::vector<std::vector<float>>& scale_xyb,
+  virtual void combineChannels(const std::vector<std::vector<float>>& scale_xyb,
                                const std::vector<std::vector<float>>& scale_xyb_dc,
                                const std::vector<float>& block_diff_dc, const std::vector<float>& block_diff_ac,
                                const std::vector<float>& edge_detector_map, std::vector<float>* result);
@@ -74,28 +74,28 @@ class ButteraugliComparator {
   const size_t res_ysize_;
 };
 
-float ButteraugliScoreFromDiffmap(const std::vector<float>& distmap);
+float butteraugliScoreFromDiffmap(const std::vector<float>& distmap);
 
 // Compute values of local frequency and dc masking based on the activity
 // in the two images.
-void Mask(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1, size_t xsize,
+void mask(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1, size_t xsize,
           size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc);
 
 // Computes difference metrics for one 8x8 block.
-void ButteraugliBlockDiff(double rgb0[192], double rgb1[192], double diff_xyb_dc[3], double diff_xyb_ac[3],
+void butteraugliBlockDiff(double rgb0[192], double rgb1[192], double diff_xyb_dc[3], double diff_xyb_ac[3],
                           double diff_xyb_edge_dc[3]);
 
-void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb);
+void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb);
 
-void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                              const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& rgb0,
                              std::vector<std::vector<float>>& rgb1);
 
-void Blur(size_t xsize, size_t ysize, float* channel, double sigma, double border_ratio = 0.0);
+void blur(size_t xsize, size_t ysize, float* channel, double sigma, double border_ratio = 0.0);
 
 // Also used by the optimized CPU implementation (backend/cpu/optimized_butteraugli.cpp).
-void ScaleImage(double scale, std::vector<float>* result);
-void Average5x5(int xsize, int ysize, std::vector<float>* diffs);
+void scaleImage(double scale, std::vector<float>* result);
+void average5x5(int xsize, int ysize, std::vector<float>* diffs);
 
 }  // namespace butteraugli
 

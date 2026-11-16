@@ -40,30 +40,30 @@ constexpr int kMinComparatorSize = 32;
 
 // Multiplies the coefficients by their quantizers, stores the quantizers in q_in and sets all
 // quantization tables to 1.
-void RemoveOriginalQuantization(JPEGData* jpg, int q_in[3][kDCTBlockSize]) {
+void removeOriginalQuantization(JpegData* jpg, int q_in[3][kDctBlockSize]) {
   for (int i = 0; i < 3; ++i) {
-    JPEGComponent& c = jpg->components[i];
+    JpegComponent& c = jpg->components[i];
     const int* q = &jpg->quant[c.quant_idx].values[0];
-    std::memcpy(&q_in[i][0], q, kDCTBlockSize * sizeof(q[0]));
+    std::memcpy(&q_in[i][0], q, kDctBlockSize * sizeof(q[0]));
     for (size_t j = 0; j < c.coeffs.size(); ++j) {
-      c.coeffs[j] *= q[j % kDCTBlockSize];
+      c.coeffs[j] *= q[j % kDctBlockSize];
     }
   }
-  int q[3][kDCTBlockSize];
+  int q[3][kDctBlockSize];
   for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < kDCTBlockSize; ++j) q[i][j] = 1;
-  SaveQuantTables(q, jpg);
+    for (int j = 0; j < kDctBlockSize; ++j) q[i][j] = 1;
+  saveQuantTables(q, jpg);
 }
 
 // False if a dequantized coefficient is out of the range the encoder supports.
-bool CheckJpegSanity(const JPEGData& jpg) {
-  const int kMaxComponent = 1 << 12;
-  for (const JPEGComponent& comp : jpg.components) {
-    const JPEGQuantTable& quant_table = jpg.quant[comp.quant_idx];
+bool checkJpegSanity(const JpegData& jpg) {
+  const int max_component = 1 << 12;
+  for (const JpegComponent& comp : jpg.components) {
+    const JpegQuantTable& quant_table = jpg.quant[comp.quant_idx];
     for (size_t i = 0; i < comp.coeffs.size(); i++) {
       coeff_t coeff = comp.coeffs[i];
-      int quant = quant_table.values[i % kDCTBlockSize];
-      if (std::abs(static_cast<int64_t>(coeff) * quant) > kMaxComponent) {
+      int quant = quant_table.values[i % kDctBlockSize];
+      if (std::abs(static_cast<int64_t>(coeff) * quant) > max_component) {
         return false;
       }
     }
@@ -71,9 +71,9 @@ bool CheckJpegSanity(const JPEGData& jpg) {
   return true;
 }
 
-bool IsGrayscale(const JPEGData& jpg) {
+bool isGrayscale(const JpegData& jpg) {
   for (int c = 1; c < 3; ++c) {
-    const JPEGComponent& comp = jpg.components[c];
+    const JpegComponent& comp = jpg.components[c];
     for (size_t i = 0; i < comp.coeffs.size(); ++i) {
       if (comp.coeffs[i] != 0) return false;
     }
@@ -81,13 +81,13 @@ bool IsGrayscale(const JPEGData& jpg) {
   return true;
 }
 
-void DownsampleImage(OutputImage* img, bool use_silver_screen) {
-  if (img->component(1).factor_x() > 1 || img->component(1).factor_y() > 1) {
+void downsampleImage(OutputImage* img, bool use_silver_screen) {
+  if (img->component(1).factorX() > 1 || img->component(1).factorY() > 1) {
     return;
   }
   OutputImage::DownsampleConfig cfg;
   cfg.use_silver_screen = use_silver_screen;
-  img->Downsample(cfg);
+  img->downsample(cfg);
 }
 
 }  // namespace
@@ -97,20 +97,20 @@ Encoder::Encoder(const EncoderParams& params, Backend& backend, ILogger& logger)
   stats_.logger = &logger;
 }
 
-std::optional<std::string> Encoder::encodeJpegData(const JPEGData& jpg_in, Comparator* comparator) {
+std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Comparator* comparator) {
   ProcessStats* stats = &stats_;
-  if (jpg_in.components.size() != 3 || !HasYCbCrColorSpace(jpg_in)) {
+  if (jpg_in.components.size() != 3 || !hasYCbCrColorSpace(jpg_in)) {
     logger_->log(LogLevel::Error, "Only YUV color space input jpeg is supported\n");
     return std::nullopt;
   }
   bool input_is_420;
-  if (jpg_in.Is444()) {
+  if (jpg_in.is444()) {
     input_is_420 = false;
-  } else if (jpg_in.Is420()) {
+  } else if (jpg_in.is420()) {
     input_is_420 = true;
   } else {
     std::string factors;
-    for (const JPEGComponent& comp : jpg_in.components) {
+    for (const JpegComponent& comp : jpg_in.components) {
       factors += " " + std::to_string(comp.h_samp_factor) + "x" + std::to_string(comp.v_samp_factor);
     }
     logger_->log(LogLevel::Error, "Unsupported sampling factors:%s\n", factors.c_str());
@@ -118,7 +118,7 @@ std::optional<std::string> Encoder::encodeJpegData(const JPEGData& jpg_in, Compa
   }
 
   OutputSelector selector(params_.clear_metadata, stats_);
-  int q_in[3][kDCTBlockSize];
+  int q_in[3][kDctBlockSize];
   // Output the original image, in case we do not manage to create anything
   // with a good enough quality.
   const std::string original = selector.serialize(jpg_in);
@@ -129,38 +129,38 @@ std::optional<std::string> Encoder::encodeJpegData(const JPEGData& jpg_in, Compa
     return original;
   }
   {
-    JPEGData jpg = jpg_in;
-    RemoveOriginalQuantization(&jpg, q_in);
+    JpegData jpg = jpg_in;
+    removeOriginalQuantization(&jpg, q_in);
     OutputImage img(jpg.width, jpg.height, *backend_->dct);
-    img.CopyFromJpegData(jpg);
-    comparator->Compare(img);
+    img.copyFromJpegData(jpg);
+    comparator->compare(img);
   }
   selector.offer(original, *comparator);
 
   QuantMatrixSearch quant_search(*comparator, selector, stats_);
   FrequencyMasking masking(params_, *backend_->block_zeroing, *comparator, selector, stats_);
-  const int try_420 = (input_is_420 || params_.force_420 || (params_.try_420 && !IsGrayscale(jpg_in))) ? 1 : 0;
+  const int try_420 = (input_is_420 || params_.force_420 || (params_.try_420 && !isGrayscale(jpg_in))) ? 1 : 0;
   const int force_420 = (input_is_420 || params_.force_420) ? 1 : 0;
   for (int downsample = force_420; downsample <= try_420; ++downsample) {
-    JPEGData jpg = jpg_in;
-    RemoveOriginalQuantization(&jpg, q_in);
+    JpegData jpg = jpg_in;
+    removeOriginalQuantization(&jpg, q_in);
     OutputImage img(jpg.width, jpg.height, *backend_->dct);
-    img.CopyFromJpegData(jpg);
+    img.copyFromJpegData(jpg);
     if (downsample) {
-      DownsampleImage(&img, params_.use_silver_screen);
-      img.SaveToJpegData(&jpg);
+      downsampleImage(&img, params_.use_silver_screen);
+      img.saveToJpegData(&jpg);
     }
-    int best_q[3][kDCTBlockSize];
+    int best_q[3][kDctBlockSize];
     std::memcpy(best_q, q_in, sizeof(best_q));
     if (!quant_search.run(jpg, downsample != 0, best_q, img)) {
       for (int c = 0; c < 3; ++c) {
-        for (int i = 0; i < kDCTBlockSize; ++i) {
+        for (int i = 0; i < kDctBlockSize; ++i) {
           best_q[c][i] = 1;
         }
       }
     }
-    img.CopyFromJpegData(jpg);
-    img.ApplyGlobalQuantization(best_q);
+    img.copyFromJpegData(jpg);
+    img.applyGlobalQuantization(best_q);
 
     if (!downsample) {
       masking.run(jpg, img, 7, 1.0, false);
@@ -174,7 +174,7 @@ std::optional<std::string> Encoder::encodeJpegData(const JPEGData& jpg_in, Compa
   return selector.takeBest();
 }
 
-std::optional<std::string> Encoder::encodeWithComparator(const JPEGData& jpg, const std::vector<uint8_t>& rgb) {
+std::optional<std::string> Encoder::encodeWithComparator(const JpegData& jpg, const std::vector<uint8_t>& rgb) {
   std::unique_ptr<Comparator> comparator;
   if (jpg.width >= kMinComparatorSize && jpg.height >= kMinComparatorSize) {
     comparator = backend_->comparators->create(jpg.width, jpg.height, &rgb, params_.butteraugli_target, &stats_);
@@ -183,16 +183,16 @@ std::optional<std::string> Encoder::encodeWithComparator(const JPEGData& jpg, co
 }
 
 std::optional<std::string> Encoder::encodeJpeg(const std::string& data) {
-  JPEGData jpg;
-  if (!ReadJpeg(data, JPEG_READ_ALL, &jpg)) {
+  JpegData jpg;
+  if (!readJpeg(data, JPEG_READ_ALL, &jpg)) {
     logger_->log(LogLevel::Error, "Can't read jpg data from input file\n");
     return std::nullopt;
   }
-  if (!CheckJpegSanity(jpg)) {
+  if (!checkJpegSanity(jpg)) {
     logger_->log(LogLevel::Error, "Unsupported input JPEG (unexpectedly large coefficient values).\n");
     return std::nullopt;
   }
-  std::vector<uint8_t> rgb = DecodeJpegToRGB(jpg, *backend_->dct);
+  std::vector<uint8_t> rgb = decodeJpegToRgb(jpg, *backend_->dct);
   if (rgb.empty()) {
     // Not something the encoder can take as coefficients: decode to pixels and encode those.
     std::optional<RgbImage> image = decodeJpegPixels(data, *logger_);
@@ -203,8 +203,8 @@ std::optional<std::string> Encoder::encodeJpeg(const std::string& data) {
 }
 
 std::optional<std::string> Encoder::encodeRgb(const std::vector<uint8_t>& rgb, int width, int height) {
-  JPEGData jpg;
-  if (!EncodeRGBToJpeg(rgb, width, height, &jpg)) {
+  JpegData jpg;
+  if (!encodeRgbToJpeg(rgb, width, height, &jpg)) {
     logger_->log(LogLevel::Error, "Could not create jpg data from rgb pixels\n");
     return std::nullopt;
   }

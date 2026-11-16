@@ -51,9 +51,9 @@ class GpuDctKernels {
 class GpuBlockZeroingKernel {
  public:
   virtual ~GpuBlockZeroingKernel() = default;
-  virtual void computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+  virtual void computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],
                                         const float* orig_image_batch, const float* mask_scale, int image_width,
-                                        int image_height, const channel_info mayout_channel[3], int factor,
+                                        int image_height, const ChannelInfo mayout_channel[3], int factor,
                                         int comp_mask, float block_error_limit) = 0;
 };
 

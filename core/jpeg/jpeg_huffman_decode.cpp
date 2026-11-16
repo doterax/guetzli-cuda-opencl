@@ -28,7 +28,7 @@ namespace guetzli {
 // Returns the table width of the next 2nd level table, count is the histogram
 // of bit lengths for the remaining symbols, len is the code length of the next
 // processed symbol.
-static inline int NextTableBitSize(const int* count, int len) {
+static inline int nextTableBitSize(const int* count, int len) {
   int left = 1 << (len - kJpegHuffmanRootTableBits);
   while (len < kJpegHuffmanMaxBitLength) {
     left -= count[len];
@@ -39,7 +39,7 @@ static inline int NextTableBitSize(const int* count, int len) {
   return len - kJpegHuffmanRootTableBits;
 }
 
-int BuildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableEntry* lut) {
+int buildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableEntry* lut) {
   HuffmanTableEntry code;    // current table entry
   HuffmanTableEntry* table;  // next available space in table
   int len;                   // current code length
@@ -97,7 +97,7 @@ int BuildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableE
       // Start a new sub-table if the previous one is full.
       if (low >= table_size) {
         table += table_size;
-        table_bits = NextTableBitSize(count, len);
+        table_bits = nextTableBitSize(count, len);
         table_size = 1 << table_bits;
         total_size += table_size;
         low = 0;

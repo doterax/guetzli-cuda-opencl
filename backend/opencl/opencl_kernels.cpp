@@ -27,7 +27,7 @@ size_t roundUp(size_t v, size_t m) {
   return (v + m - 1) / m * m;
 }
 
-void MakeMask(float extmul, float extoff, float mul, float offset, float scaler, float* result) {
+void makeMask(float extmul, float extoff, float mul, float offset, float scaler, float* result) {
   for (size_t i = 0; i < 512; ++i) {
     const float c = mul / ((0.01 * scaler * i) + offset);
     result[i] = 1.0 + extmul * (c + extoff);
@@ -124,11 +124,11 @@ void OpenClKernels::opsinDynamicsImage(float* r, float* g, float* b, const unsig
   CL_CHECK(clFinish(ocl.queue()));
 }
 
-void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],
                                              const float* orig_image_batch, const float* mask_scale,
                                              const int image_width, const int image_height,
-                                             const channel_info mayout_channel[3], const int factor,
-                                             const int comp_mask, const float BlockErrorLimit) {
+                                             const ChannelInfo mayout_channel[3], const int factor, const int comp_mask,
+                                             const float block_error_limit) {
   // Validate factor to prevent division by zero
   if (factor <= 0) {
     logger_.log(LogLevel::Info, "Error: factor is %d, must be > 0. Skipping clComputeBlockZeroingOrder.\n", factor);
@@ -142,13 +142,13 @@ void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, cons
 
   OpenClContext& ocl = context();
 
-  size_t orig_image_size = sizeof(float) * 3 * kDCTBlockSize * block8_width * block8_height;
+  size_t orig_image_size = sizeof(float) * 3 * kDctBlockSize * block8_width * block8_height;
   ClBuffer mem_orig_image = ocl.upload(orig_image_size, orig_image_batch);
 
   size_t mask_scale_size = sizeof(float) * 3 * block8_width * block8_height;
   ClBuffer mem_mask_scale = ocl.upload(mask_scale_size, mask_scale);
 
-  size_t output_order_batch_size = sizeof(CoeffData) * 3 * kDCTBlockSize * blockf_width * blockf_height;
+  size_t output_order_batch_size = sizeof(CoeffData) * 3 * kDctBlockSize * blockf_width * blockf_height;
   // Zero-filled (the kernel writes only each block's valid entries).
   ClBuffer mem_output_order_batch = ocl.zeroed(output_order_batch_size);
 
@@ -157,11 +157,11 @@ void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, cons
   ClBuffer mem_mayout_pixel[3];
   for (int c = 0; c < 3; c++) {
     int block_count = orig_channel[c].block_width * orig_channel[c].block_height;
-    size_t orig_coeff_size = block_count * sizeof(::coeff_t) * kDCTBlockSize;
+    size_t orig_coeff_size = block_count * sizeof(::coeff_t) * kDctBlockSize;
     mem_orig_coeff[c] = ocl.upload(orig_coeff_size, orig_channel[c].coeff);
 
     block_count = mayout_channel[c].block_width * mayout_channel[c].block_height;
-    size_t mayout_coeff_size = block_count * sizeof(::coeff_t) * kDCTBlockSize;
+    size_t mayout_coeff_size = block_count * sizeof(::coeff_t) * kDctBlockSize;
     mem_mayout_coeff[c] = ocl.upload(mayout_coeff_size, mayout_channel[c].coeff);
 
     size_t mayout_pixel_size = image_width * image_height * sizeof(uint16_t);
@@ -177,7 +177,7 @@ void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, cons
                 &mayout_channel[0].factor, &mayout_channel[1].factor, &mayout_channel[2].factor,
                 &mayout_channel[0].block_width, &mayout_channel[1].block_width, &mayout_channel[2].block_width,
                 &mayout_channel[0].block_height, &mayout_channel[1].block_height, &mayout_channel[2].block_height,
-                &factor, &comp_mask, &BlockErrorLimit, &mem_output_order_batch.get());
+                &factor, &comp_mask, &block_error_limit, &mem_output_order_batch.get());
 
   // Heavy per-thread state limits occupancy anyway: one-warp groups so small
   // images (few blocks) still spread across all compute units.
@@ -214,7 +214,7 @@ void OpenClKernels::mask(float* mask_r, float* mask_g, float* mask_b, float* mas
   CL_CHECK(clFinish(ocl.queue()));
 }
 
-void OpenClKernels::diffmapOpsinDynamicsImage(cl_mem result, ocl_channels xyb0, ocl_channels xyb1,
+void OpenClKernels::diffmapOpsinDynamicsImage(cl_mem result, OclChannels xyb0, OclChannels xyb1,
                                               const unsigned int xsize, const unsigned int ysize,
                                               const unsigned int step) {
   const size_t res_xsize = (xsize + step - 1) / step;
@@ -334,7 +334,7 @@ void OpenClKernels::blur(cl_mem image, const unsigned int xsize, const unsigned 
   }
 }
 
-void OpenClKernels::opsinDynamicsOnDevice(const ocl_channels& rgb, const unsigned int xsize, const unsigned int ysize) {
+void OpenClKernels::opsinDynamicsOnDevice(const OclChannels& rgb, const unsigned int xsize, const unsigned int ysize) {
   static const float kSigma = 1.1;
   const size_t size = xsize * ysize;
   size_t channel_size = size * sizeof(float);
@@ -343,7 +343,7 @@ void OpenClKernels::opsinDynamicsOnDevice(const ocl_channels& rgb, const unsigne
 
   // Fully overwritten by the blurs.
   ClChannels blurred_buffers = ocl.uninitializedChannels(channel_size);
-  const ocl_channels blurred = blurred_buffers.view();
+  const OclChannels blurred = blurred_buffers.view();
 
   blur(rgb.r, xsize, ysize, kSigma, 0.0, blurred.r);
   blur(rgb.g, xsize, ysize, kSigma, 0.0, blurred.g);
@@ -357,7 +357,7 @@ void OpenClKernels::opsinDynamicsOnDevice(const ocl_channels& rgb, const unsigne
   enqueueRange1D(kernel, size);
 }
 
-void OpenClKernels::maskHighIntensityChange(const ocl_channels& xyb0 /*in,out*/, const ocl_channels& xyb1 /*in,out*/,
+void OpenClKernels::maskHighIntensityChange(const OclChannels& xyb0 /*in,out*/, const OclChannels& xyb1 /*in,out*/,
                                             const unsigned int xsize, const unsigned int ysize) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
@@ -365,8 +365,8 @@ void OpenClKernels::maskHighIntensityChange(const ocl_channels& xyb0 /*in,out*/,
 
   ClChannels c0_buffers = ocl.uninitializedChannels(channel_size);  // full copies below
   ClChannels c1_buffers = ocl.uninitializedChannels(channel_size);
-  const ocl_channels c0 = c0_buffers.view();
-  const ocl_channels c1 = c1_buffers.view();
+  const OclChannels c0 = c0_buffers.view();
+  const OclChannels c1 = c1_buffers.view();
 
   CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.r, c0.r, 0, 0, channel_size, 0, NULL, NULL));
   CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.g, c0.g, 0, 0, channel_size, 0, NULL, NULL));
@@ -382,7 +382,7 @@ void OpenClKernels::maskHighIntensityChange(const ocl_channels& xyb0 /*in,out*/,
   enqueueRange2D(kernel, xsize, ysize);
 }
 
-void OpenClKernels::edgeDetectorMap(cl_mem result /*out*/, const ocl_channels& rgb, const ocl_channels& rgb2,
+void OpenClKernels::edgeDetectorMap(cl_mem result /*out*/, const OclChannels& rgb, const OclChannels& rgb2,
                                     const unsigned int xsize, const unsigned int ysize, const unsigned int step) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
@@ -390,8 +390,8 @@ void OpenClKernels::edgeDetectorMap(cl_mem result /*out*/, const ocl_channels& r
 
   ClChannels rgb_blured_buffers = ocl.uninitializedChannels(channel_size);  // fully written by the blurs
   ClChannels rgb2_blured_buffers = ocl.uninitializedChannels(channel_size);
-  const ocl_channels rgb_blured = rgb_blured_buffers.view();
-  const ocl_channels rgb2_blured = rgb2_blured_buffers.view();
+  const OclChannels rgb_blured = rgb_blured_buffers.view();
+  const OclChannels rgb2_blured = rgb2_blured_buffers.view();
 
   static const float kSigma[3] = {1.5, 0.586, 0.4};
 
@@ -410,8 +410,8 @@ void OpenClKernels::edgeDetectorMap(cl_mem result /*out*/, const ocl_channels& r
   enqueueRange2D(kernel, res_xsize, res_ysize);
 }
 
-void OpenClKernels::blockDiffMap(cl_mem block_diff_dc /*out*/, cl_mem block_diff_ac /*out*/, const ocl_channels& rgb,
-                                 const ocl_channels& rgb2, const unsigned int xsize, const unsigned int ysize,
+void OpenClKernels::blockDiffMap(cl_mem block_diff_dc /*out*/, cl_mem block_diff_ac /*out*/, const OclChannels& rgb,
+                                 const OclChannels& rgb2, const unsigned int xsize, const unsigned int ysize,
                                  const unsigned int step) {
   const size_t res_xsize = (xsize + step - 1) / step;
   const size_t res_ysize = (ysize + step - 1) / step;
@@ -423,8 +423,8 @@ void OpenClKernels::blockDiffMap(cl_mem block_diff_dc /*out*/, cl_mem block_diff
   enqueueRange2D(kernel, res_xsize, res_ysize);
 }
 
-void OpenClKernels::edgeDetectorLowFreq(cl_mem block_diff_ac /*in,out*/, const ocl_channels& rgb,
-                                        const ocl_channels& rgb2, const unsigned int xsize, const unsigned int ysize,
+void OpenClKernels::edgeDetectorLowFreq(cl_mem block_diff_ac /*in,out*/, const OclChannels& rgb,
+                                        const OclChannels& rgb2, const unsigned int xsize, const unsigned int ysize,
                                         const unsigned int step) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
@@ -432,8 +432,8 @@ void OpenClKernels::edgeDetectorLowFreq(cl_mem block_diff_ac /*in,out*/, const o
   OpenClContext& ocl = context();
   ClChannels rgb_blured_buffers = ocl.uninitializedChannels(channel_size);  // fully written by the blurs
   ClChannels rgb2_blured_buffers = ocl.uninitializedChannels(channel_size);
-  const ocl_channels rgb_blured = rgb_blured_buffers.view();
-  const ocl_channels rgb2_blured = rgb2_blured_buffers.view();
+  const OclChannels rgb_blured = rgb_blured_buffers.view();
+  const OclChannels rgb2_blured = rgb2_blured_buffers.view();
 
   for (int i = 0; i < 3; i++) {
     blur(rgb.ch[i], xsize, ysize, kSigma, 0.0, rgb_blured.ch[i]);
@@ -450,7 +450,7 @@ void OpenClKernels::edgeDetectorLowFreq(cl_mem block_diff_ac /*in,out*/, const o
   enqueueRange2D(kernel, res_xsize, res_ysize);
 }
 
-void OpenClKernels::diffPrecompute(const ocl_channels& mask /*out*/, const ocl_channels& xyb0, const ocl_channels& xyb1,
+void OpenClKernels::diffPrecompute(const OclChannels& mask /*out*/, const OclChannels& xyb0, const OclChannels& xyb1,
                                    const unsigned int xsize, const unsigned int ysize) {
   cl_kernel kernel = context().kernel(KERNEL_DIFFPRECOMPUTE);
   setKernelArgs(kernel, &mask.x, &mask.y, &mask.b, &xsize, &ysize, &xyb0.x, &xyb0.y, &xyb0.b, &xyb1.x, &xyb1.y,
@@ -499,19 +499,18 @@ void OpenClKernels::minSquareVal(cl_mem img /*in,out*/, const unsigned int xsize
   CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), result.get(), img, 0, 0, sizeof(cl_float) * xsize * ysize, 0, NULL, NULL));
 }
 
-void OpenClKernels::doMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /*in, out*/, size_t xsize,
-                           size_t ysize) {
+void OpenClKernels::doMask(OclChannels mask /*in, out*/, OclChannels mask_dc /*in, out*/, size_t xsize, size_t ysize) {
   OpenClContext& ocl = context();
 
   // Constant LUTs: computed and uploaded once per context, kept on the device.
   const auto lut = [&ocl](int i, float extmul, float extoff, float offset, float scaler, float mul) {
     return ocl.constants().maskLut(i, [&] {
       float table[512];
-      MakeMask(extmul, extoff, mul, offset, scaler, table);
+      makeMask(extmul, extoff, mul, offset, scaler, table);
       return ocl.uploadMemory(sizeof(table), table);
     });
   };
-  ocl_channels xyb, xyb_dc;
+  OclChannels xyb, xyb_dc;
   xyb.ch[0] = lut(0, 0.975741017749, -4.25328244168, 0.454909521427, 0.0738288224836, 20.8029176447);
   xyb.ch[1] = lut(1, 0.373995618954, 1.5307267433, 0.911952641929, 1.1731667845, 16.2447033988);
   xyb.ch[2] = lut(2, 0.61582234137, -4.25376118646, 1.05105070921, 0.47434643535, 31.1444967089);
@@ -526,20 +525,20 @@ void OpenClKernels::doMask(ocl_channels mask /*in, out*/, ocl_channels mask_dc /
   enqueueRange2D(kernel, xsize, ysize);
 }
 
-void OpenClKernels::maskOnDevice(ocl_channels mask /*out*/, ocl_channels mask_dc /*out*/, const ocl_channels& rgb,
-                                 const ocl_channels& rgb2, const unsigned int xsize, const unsigned int ysize) {
+void OpenClKernels::maskOnDevice(OclChannels mask /*out*/, OclChannels mask_dc /*out*/, const OclChannels& rgb,
+                                 const OclChannels& rgb2, const unsigned int xsize, const unsigned int ysize) {
   diffPrecompute(mask, rgb, rgb2, xsize, ysize);
   for (int i = 0; i < 3; i++) {
     average5x5(mask.ch[i], xsize, ysize);
     minSquareVal(mask.ch[i], xsize, ysize, 4, 0);
 
-    static const float sigma[3] = {
+    static const float kSigma[3] = {
         9.65781083553,
         14.2644604355,
         4.53358927369,
     };
 
-    blur(mask.ch[i], xsize, ysize, sigma[i], 0.0, mask.ch[i]);
+    blur(mask.ch[i], xsize, ysize, kSigma[i], 0.0, mask.ch[i]);
   }
 
   doMask(mask, mask_dc, xsize, ysize);
@@ -550,7 +549,7 @@ void OpenClKernels::maskOnDevice(ocl_channels mask /*out*/, ocl_channels mask_dc
   }
 }
 
-void OpenClKernels::combineChannels(cl_mem result /*out*/, const ocl_channels& mask, const ocl_channels& mask_dc,
+void OpenClKernels::combineChannels(cl_mem result /*out*/, const OclChannels& mask, const OclChannels& mask_dc,
                                     const unsigned int xsize, const unsigned int ysize, const cl_mem block_diff_dc,
                                     const cl_mem block_diff_ac, const cl_mem edge_detector_map,
                                     const unsigned int res_xsize, const unsigned int step) {
@@ -611,8 +610,8 @@ void OpenClKernels::calculateDiffmap(cl_mem diffmap /*in,out*/, const unsigned i
   upsampleSquareRoot(diffmap, xsize, ysize, step);
 
   static const float kSigma = 8.8510880283;
-  static const float mul1 = 24.8235314874;
-  static const float scale = 1.0 / (1.0 + mul1);
+  static const float kMul1 = 24.8235314874;
+  static const float kScale = 1.0 / (1.0 + kMul1);
 
   const int s = 8 - step;
 
@@ -621,11 +620,11 @@ void OpenClKernels::calculateDiffmap(cl_mem diffmap /*in,out*/, const unsigned i
   ClBuffer blurred = ocl.uninitialized(blurred_size);  // RemoveBorder writes every element
   removeBorder(blurred.get(), diffmap, xsize, ysize, step);
 
-  static const float border_ratio = 0.03027655136;
-  blur(blurred.get(), xsize - s, ysize - s, kSigma, border_ratio, blurred.get());
+  static const float kBorderRatio = 0.03027655136;
+  blur(blurred.get(), xsize - s, ysize - s, kSigma, kBorderRatio, blurred.get());
 
   addBorder(diffmap, xsize, ysize, step, blurred.get());
-  scaleImage(diffmap, xsize * ysize, scale);
+  scaleImage(diffmap, xsize * ysize, kScale);
 }
 
 void OpenClKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint8_t* output_idct /*out*/,
@@ -636,16 +635,16 @@ void OpenClKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint
   OpenClContext& ocl = context();
 
   int src_block_count = jpeg_block_width * jpeg_block_height;
-  size_t src_coeff_size = src_block_count * sizeof(::coeff_t) * kDCTBlockSize;
+  size_t src_coeff_size = src_block_count * sizeof(::coeff_t) * kDctBlockSize;
   ClBuffer src_coeff = ocl.upload(src_coeff_size, jpeg_batch);
 
-  size_t dst_coeff_size = output_block_width * output_block_height * sizeof(::coeff_t) * kDCTBlockSize;
+  size_t dst_coeff_size = output_block_width * output_block_height * sizeof(::coeff_t) * kDctBlockSize;
   ClBuffer dst_coeff = ocl.upload(dst_coeff_size, output_batch);
 
-  size_t dst_idct_size = output_block_width * output_block_height * sizeof(uint8_t) * kDCTBlockSize;
+  size_t dst_idct_size = output_block_width * output_block_height * sizeof(uint8_t) * kDctBlockSize;
   ClBuffer dst_idct = ocl.upload(dst_idct_size, output_idct);
 
-  size_t src_quant_size = kDCTBlockSize * sizeof(int);
+  size_t src_quant_size = kDctBlockSize * sizeof(int);
   ClBuffer src_quant = ocl.upload(src_quant_size, quant);
 
   cl_kernel kernel = ocl.kernel(KERNEL_COPYFROMJPEGCOMPONENT);
@@ -664,16 +663,16 @@ void OpenClKernels::applyGlobalQuantization(coeff_t* output_batch /*in,out*/, ui
                                             const int block_height) {
   OpenClContext& ocl = context();
 
-  size_t dst_coeff_size = block_width * block_height * sizeof(::coeff_t) * kDCTBlockSize;
+  size_t dst_coeff_size = block_width * block_height * sizeof(::coeff_t) * kDctBlockSize;
   ClBuffer dst_coeff = ocl.upload(dst_coeff_size, output_batch);
 
-  size_t dst_idct_size = block_width * block_height * sizeof(uint8_t) * kDCTBlockSize;
+  size_t dst_idct_size = block_width * block_height * sizeof(uint8_t) * kDctBlockSize;
   ClBuffer dst_idct = ocl.upload(dst_idct_size, output_idct);
 
   size_t dst_bool_size = block_width * block_height * sizeof(uchar);
   ClBuffer dst_bool = ocl.upload(dst_bool_size, output_bool);
 
-  size_t src_q_size = kDCTBlockSize * sizeof(int);
+  size_t src_q_size = kDctBlockSize * sizeof(int);
   ClBuffer src_q = ocl.upload(src_q_size, q);
 
   cl_kernel kernel = ocl.kernel(KERNEL_APPLYGLOBALQUANTIZATION);
@@ -757,7 +756,7 @@ std::unique_ptr<GpuCompareSession> OpenClKernels::startCompare(const float* r, c
   return std::make_unique<CompareSession>(*this, context().uploadChannels(channel_size, r, g, b), xsize, ysize);
 }
 
-void OpenClKernels::compare(const ocl_channels& ref, const int xsize, const int ysize, const OutputImage& img, int step,
+void OpenClKernels::compare(const OclChannels& ref, const int xsize, const int ysize, const OutputImage& img, int step,
                             float* distmap /*out*/) {
   OpenClContext& ocl = context();
 
@@ -785,10 +784,10 @@ void OpenClKernels::compare(const ocl_channels& ref, const int xsize, const int 
     componentsToPixelsDevice(srgb.get(), pixel_mems, 0, 0, xsize, ysize, comps);
 
     xyb1_buffers = ocl.uninitializedChannels(channel_size);
-    const ocl_channels xyb1 = xyb1_buffers.view();
+    const OclChannels xyb1 = xyb1_buffers.view();
     // Same values as OutputImage::ToLinearRGB (the double table cast to float).
     cl_mem lut = ocl.constants().srgbToLinear([&] {
-      const double* table = Srgb8ToLinearTable();
+      const double* table = srgb8ToLinearTable();
       float lut_f[256];
       for (int i = 0; i < 256; i++) lut_f[i] = static_cast<float>(table[i]);
       return ocl.uploadMemory(sizeof(lut_f), lut_f);
@@ -798,11 +797,11 @@ void OpenClKernels::compare(const ocl_channels& ref, const int xsize, const int 
     enqueueRange1D(kernel, size);
   }
 
-  const ocl_channels xyb1 = xyb1_buffers.view();
+  const OclChannels xyb1 = xyb1_buffers.view();
 
   // 2. Reference stays resident; the diffmap mutates its input, so work on a copy.
   ClChannels xyb0_buffers = ocl.uninitializedChannels(channel_size);
-  const ocl_channels xyb0 = xyb0_buffers.view();
+  const OclChannels xyb0 = xyb0_buffers.view();
   for (int c = 0; c < 3; ++c) {
     CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), ref.ch[c], xyb0.ch[c], 0, 0, channel_size, 0, NULL, NULL));
   }

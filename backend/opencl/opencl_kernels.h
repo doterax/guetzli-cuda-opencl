@@ -43,9 +43,9 @@ class OpenClKernels final : public GpuKernels {
   void componentsToPixels(uint8_t* rgb, int xmin, int ymin, int xsize, int ysize,
                           const std::vector<OutputImageComponent>& components) override;
 
-  void computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+  void computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, int image_width,
-                                int image_height, const channel_info mayout_channel[3], int factor, int comp_mask,
+                                int image_height, const ChannelInfo mayout_channel[3], int factor, int comp_mask,
                                 float block_error_limit) override;
 
  private:
@@ -56,7 +56,7 @@ class OpenClKernels final : public GpuKernels {
   // Launchers of the butteraugli pipeline on device buffers.
   void enqueueRange2D(cl_kernel kernel, size_t w, size_t h, size_t lx = 16, size_t ly = 16);
   void enqueueRange1D(cl_kernel kernel, size_t n, size_t l = 256);
-  void diffmapOpsinDynamicsImage(cl_mem result, ocl_channels xyb0, ocl_channels xyb1, unsigned int xsize,
+  void diffmapOpsinDynamicsImage(cl_mem result, OclChannels xyb0, OclChannels xyb1, unsigned int xsize,
                                  unsigned int ysize, unsigned int step);
   cl_mem convolutionScale(cl_mem multipliers, int len, int n, int step, int offset, float border_ratio);
   void convolutionX(cl_mem result, cl_mem inp, unsigned int xsize, unsigned int ysize, cl_mem multipliers,
@@ -66,24 +66,24 @@ class OpenClKernels final : public GpuKernels {
   void squareSample(cl_mem result, cl_mem image, unsigned int xsize, unsigned int ysize, unsigned int xstep,
                     unsigned int ystep);
   void blur(cl_mem image, unsigned int xsize, unsigned int ysize, float sigma, float border_ratio, cl_mem result);
-  void opsinDynamicsOnDevice(const ocl_channels& rgb, unsigned int xsize, unsigned int ysize);
-  void maskHighIntensityChange(const ocl_channels& xyb0, const ocl_channels& xyb1, unsigned int xsize,
+  void opsinDynamicsOnDevice(const OclChannels& rgb, unsigned int xsize, unsigned int ysize);
+  void maskHighIntensityChange(const OclChannels& xyb0, const OclChannels& xyb1, unsigned int xsize,
                                unsigned int ysize);
-  void edgeDetectorMap(cl_mem result, const ocl_channels& rgb, const ocl_channels& rgb2, unsigned int xsize,
+  void edgeDetectorMap(cl_mem result, const OclChannels& rgb, const OclChannels& rgb2, unsigned int xsize,
                        unsigned int ysize, unsigned int step);
-  void blockDiffMap(cl_mem block_diff_dc, cl_mem block_diff_ac, const ocl_channels& rgb, const ocl_channels& rgb2,
+  void blockDiffMap(cl_mem block_diff_dc, cl_mem block_diff_ac, const OclChannels& rgb, const OclChannels& rgb2,
                     unsigned int xsize, unsigned int ysize, unsigned int step);
-  void edgeDetectorLowFreq(cl_mem block_diff_ac, const ocl_channels& rgb, const ocl_channels& rgb2, unsigned int xsize,
+  void edgeDetectorLowFreq(cl_mem block_diff_ac, const OclChannels& rgb, const OclChannels& rgb2, unsigned int xsize,
                            unsigned int ysize, unsigned int step);
-  void diffPrecompute(const ocl_channels& mask, const ocl_channels& xyb0, const ocl_channels& xyb1, unsigned int xsize,
+  void diffPrecompute(const OclChannels& mask, const OclChannels& xyb0, const OclChannels& xyb1, unsigned int xsize,
                       unsigned int ysize);
   void scaleImage(cl_mem img, unsigned int size, float w);
   void average5x5(cl_mem img, unsigned int xsize, unsigned int ysize);
   void minSquareVal(cl_mem img, unsigned int xsize, unsigned int ysize, unsigned int square_size, unsigned int offset);
-  void doMask(ocl_channels mask, ocl_channels mask_dc, size_t xsize, size_t ysize);
-  void maskOnDevice(ocl_channels mask, ocl_channels mask_dc, const ocl_channels& rgb, const ocl_channels& rgb2,
+  void doMask(OclChannels mask, OclChannels mask_dc, size_t xsize, size_t ysize);
+  void maskOnDevice(OclChannels mask, OclChannels mask_dc, const OclChannels& rgb, const OclChannels& rgb2,
                     unsigned int xsize, unsigned int ysize);
-  void combineChannels(cl_mem result, const ocl_channels& mask, const ocl_channels& mask_dc, unsigned int xsize,
+  void combineChannels(cl_mem result, const OclChannels& mask, const OclChannels& mask_dc, unsigned int xsize,
                        unsigned int ysize, cl_mem block_diff_dc, cl_mem block_diff_ac, cl_mem edge_detector_map,
                        unsigned int res_xsize, unsigned int step);
   void upsampleSquareRoot(cl_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
@@ -92,7 +92,7 @@ class OpenClKernels final : public GpuKernels {
   void calculateDiffmap(cl_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
   void componentsToPixelsDevice(cl_mem out, const cl_mem pixels[3], int xmin, int ymin, int xsize, int ysize,
                                 const OutputImageComponent* const components[3]);
-  void compare(const ocl_channels& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap);
+  void compare(const OclChannels& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap);
 
   GpuOptions options_;
   ILogger& logger_;

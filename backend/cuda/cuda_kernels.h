@@ -44,9 +44,9 @@ class CudaKernels final : public GpuKernels {
   void componentsToPixels(uint8_t* rgb, int xmin, int ymin, int xsize, int ysize,
                           const std::vector<OutputImageComponent>& components) override;
 
-  void computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+  void computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],
                                 const float* orig_image_batch, const float* mask_scale, int image_width,
-                                int image_height, const channel_info mayout_channel[3], int factor, int comp_mask,
+                                int image_height, const ChannelInfo mayout_channel[3], int factor, int comp_mask,
                                 float block_error_limit) override;
 
  private:
@@ -56,7 +56,7 @@ class CudaKernels final : public GpuKernels {
   void createContext(const CudaDriver& driver);
 
   // Launchers of the butteraugli pipeline on device buffers.
-  void diffmapOpsinDynamicsImage(cu_mem result, ocu_channels xyb0, ocu_channels xyb1, unsigned int xsize,
+  void diffmapOpsinDynamicsImage(cu_mem result, OcuChannels xyb0, OcuChannels xyb1, unsigned int xsize,
                                  unsigned int ysize, unsigned int step);
   cu_mem convolutionScale(cu_mem multipliers, int len, int n, int step, int offset, float border_ratio);
   void convolutionX(cu_mem result, cu_mem inp, unsigned int xsize, unsigned int ysize, cu_mem multipliers,
@@ -67,24 +67,24 @@ class CudaKernels final : public GpuKernels {
                     unsigned int ystep);
   // result == 0: in place.
   void blur(cu_mem image, unsigned int xsize, unsigned int ysize, float sigma, float border_ratio, cu_mem result = 0);
-  void opsinDynamicsOnDevice(const ocu_channels& rgb, unsigned int xsize, unsigned int ysize);
-  void maskHighIntensityChange(const ocu_channels& xyb0, const ocu_channels& xyb1, unsigned int xsize,
+  void opsinDynamicsOnDevice(const OcuChannels& rgb, unsigned int xsize, unsigned int ysize);
+  void maskHighIntensityChange(const OcuChannels& xyb0, const OcuChannels& xyb1, unsigned int xsize,
                                unsigned int ysize);
-  void edgeDetectorMap(cu_mem result, const ocu_channels& rgb, const ocu_channels& rgb2, unsigned int xsize,
+  void edgeDetectorMap(cu_mem result, const OcuChannels& rgb, const OcuChannels& rgb2, unsigned int xsize,
                        unsigned int ysize, unsigned int step);
-  void blockDiffMap(cu_mem block_diff_dc, cu_mem block_diff_ac, const ocu_channels& rgb, const ocu_channels& rgb2,
+  void blockDiffMap(cu_mem block_diff_dc, cu_mem block_diff_ac, const OcuChannels& rgb, const OcuChannels& rgb2,
                     unsigned int xsize, unsigned int ysize, unsigned int step);
-  void edgeDetectorLowFreq(cu_mem block_diff_ac, const ocu_channels& rgb, const ocu_channels& rgb2, unsigned int xsize,
+  void edgeDetectorLowFreq(cu_mem block_diff_ac, const OcuChannels& rgb, const OcuChannels& rgb2, unsigned int xsize,
                            unsigned int ysize, unsigned int step);
-  void diffPrecompute(const ocu_channels& mask, const ocu_channels& xyb0, const ocu_channels& xyb1, unsigned int xsize,
+  void diffPrecompute(const OcuChannels& mask, const OcuChannels& xyb0, const OcuChannels& xyb1, unsigned int xsize,
                       unsigned int ysize);
   void scaleImage(cu_mem img, unsigned int size, float w);
   void average5x5(cu_mem img, unsigned int xsize, unsigned int ysize);
   void minSquareVal(cu_mem img, unsigned int xsize, unsigned int ysize, unsigned int square_size, unsigned int offset);
-  void doMask(ocu_channels mask, ocu_channels mask_dc, unsigned int xsize, unsigned int ysize);
-  void maskOnDevice(ocu_channels mask, ocu_channels mask_dc, const ocu_channels& rgb, const ocu_channels& rgb2,
+  void doMask(OcuChannels mask, OcuChannels mask_dc, unsigned int xsize, unsigned int ysize);
+  void maskOnDevice(OcuChannels mask, OcuChannels mask_dc, const OcuChannels& rgb, const OcuChannels& rgb2,
                     unsigned int xsize, unsigned int ysize);
-  void combineChannels(cu_mem result, const ocu_channels& mask, const ocu_channels& mask_dc, unsigned int xsize,
+  void combineChannels(cu_mem result, const OcuChannels& mask, const OcuChannels& mask_dc, unsigned int xsize,
                        unsigned int ysize, cu_mem block_diff_dc, cu_mem block_diff_ac, cu_mem edge_detector_map,
                        unsigned int res_xsize, unsigned int step);
   void upsampleSquareRoot(cu_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
@@ -93,7 +93,7 @@ class CudaKernels final : public GpuKernels {
   void calculateDiffmap(cu_mem diffmap, unsigned int xsize, unsigned int ysize, int step);
   void componentsToPixelsDevice(cu_mem out, const cu_mem pixels[3], int xmin, int ymin, int xsize, int ysize,
                                 const OutputImageComponent* const components[3]);
-  void compare(const ocu_channels& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap);
+  void compare(const OcuChannels& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap);
 
   GpuOptions options_;
   ILogger& logger_;

@@ -23,36 +23,36 @@ struct CudaDriver {
   // driver while it may still run threads is not safe.
   [[nodiscard]] static std::optional<CudaDriver> load(ILogger& logger);
 
-  CUresult(CUDAAPI* init)(unsigned int Flags) = nullptr;
-  CUresult(CUDAAPI* ctxCreate)(CUcontext* pctx, unsigned int flags, CUdevice dev) = nullptr;
-  CUresult(CUDAAPI* ctxDestroy)(CUcontext ctx) = nullptr;
-  CUresult(CUDAAPI* ctxSetCacheConfig)(CUfunc_cache config) = nullptr;
-  CUresult(CUDAAPI* deviceGetAttribute)(int* pi, CUdevice_attribute attrib, CUdevice dev) = nullptr;
-  CUresult(CUDAAPI* deviceGetCount)(int* count) = nullptr;
-  CUresult(CUDAAPI* deviceGet)(CUdevice* device, int ordinal) = nullptr;
-  CUresult(CUDAAPI* deviceGetName)(char* name, int len, CUdevice dev) = nullptr;
-  CUresult(CUDAAPI* memAlloc)(CUdeviceptr* dptr, size_t bytesize) = nullptr;
-  CUresult(CUDAAPI* memFree)(CUdeviceptr dptr) = nullptr;
-  CUresult(CUDAAPI* memcpyDtoH)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount) = nullptr;
-  CUresult(CUDAAPI* memcpyDtoHAsync)(void* dstHost, CUdeviceptr srcDevice, size_t ByteCount,
-                                     CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* memcpyHtoDAsync)(CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount,
-                                     CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* memcpyDtoD)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount) = nullptr;
-  CUresult(CUDAAPI* memcpyDtoDAsync)(CUdeviceptr dstDevice, CUdeviceptr srcDevice, size_t ByteCount,
-                                     CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* memsetD8Async)(CUdeviceptr dstDevice, unsigned char uc, size_t N, CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* moduleLoadDataEx)(CUmodule* module, const void* image, unsigned int numOptions,
-                                      CUjit_option* options, void** optionValues) = nullptr;
-  CUresult(CUDAAPI* moduleUnload)(CUmodule hmod) = nullptr;
-  CUresult(CUDAAPI* moduleGetFunction)(CUfunction* hfunc, CUmodule hmod, const char* name) = nullptr;
-  CUresult(CUDAAPI* streamCreate)(CUstream* phStream, unsigned int Flags) = nullptr;
-  CUresult(CUDAAPI* streamSynchronize)(CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* streamDestroy)(CUstream hStream) = nullptr;
-  CUresult(CUDAAPI* launchKernel)(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
-                                  unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
-                                  unsigned int sharedMemBytes, CUstream hStream, void** kernelParams,
-                                  void** extra) = nullptr;
+  CUresult(CUDAAPI* init)(unsigned int flags) = nullptr;
+  CUresult(CUDAAPI* ctx_create)(CUcontext* pctx, unsigned int flags, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* ctx_destroy)(CUcontext ctx) = nullptr;
+  CUresult(CUDAAPI* ctx_set_cache_config)(CUfunc_cache config) = nullptr;
+  CUresult(CUDAAPI* device_get_attribute)(int* pi, CUdevice_attribute attrib, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* device_get_count)(int* count) = nullptr;
+  CUresult(CUDAAPI* device_get)(CUdevice* device, int ordinal) = nullptr;
+  CUresult(CUDAAPI* device_get_name)(char* name, int len, CUdevice dev) = nullptr;
+  CUresult(CUDAAPI* mem_alloc)(CUdeviceptr* dptr, size_t bytesize) = nullptr;
+  CUresult(CUDAAPI* mem_free)(CUdeviceptr dptr) = nullptr;
+  CUresult(CUDAAPI* memcpy_dtoh)(void* dst_host, CUdeviceptr src_device, size_t byte_count) = nullptr;
+  CUresult(CUDAAPI* memcpy_dtoh_async)(void* dst_host, CUdeviceptr src_device, size_t byte_count,
+                                       CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* memcpy_htod_async)(CUdeviceptr dst_device, const void* src_host, size_t byte_count,
+                                       CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* memcpy_dtod)(CUdeviceptr dst_device, CUdeviceptr src_device, size_t byte_count) = nullptr;
+  CUresult(CUDAAPI* memcpy_dtod_async)(CUdeviceptr dst_device, CUdeviceptr src_device, size_t byte_count,
+                                       CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* memset_d8_async)(CUdeviceptr dst_device, unsigned char uc, size_t n, CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* module_load_data_ex)(CUmodule* module, const void* image, unsigned int num_options,
+                                         CUjit_option* options, void** option_values) = nullptr;
+  CUresult(CUDAAPI* module_unload)(CUmodule hmod) = nullptr;
+  CUresult(CUDAAPI* module_get_function)(CUfunction* hfunc, CUmodule hmod, const char* name) = nullptr;
+  CUresult(CUDAAPI* stream_create)(CUstream* ph_stream, unsigned int flags) = nullptr;
+  CUresult(CUDAAPI* stream_synchronize)(CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* stream_destroy)(CUstream h_stream) = nullptr;
+  CUresult(CUDAAPI* launch_kernel)(CUfunction f, unsigned int grid_dim_x, unsigned int grid_dim_y,
+                                   unsigned int grid_dim_z, unsigned int block_dim_x, unsigned int block_dim_y,
+                                   unsigned int block_dim_z, unsigned int shared_mem_bytes, CUstream h_stream,
+                                   void** kernel_params, void** extra) = nullptr;
 };
 
 }  // namespace guetzli

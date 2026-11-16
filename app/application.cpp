@@ -19,7 +19,7 @@ namespace {
 // An upper estimate of memory usage of Guetzli. The bound is
 // max(kLowestMemusageMB * 1<<20, pixel_count * kBytesPerPixel)
 constexpr int kBytesPerPixel = 110;
-constexpr int kLowestMemusageMB = 100;  // in MB
+constexpr int kLowestMemusageMb = 100;  // in MB
 
 constexpr const char* kSupportMessage =
     "Support this project:\n"
@@ -37,12 +37,12 @@ void Application::logMemoryLimitExceeded() {
 bool Application::withinMemoryLimit(double pixels) const {
   if (!config_.io.memlimit_mb) return true;
   const double limit = static_cast<double>(*config_.io.memlimit_mb);
-  return !(pixels * kBytesPerPixel / (1 << 20) > limit || limit < kLowestMemusageMB);
+  return !(pixels * kBytesPerPixel / (1 << 20) > limit || limit < kLowestMemusageMb);
 }
 
 Application::Result Application::encode(Backend& backend, const std::string& in_data, std::string* out_data) {
   EncoderParams params;
-  params.butteraugli_target = static_cast<float>(ButteraugliScoreForQuality(config_.encoder.quality));
+  params.butteraugli_target = static_cast<float>(butteraugliScoreForQuality(config_.encoder.quality));
   Encoder encoder(params, backend, logger_);
   const AlphaBackground background = config_.encoder.blend_on_white ? AlphaBackground::White : AlphaBackground::Black;
 
@@ -76,8 +76,8 @@ Application::Result Application::encode(Backend& backend, const std::string& in_
   }
 
   if (!isJpeg(in_data)) return Result::NotSupported;
-  JPEGData jpg_header;
-  if (!ReadJpeg(in_data, JPEG_READ_HEADER, &jpg_header)) {
+  JpegData jpg_header;
+  if (!readJpeg(in_data, JPEG_READ_HEADER, &jpg_header)) {
     logger_.log(LogLevel::Error, "Error reading JPEG data from input file\n");
     return Result::Failed;
   }

@@ -14,19 +14,19 @@ std::vector<CoeffData> GpuBlockZeroingSearch::run(const BlockZeroingInput& in) {
   const OutputImage& img = in.img;
   const int width = img.width();
   const int height = img.height();
-  const int last_c = Log2FloorNonZero(in.comp_mask);
-  const int factor_x = img.component(last_c).factor_x();
-  const int factor_y = img.component(last_c).factor_y();
+  const int last_c = log2FloorNonZero(in.comp_mask);
+  const int factor_x = img.component(last_c).factorX();
+  const int factor_y = img.component(last_c).factorY();
   const int block_width = (width + 8 * factor_x - 1) / (8 * factor_x);
   const int block_height = (height + 8 * factor_y - 1) / (8 * factor_y);
   const int num_blocks = block_width * block_height;
 
-  channel_info orig_channel[3];
-  channel_info mayout_channel[3];
+  ChannelInfo orig_channel[3];
+  ChannelInfo mayout_channel[3];
   for (int c = 0; c < 3; c++) {
-    mayout_channel[c].factor = img.component(c).factor_x();
-    mayout_channel[c].block_width = img.component(c).width_in_blocks();
-    mayout_channel[c].block_height = img.component(c).height_in_blocks();
+    mayout_channel[c].factor = img.component(c).factorX();
+    mayout_channel[c].block_width = img.component(c).widthInBlocks();
+    mayout_channel[c].block_height = img.component(c).heightInBlocks();
     mayout_channel[c].coeff = img.component(c).coeffs();
     mayout_channel[c].pixel = img.component(c).pixels();
 
@@ -39,7 +39,7 @@ std::vector<CoeffData> GpuBlockZeroingSearch::run(const BlockZeroingInput& in) {
   std::vector<CoeffData> output_order(static_cast<size_t>(num_blocks) * kBlockZeroingBlockSize);
   kernel_->computeBlockZeroingOrder(output_order.data(), orig_channel, reference->opsin.data(),
                                     reference->mask_scale.data(), width, height, mayout_channel, factor_x, in.comp_mask,
-                                    in.comparator.BlockErrorLimit());
+                                    in.comparator.blockErrorLimit());
   return output_order;
 }
 

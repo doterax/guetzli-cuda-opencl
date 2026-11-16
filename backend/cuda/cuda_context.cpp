@@ -15,7 +15,7 @@
 namespace guetzli {
 
 void throwCudaError(CUresult err, const char* where) {
-  throw GpuError(std::string("CUDA call failed in ") + where + ": " + TranslateCUDAError(err));
+  throw GpuError(std::string("CUDA call failed in ") + where + ": " + translateCudaError(err));
 }
 
 CuBuffer::CuBuffer(CuBuffer&& other) noexcept : pool_(other.pool_), mem_(other.mem_) {
@@ -44,31 +44,31 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
 
     // Use user-specified device index if valid
     if (options.device >= 0) {
-      int deviceCount = 0;
-      CU_CHECK(driver_.deviceGetCount(&deviceCount));
-      if (options.device < deviceCount) {
-        CU_CHECK(driver_.deviceGet(&dev, options.device));
+      int device_count = 0;
+      CU_CHECK(driver_.device_get_count(&device_count));
+      if (options.device < device_count) {
+        CU_CHECK(driver_.device_get(&dev, options.device));
       } else {
         logger_.log(LogLevel::Warning,
                     "Warning: CUDA device %d not found (only %d devices available), using default device 0\n",
-                    options.device, deviceCount);
-        CU_CHECK(driver_.deviceGet(&dev, 0));
+                    options.device, device_count);
+        CU_CHECK(driver_.device_get(&dev, 0));
       }
     } else {
-      CU_CHECK(driver_.deviceGet(&dev, 0));
+      CU_CHECK(driver_.device_get(&dev, 0));
     }
 
-    CU_CHECK(driver_.ctxCreate(&context_, CU_CTX_SCHED_AUTO, dev));
+    CU_CHECK(driver_.ctx_create(&context_, CU_CTX_SCHED_AUTO, dev));
 
     char name[1024] = {0};
     int proc_count = 0;
     int thread_count = 0;
     int cap_major = 0, cap_minor = 0;
-    driver_.deviceGetName(name, sizeof(name), dev);
-    driver_.deviceGetAttribute(&cap_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev);
-    driver_.deviceGetAttribute(&cap_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev);
-    driver_.deviceGetAttribute(&proc_count, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
-    driver_.deviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
+    driver_.device_get_name(name, sizeof(name), dev);
+    driver_.device_get_attribute(&cap_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev);
+    driver_.device_get_attribute(&cap_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev);
+    driver_.device_get_attribute(&proc_count, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
+    driver_.device_get_attribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
     // Always printed, to stderr (as before the logger existed).
     logger_.log(LogLevel::Warning, "CUDA Adapter:%s Ver%d.%d MP %d MaxThread Per MP %d)\r\n", name, cap_major,
                 cap_minor, proc_count, thread_count);
@@ -84,22 +84,22 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
       void* jit_optvals[1];
       jit_options[0] = CU_JIT_CACHE_MODE;
       jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
-      CU_CHECK(driver_.moduleLoadDataEx(&module_, ptx.c_str(), 1, jit_options, jit_optvals));
+      CU_CHECK(driver_.module_load_data_ex(&module_, ptx.c_str(), 1, jit_options, jit_optvals));
     }
 
     for (int i = 0; i < KERNEL_COUNT; i++) {
-      const CUresult err = driver_.moduleGetFunction(&kernels_[i], module_, kKernelEntryPoints[i]);
+      const CUresult err = driver_.module_get_function(&kernels_[i], module_, kKernelEntryPoints[i]);
       if (err != CUDA_SUCCESS) {
-        throw GpuError(std::string("CUDA kernel not found: ") + kKernelEntryPoints[i] + " (" + TranslateCUDAError(err) +
+        throw GpuError(std::string("CUDA kernel not found: ") + kKernelEntryPoints[i] + " (" + translateCudaError(err) +
                        ")");
       }
     }
 
-    driver_.ctxSetCacheConfig(CU_FUNC_CACHE_PREFER_SHARED);
+    driver_.ctx_set_cache_config(CU_FUNC_CACHE_PREFER_SHARED);
     // cuCtxSetSharedMemConfig is deprecated and no longer needed on modern GPUs
     // as they have a fixed shared memory bank size
 
-    CU_CHECK(driver_.streamCreate(&stream_, 0));
+    CU_CHECK(driver_.stream_create(&stream_, 0));
     pool_.setStream(stream_);
   } catch (...) {
     destroy();
@@ -115,9 +115,9 @@ void CudaContext::destroy() noexcept {
   // Teardown order: free device memory, unload module, destroy stream, then context.
   constants_.clear();
   pool_.drain();
-  if (module_) driver_.moduleUnload(module_);
-  if (stream_) driver_.streamDestroy(stream_);
-  if (context_) driver_.ctxDestroy(context_);
+  if (module_) driver_.module_unload(module_);
+  if (stream_) driver_.stream_destroy(stream_);
+  if (context_) driver_.ctx_destroy(context_);
   module_ = nullptr;
   stream_ = nullptr;
   context_ = nullptr;
@@ -125,11 +125,11 @@ void CudaContext::destroy() noexcept {
 
 void CudaContext::launch(CUfunction f, unsigned int gx, unsigned int gy, unsigned int bx, unsigned int by,
                          const void* args[]) {
-  CU_CHECK(driver_.launchKernel(f, gx, gy, 1, bx, by, 1, 0, stream_, const_cast<void**>(args), nullptr));
+  CU_CHECK(driver_.launch_kernel(f, gx, gy, 1, bx, by, 1, 0, stream_, const_cast<void**>(args), nullptr));
 }
 
 void CudaContext::finish() {
-  CU_CHECK(driver_.streamSynchronize(stream_));
+  CU_CHECK(driver_.stream_synchronize(stream_));
 }
 
 CuBuffer CudaContext::zeroed(size_t bytes) {
@@ -166,10 +166,10 @@ CuChannels CudaContext::uploadChannels(size_t bytes, const void* c0, const void*
 
 CuMemory CudaContext::allocateMemory(size_t bytes) {
   cu_mem mem = 0;
-  CUresult err = driver_.memAlloc(&mem, bytes);
+  CUresult err = driver_.mem_alloc(&mem, bytes);
   if (err == CUDA_ERROR_OUT_OF_MEMORY) {
     pool_.drain();
-    err = driver_.memAlloc(&mem, bytes);
+    err = driver_.mem_alloc(&mem, bytes);
   }
   CU_CHECK(err);
   return CuMemory(driver_, mem);
@@ -178,8 +178,8 @@ CuMemory CudaContext::allocateMemory(size_t bytes) {
 CuMemory CudaContext::uploadMemory(size_t bytes, const void* data) {
   CuMemory memory = allocateMemory(bytes);
   // Synchronous: data may be a caller's local.
-  CU_CHECK(driver_.memcpyHtoDAsync(memory.get(), data, bytes, stream_));
-  CU_CHECK(driver_.streamSynchronize(stream_));
+  CU_CHECK(driver_.memcpy_htod_async(memory.get(), data, bytes, stream_));
+  CU_CHECK(driver_.stream_synchronize(stream_));
   return memory;
 }
 
@@ -197,28 +197,28 @@ void enumCudaDevices() {
     return;
   }
 
-  int deviceCount = 0;
-  err = driver->deviceGetCount(&deviceCount);
-  if (err != CUDA_SUCCESS || deviceCount == 0) {
+  int device_count = 0;
+  err = driver->device_get_count(&device_count);
+  if (err != CUDA_SUCCESS || device_count == 0) {
     fprintf(stdout, "CUDA:\n  (no devices found)\n\n");
     return;
   }
 
   fprintf(stdout, "CUDA:\n");
-  for (int i = 0; i < deviceCount; i++) {
+  for (int i = 0; i < device_count; i++) {
     CUdevice dev;
-    err = driver->deviceGet(&dev, i);
+    err = driver->device_get(&dev, i);
     if (err != CUDA_SUCCESS) continue;
 
     char name[256] = {0};
-    driver->deviceGetName(name, sizeof(name), dev);
+    driver->device_get_name(name, sizeof(name), dev);
     fprintf(stdout, "  %d: %s\n", i, name);
   }
   fprintf(stdout, "\n");
 }
 
-const char* TranslateCUDAError(CUresult errorCode) {
-  switch (errorCode) {
+const char* translateCudaError(CUresult error_code) {
+  switch (error_code) {
     case CUDA_SUCCESS:
       return "CUDA_SUCCESS";
     case CUDA_ERROR_INVALID_VALUE:

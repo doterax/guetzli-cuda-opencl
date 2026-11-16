@@ -21,7 +21,7 @@
 
 namespace guetzli {
 
-inline int Log2FloorNonZero(uint32_t n) {
+inline int log2FloorNonZero(uint32_t n) {
 #ifdef __GNUC__
   return 31 ^ __builtin_clz(n);
 #else
@@ -31,8 +31,8 @@ inline int Log2FloorNonZero(uint32_t n) {
 #endif
 }
 
-inline int Log2Floor(uint32_t n) {
-  return n == 0 ? -1 : Log2FloorNonZero(n);
+inline int log2Floor(uint32_t n) {
+  return n == 0 ? -1 : log2FloorNonZero(n);
 }
 
 }  // namespace guetzli

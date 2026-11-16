@@ -26,21 +26,21 @@ namespace guetzli {
 
 namespace {
 
-constexpr int kQuantMatrixSize = 3 * kDCTBlockSize;
+constexpr int kQuantMatrixSize = 3 * kDctBlockSize;
 
-double ContrastSensitivity(int k) {
-  return 1.0 / (1.0 + kJPEGZigZagOrder[k] / 2.0);
+double contrastSensitivity(int k) {
+  return 1.0 / (1.0 + kJpegZigZagOrder[k] / 2.0);
 }
 
 }  // namespace
 
-bool CompareQuantData(const QuantData& a, const QuantData& b) {
+bool compareQuantData(const QuantData& a, const QuantData& b) {
   if (a.dist_ok && !b.dist_ok) return true;
   if (!a.dist_ok && b.dist_ok) return false;
   return a.jpg_size < b.jpg_size;
 }
 
-int CompareQuantMatrices(const int* a, const int* b) {
+int compareQuantMatrices(const int* a, const int* b) {
   int i = 0;
   while (i < kQuantMatrixSize && a[i] == b[i]) ++i;
   if (i == kQuantMatrixSize) {
@@ -59,23 +59,23 @@ int CompareQuantMatrices(const int* a, const int* b) {
   }
 }
 
-double QuantMatrixHeuristicScore(const int q[3][kDCTBlockSize]) {
+double quantMatrixHeuristicScore(const int q[3][kDctBlockSize]) {
   double score = 0.0;
   for (int c = 0; c < 3; ++c) {
-    for (int k = 0; k < kDCTBlockSize; ++k) {
-      score += 0.5 * (q[c][k] - 1.0) * ContrastSensitivity(k);
+    for (int k = 0; k < kDctBlockSize; ++k) {
+      score += 0.5 * (q[c][k] - 1.0) * contrastSensitivity(k);
     }
   }
   return score;
 }
 
 QuantMatrixGenerator::QuantMatrixGenerator(bool downsample) : downsample_(downsample) {
-  for (int k = 0; k < kDCTBlockSize; ++k) {
-    total_csf_ += 3.0 * ContrastSensitivity(k);
+  for (int k = 0; k < kDctBlockSize; ++k) {
+    total_csf_ += 3.0 * contrastSensitivity(k);
   }
 }
 
-bool QuantMatrixGenerator::GetNext(int q[3][kDCTBlockSize]) {
+bool QuantMatrixGenerator::getNext(int q[3][kDctBlockSize]) {
   // This loop should terminate by return. This 1000 iteration limit is just a
   // precaution.
   for (int iter = 0; iter < 1000; iter++) {
@@ -101,18 +101,18 @@ bool QuantMatrixGenerator::GetNext(int q[3][kDCTBlockSize]) {
     } else if (hscore_a_ == -1.0) {
       hscore = 0.0;
     } else {
-      int lower_q[3][kDCTBlockSize];
-      int upper_q[3][kDCTBlockSize];
+      int lower_q[3][kDctBlockSize];
+      int upper_q[3][kDctBlockSize];
       constexpr double kEps = 0.05;
-      GetQuantMatrixWithHeuristicScore((1 - kEps) * hscore_a_ + kEps * 0.5 * (hscore_a_ + hscore_b_), lower_q);
-      GetQuantMatrixWithHeuristicScore((1 - kEps) * hscore_b_ + kEps * 0.5 * (hscore_a_ + hscore_b_), upper_q);
-      if (CompareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0) return false;
+      getQuantMatrixWithHeuristicScore((1 - kEps) * hscore_a_ + kEps * 0.5 * (hscore_a_ + hscore_b_), lower_q);
+      getQuantMatrixWithHeuristicScore((1 - kEps) * hscore_b_ + kEps * 0.5 * (hscore_a_ + hscore_b_), upper_q);
+      if (compareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0) return false;
       hscore = (hscore_a_ + hscore_b_) * 0.5;
     }
-    GetQuantMatrixWithHeuristicScore(hscore, q);
+    getQuantMatrixWithHeuristicScore(hscore, q);
     bool retry = false;
     for (size_t i = 0; i < quants_.size(); ++i) {
-      if (CompareQuantMatrices(&q[0][0], &quants_[i].q[0][0]) == 0) {
+      if (compareQuantMatrices(&q[0][0], &quants_[i].q[0][0]) == 0) {
         if (quants_[i].dist_ok) {
           hscore_a_ = hscore;
         } else {
@@ -127,9 +127,9 @@ bool QuantMatrixGenerator::GetNext(int q[3][kDCTBlockSize]) {
   return false;
 }
 
-void QuantMatrixGenerator::Add(const QuantData& data) {
+void QuantMatrixGenerator::add(const QuantData& data) {
   quants_.push_back(data);
-  double hscore = QuantMatrixHeuristicScore(data.q);
+  double hscore = quantMatrixHeuristicScore(data.q);
   if (data.dist_ok) {
     hscore_a_ = std::max(hscore_a_, hscore);
   } else {
@@ -137,43 +137,43 @@ void QuantMatrixGenerator::Add(const QuantData& data) {
   }
 }
 
-void QuantMatrixGenerator::GetQuantMatrixWithHeuristicScore(double score, int q[3][kDCTBlockSize]) const {
+void QuantMatrixGenerator::getQuantMatrixWithHeuristicScore(double score, int q[3][kDctBlockSize]) const {
   int level = static_cast<int>(score / total_csf_);
   score -= level * total_csf_;
-  for (int k = kDCTBlockSize - 1; k >= 0; --k) {
+  for (int k = kDctBlockSize - 1; k >= 0; --k) {
     for (int c = 0; c < 3; ++c) {
-      q[c][kJPEGNaturalOrder[k]] = 2 * level + (score > 0.0 ? 3 : 1);
+      q[c][kJpegNaturalOrder[k]] = 2 * level + (score > 0.0 ? 3 : 1);
     }
-    score -= 3.0 * ContrastSensitivity(kJPEGNaturalOrder[k]);
+    score -= 3.0 * contrastSensitivity(kJpegNaturalOrder[k]);
   }
 }
 
-QuantData QuantMatrixSearch::tryMatrix(const JPEGData& jpg, const float target_mul, int q[3][kDCTBlockSize],
+QuantData QuantMatrixSearch::tryMatrix(const JpegData& jpg, const float target_mul, int q[3][kDctBlockSize],
                                        OutputImage& img) {
   QuantData data;
   std::memcpy(data.q, q, sizeof(data.q));
-  img.CopyFromJpegData(jpg);
-  img.ApplyGlobalQuantization(data.q);
+  img.copyFromJpegData(jpg);
+  img.applyGlobalQuantization(data.q);
   std::string encoded_jpg;
   {
-    JPEGData jpg_out = jpg;
-    img.SaveToJpegData(&jpg_out);
+    JpegData jpg_out = jpg;
+    img.saveToJpegData(&jpg_out);
     encoded_jpg = selector_->serialize(jpg_out);
   }
   GUETZLI_LOG(stats_, "Iter %2d: %s quantization matrix:\n", stats_->counters[kNumItersCnt] + 1,
-              img.FrameTypeStr().c_str());
+              img.frameTypeStr().c_str());
   GUETZLI_LOG_QUANT(stats_, q);
   GUETZLI_LOG(stats_, "Iter %2d: %s GQ[%5.2f] Out[%7zd]", stats_->counters[kNumItersCnt] + 1,
-              img.FrameTypeStr().c_str(), QuantMatrixHeuristicScore(q), encoded_jpg.size());
+              img.frameTypeStr().c_str(), quantMatrixHeuristicScore(q), encoded_jpg.size());
   ++stats_->counters[kNumItersCnt];
-  comparator_->Compare(img);
-  data.dist_ok = comparator_->DistanceOK(target_mul);
+  comparator_->compare(img);
+  data.dist_ok = comparator_->distanceOk(target_mul);
   data.jpg_size = encoded_jpg.size();
   selector_->offer(encoded_jpg, *comparator_);
   return data;
 }
 
-bool QuantMatrixSearch::run(const JPEGData& jpg, const bool downsample, int best_q[3][kDCTBlockSize],
+bool QuantMatrixSearch::run(const JpegData& jpg, const bool downsample, int best_q[3][kDctBlockSize],
                             OutputImage& img) {
   QuantMatrixGenerator qgen(downsample);
   // Don't try to go up to exactly the target distance when selecting a
@@ -184,16 +184,16 @@ bool QuantMatrixSearch::run(const JPEGData& jpg, const bool downsample, int best
 
   QuantData best = tryMatrix(jpg, target_mul_high, best_q, img);
   for (;;) {
-    int q_next[3][kDCTBlockSize];
-    if (!qgen.GetNext(q_next)) {
+    int q_next[3][kDctBlockSize];
+    if (!qgen.getNext(q_next)) {
       break;
     }
 
     QuantData data = tryMatrix(jpg, target_mul_high, q_next, img);
-    qgen.Add(data);
-    if (CompareQuantData(data, best)) {
+    qgen.add(data);
+    if (compareQuantData(data, best)) {
       best = data;
-      if (data.dist_ok && !comparator_->DistanceOK(target_mul_low)) {
+      if (data.dist_ok && !comparator_->distanceOk(target_mul_low)) {
         break;
       }
     }

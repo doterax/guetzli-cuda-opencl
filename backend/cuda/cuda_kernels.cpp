@@ -22,9 +22,9 @@ namespace guetzli {
 
 namespace {
 
-constexpr int BLOCK_SIZE = 128;  // 1D launches
-constexpr int BLOCK_SIZE_X = 16;
-constexpr int BLOCK_SIZE_Y = 16;
+constexpr int kBlockSize = 128;  // 1D launches
+constexpr int kBlockSizeX = 16;
+constexpr int kBlockSizeY = 16;
 
 constexpr unsigned int blockCount(unsigned int size, unsigned int block) {
   return (size + block - 1) / block;
@@ -43,12 +43,12 @@ void calcBlock(int width, int height, int& x, int& y) {
 
 // Launches a width x height range with calcBlock()'s block shape.
 void launch2D(CudaContext& ocu, CUfunction kernel, int width, int height, const void* args[]) {
-  int x = BLOCK_SIZE_X, y = BLOCK_SIZE_Y;
+  int x = kBlockSizeX, y = kBlockSizeY;
   calcBlock(width, height, x, y);
   ocu.launch(kernel, blockCount(width, x), blockCount(height, y), x, y, args);
 }
 
-void MakeMask(float extmul, float extoff, float mul, float offset, float scaler, float* result) {
+void makeMask(float extmul, float extoff, float mul, float offset, float scaler, float* result) {
   for (unsigned int i = 0; i < 512; ++i) {
     const float c = mul / ((0.01f * scaler * i) + offset);
     result[i] = 1.0f + extmul * (c + extoff);
@@ -89,7 +89,7 @@ void CudaKernels::createContext(const CudaDriver& driver) {
 CudaContext& CudaKernels::context() {
   // A failed initialization throws and leaves context_ empty.
   if (!context_) {
-    MaybeInjectGpuFailure("CUDA");
+    maybeInjectGpuFailure("CUDA");
     const std::optional<CudaDriver> driver = CudaDriver::load(logger_);
     if (!driver) throw GpuError("failed to load CUDA driver library");
     createContext(*driver);
@@ -102,7 +102,7 @@ bool CudaKernels::probe() {
   const std::optional<CudaDriver> driver = CudaDriver::load(logger_);
   if (!driver) return false;
   try {
-    MaybeInjectGpuFailure("CUDA");
+    maybeInjectGpuFailure("CUDA");
     createContext(*driver);
   } catch (const std::exception& e) {
     logger_.log(LogLevel::Error, "CUDA not usable: %s\n", e.what());
@@ -120,17 +120,17 @@ void CudaKernels::opsinDynamicsImage(float* r, float* g, float* b, const unsigne
 
   opsinDynamicsOnDevice(rgb.view(), xsize, ysize);
 
-  CU_CHECK(drv.memcpyDtoHAsync(r, rgb.ch[0].get(), channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoHAsync(g, rgb.ch[1].get(), channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoHAsync(b, rgb.ch[2].get(), channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(r, rgb.ch[0].get(), channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(g, rgb.ch[1].get(), channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(b, rgb.ch[2].get(), channel_size, ocu.stream()));
   ocu.finish();
 }
 
-void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const channel_info orig_channel[3],
+void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],
                                            const float* orig_image_batch, const float* mask_scale,
                                            const int image_width, const int image_height,
-                                           const channel_info mayout_channel[3], const int factor, const int comp_mask,
-                                           const float BlockErrorLimit) {
+                                           const ChannelInfo mayout_channel[3], const int factor, const int comp_mask,
+                                           const float block_error_limit) {
   // Validate factor to prevent division by zero
   if (factor <= 0) {
     logger_.log(LogLevel::Info, "Error: factor is %d, must be > 0. Skipping cuComputeBlockZeroingOrder.\n", factor);
@@ -149,18 +149,18 @@ void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const 
   CuBuffer mem_mayout_pixel[3];
   for (int c = 0; c < 3; c++) {
     int block_count = orig_channel[c].block_width * orig_channel[c].block_height;
-    mem_orig_coeff[c] = ocu.upload(block_count * sizeof(::coeff_t) * kDCTBlockSize, orig_channel[c].coeff);
+    mem_orig_coeff[c] = ocu.upload(block_count * sizeof(::coeff_t) * kDctBlockSize, orig_channel[c].coeff);
 
     block_count = mayout_channel[c].block_width * mayout_channel[c].block_height;
-    mem_mayout_coeff[c] = ocu.upload(block_count * sizeof(::coeff_t) * kDCTBlockSize, mayout_channel[c].coeff);
+    mem_mayout_coeff[c] = ocu.upload(block_count * sizeof(::coeff_t) * kDctBlockSize, mayout_channel[c].coeff);
 
     mem_mayout_pixel[c] = ocu.upload(image_width * image_height * sizeof(uint16_t), mayout_channel[c].pixel);
   }
   CuBuffer mem_orig_image =
-      ocu.upload(sizeof(float) * 3 * kDCTBlockSize * block8_width * block8_height, orig_image_batch);
+      ocu.upload(sizeof(float) * 3 * kDctBlockSize * block8_width * block8_height, orig_image_batch);
   CuBuffer mem_mask_scale = ocu.upload(sizeof(float) * 3 * block8_width * block8_height, mask_scale);
 
-  size_t output_order_batch_size = sizeof(CoeffData) * 3 * kDCTBlockSize * blockf_width * blockf_height;
+  size_t output_order_batch_size = sizeof(CoeffData) * 3 * kDctBlockSize * blockf_width * blockf_height;
   // Zero-filled (the kernel writes only each block's valid entries).
   CuBuffer mem_output_order_batch = ocu.zeroed(output_order_batch_size);
 
@@ -194,7 +194,7 @@ void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const 
                         &mayout_channel[2].block_height,
                         &factor,
                         &comp_mask,
-                        &BlockErrorLimit,
+                        &block_error_limit,
                         &mem_output_order_batch.get()};
 
   // Heavy per-thread state (registers + local memory) limits occupancy anyway: use
@@ -202,7 +202,7 @@ void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const 
   int x = 8, y = 4;
   ocu.launch(kernel, blockCount(blockf_width, x), blockCount(blockf_height, y), x, y, args);
 
-  CU_CHECK(ocu.driver().memcpyDtoH(output_order_batch, mem_output_order_batch.get(), output_order_batch_size));
+  CU_CHECK(ocu.driver().memcpy_dtoh(output_order_batch, mem_output_order_batch.get(), output_order_batch_size));
 }
 
 void CudaKernels::mask(float* mask_r, float* mask_g, float* mask_b, float* maskdc_r, float* maskdc_g, float* maskdc_b,
@@ -223,17 +223,16 @@ void CudaKernels::mask(float* mask_r, float* mask_g, float* mask_b, float* maskd
   float* const mask_out[3] = {mask_r, mask_g, mask_b};
   float* const mask_dc_out[3] = {maskdc_r, maskdc_g, maskdc_b};
   for (int i = 0; i < 3; i++) {
-    CU_CHECK(drv.memcpyDtoHAsync(mask_out[i], mask.ch[i].get(), channel_size, ocu.stream()));
+    CU_CHECK(drv.memcpy_dtoh_async(mask_out[i], mask.ch[i].get(), channel_size, ocu.stream()));
   }
   for (int i = 0; i < 3; i++) {
-    CU_CHECK(drv.memcpyDtoHAsync(mask_dc_out[i], mask_dc.ch[i].get(), channel_size, ocu.stream()));
+    CU_CHECK(drv.memcpy_dtoh_async(mask_dc_out[i], mask_dc.ch[i].get(), channel_size, ocu.stream()));
   }
   ocu.finish();
 }
 
-void CudaKernels::diffmapOpsinDynamicsImage(cu_mem result, ocu_channels xyb0, ocu_channels xyb1,
-                                            const unsigned int xsize, const unsigned int ysize,
-                                            const unsigned int step) {
+void CudaKernels::diffmapOpsinDynamicsImage(cu_mem result, OcuChannels xyb0, OcuChannels xyb1, const unsigned int xsize,
+                                            const unsigned int ysize, const unsigned int step) {
   const unsigned int res_xsize = (xsize + step - 1) / step;
   const unsigned int res_ysize = (ysize + step - 1) / step;
 
@@ -350,14 +349,14 @@ void CudaKernels::blur(cu_mem image /*out, opt*/, const unsigned int xsize, cons
   }
 }
 
-void CudaKernels::opsinDynamicsOnDevice(const ocu_channels& rgb, const unsigned int xsize, const unsigned int ysize) {
+void CudaKernels::opsinDynamicsOnDevice(const OcuChannels& rgb, const unsigned int xsize, const unsigned int ysize) {
   static const float kSigma = 1.1f;
 
   size_t channel_size = xsize * ysize * sizeof(float);
 
   CudaContext& ocu = context();
   CuChannels rgb_blurred_buffers = ocu.uninitializedChannels(channel_size);  // fully written by the blurs
-  const ocu_channels rgb_blurred = rgb_blurred_buffers.view();
+  const OcuChannels rgb_blurred = rgb_blurred_buffers.view();
 
   const int size = xsize * ysize;
 
@@ -368,10 +367,10 @@ void CudaKernels::opsinDynamicsOnDevice(const ocu_channels& rgb, const unsigned 
   CUfunction kernel = ocu.kernel(KERNEL_OPSINDYNAMICSIMAGE);
   const void* args[] = {&rgb.r, &rgb.g, &rgb.b, &size, &rgb_blurred.r, &rgb_blurred.g, &rgb_blurred.b};
 
-  ocu.launch(kernel, blockCount(size, BLOCK_SIZE), 1, BLOCK_SIZE, 1, args);
+  ocu.launch(kernel, blockCount(size, kBlockSize), 1, kBlockSize, 1, args);
 }
 
-void CudaKernels::maskHighIntensityChange(const ocu_channels& xyb0 /*in,out*/, const ocu_channels& xyb1 /*in,out*/,
+void CudaKernels::maskHighIntensityChange(const OcuChannels& xyb0 /*in,out*/, const OcuChannels& xyb1 /*in,out*/,
                                           const unsigned int xsize, const unsigned int ysize) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
@@ -380,15 +379,15 @@ void CudaKernels::maskHighIntensityChange(const ocu_channels& xyb0 /*in,out*/, c
 
   CuChannels c0_buffers = ocu.uninitializedChannels(channel_size);  // full copies below
   CuChannels c1_buffers = ocu.uninitializedChannels(channel_size);
-  const ocu_channels c0 = c0_buffers.view();
-  const ocu_channels c1 = c1_buffers.view();
+  const OcuChannels c0 = c0_buffers.view();
+  const OcuChannels c1 = c1_buffers.view();
 
-  CU_CHECK(drv.memcpyDtoDAsync(c0.r, xyb0.r, channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoDAsync(c0.g, xyb0.g, channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoDAsync(c0.b, xyb0.b, channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoDAsync(c1.r, xyb1.r, channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoDAsync(c1.g, xyb1.g, channel_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoDAsync(c1.b, xyb1.b, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c0.r, xyb0.r, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c0.g, xyb0.g, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c0.b, xyb0.b, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c1.r, xyb1.r, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c1.g, xyb1.g, channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtod_async(c1.b, xyb1.b, channel_size, ocu.stream()));
 
   CUfunction kernel = ocu.kernel(KERNEL_MASKHIGHINTENSITYCHANGE);
   const void* args[] = {&xyb0.r, &xyb0.g, &xyb0.b, &xsize, &ysize, &xyb1.r, &xyb1.g,
@@ -397,7 +396,7 @@ void CudaKernels::maskHighIntensityChange(const ocu_channels& xyb0 /*in,out*/, c
   launch2D(ocu, kernel, xsize, ysize, args);
 }
 
-void CudaKernels::edgeDetectorMap(cu_mem result /*out*/, const ocu_channels& rgb, const ocu_channels& rgb2,
+void CudaKernels::edgeDetectorMap(cu_mem result /*out*/, const OcuChannels& rgb, const OcuChannels& rgb2,
                                   const unsigned int xsize, const unsigned int ysize, const unsigned int step) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
@@ -405,8 +404,8 @@ void CudaKernels::edgeDetectorMap(cu_mem result /*out*/, const ocu_channels& rgb
 
   CuChannels rgb_blured_buffers = ocu.uninitializedChannels(channel_size);  // fully written by the blurs
   CuChannels rgb2_blured_buffers = ocu.uninitializedChannels(channel_size);
-  const ocu_channels rgb_blured = rgb_blured_buffers.view();
-  const ocu_channels rgb2_blured = rgb2_blured_buffers.view();
+  const OcuChannels rgb_blured = rgb_blured_buffers.view();
+  const OcuChannels rgb2_blured = rgb2_blured_buffers.view();
 
   static const float kSigma[3] = {1.5f, 0.586f, 0.4f};
 
@@ -425,8 +424,8 @@ void CudaKernels::edgeDetectorMap(cu_mem result /*out*/, const ocu_channels& rgb
   launch2D(ocu, kernel, res_xsize, res_ysize, args);
 }
 
-void CudaKernels::blockDiffMap(cu_mem block_diff_dc /*out*/, cu_mem block_diff_ac /*out*/, const ocu_channels& rgb,
-                               const ocu_channels& rgb2, const unsigned int xsize, const unsigned int ysize,
+void CudaKernels::blockDiffMap(cu_mem block_diff_dc /*out*/, cu_mem block_diff_ac /*out*/, const OcuChannels& rgb,
+                               const OcuChannels& rgb2, const unsigned int xsize, const unsigned int ysize,
                                const unsigned int step) {
   CudaContext& ocu = context();
 
@@ -440,9 +439,8 @@ void CudaKernels::blockDiffMap(cu_mem block_diff_dc /*out*/, cu_mem block_diff_a
   launch2D(ocu, kernel, res_xsize, res_ysize, args);
 }
 
-void CudaKernels::edgeDetectorLowFreq(cu_mem block_diff_ac /*in,out*/, const ocu_channels& rgb,
-                                      const ocu_channels& rgb2, const unsigned int xsize, const unsigned int ysize,
-                                      const unsigned int step) {
+void CudaKernels::edgeDetectorLowFreq(cu_mem block_diff_ac /*in,out*/, const OcuChannels& rgb, const OcuChannels& rgb2,
+                                      const unsigned int xsize, const unsigned int ysize, const unsigned int step) {
   size_t channel_size = xsize * ysize * sizeof(float);
 
   static const float kSigma = 14;
@@ -450,8 +448,8 @@ void CudaKernels::edgeDetectorLowFreq(cu_mem block_diff_ac /*in,out*/, const ocu
   CudaContext& ocu = context();
   CuChannels rgb_blured_buffers = ocu.uninitializedChannels(channel_size);  // fully written by the blurs
   CuChannels rgb2_blured_buffers = ocu.uninitializedChannels(channel_size);
-  const ocu_channels rgb_blured = rgb_blured_buffers.view();
-  const ocu_channels rgb2_blured = rgb2_blured_buffers.view();
+  const OcuChannels rgb_blured = rgb_blured_buffers.view();
+  const OcuChannels rgb2_blured = rgb2_blured_buffers.view();
 
   for (int i = 0; i < 3; i++) {
     blur(rgb.ch[i], xsize, ysize, kSigma, 0.0, rgb_blured.ch[i]);
@@ -468,7 +466,7 @@ void CudaKernels::edgeDetectorLowFreq(cu_mem block_diff_ac /*in,out*/, const ocu
   launch2D(ocu, kernel, res_xsize, res_ysize, args);
 }
 
-void CudaKernels::diffPrecompute(const ocu_channels& mask /*out*/, const ocu_channels& xyb0, const ocu_channels& xyb1,
+void CudaKernels::diffPrecompute(const OcuChannels& mask /*out*/, const OcuChannels& xyb0, const OcuChannels& xyb1,
                                  const unsigned int xsize, const unsigned int ysize) {
   CudaContext& ocu = context();
 
@@ -500,7 +498,7 @@ void CudaKernels::average5x5(cu_mem img /*in,out*/, const unsigned int xsize, co
   size_t len = xsize * ysize * sizeof(float);
   CuBuffer img_org = ocu.uninitialized(len);  // full copy below
 
-  CU_CHECK(ocu.driver().memcpyDtoDAsync(img_org.get(), img, len, ocu.stream()));
+  CU_CHECK(ocu.driver().memcpy_dtod_async(img_org.get(), img, len, ocu.stream()));
 
   CUfunction kernel = ocu.kernel(KERNEL_AVERAGE5X5);
   const void* args[] = {&img, &xsize, &ysize, &img_org.get()};
@@ -518,10 +516,10 @@ void CudaKernels::minSquareVal(cu_mem img /*in,out*/, const unsigned int xsize, 
   const void* args[] = {&result.get(), &xsize, &ysize, &img, &square_size, &offset};
 
   launch2D(ocu, kernel, xsize, ysize, args);
-  CU_CHECK(ocu.driver().memcpyDtoDAsync(img, result.get(), sizeof(float) * xsize * ysize, ocu.stream()));
+  CU_CHECK(ocu.driver().memcpy_dtod_async(img, result.get(), sizeof(float) * xsize * ysize, ocu.stream()));
 }
 
-void CudaKernels::doMask(ocu_channels mask /*in, out*/, ocu_channels mask_dc /*in, out*/, unsigned int xsize,
+void CudaKernels::doMask(OcuChannels mask /*in, out*/, OcuChannels mask_dc /*in, out*/, unsigned int xsize,
                          unsigned int ysize) {
   CudaContext& ocu = context();
 
@@ -529,11 +527,11 @@ void CudaKernels::doMask(ocu_channels mask /*in, out*/, ocu_channels mask_dc /*i
   const auto lut = [&ocu](int i, float extmul, float extoff, float offset, float scaler, float mul) {
     return ocu.constants().maskLut(i, [&] {
       float table[512];
-      MakeMask(extmul, extoff, mul, offset, scaler, table);
+      makeMask(extmul, extoff, mul, offset, scaler, table);
       return ocu.uploadMemory(sizeof(table), table);
     });
   };
-  ocu_channels xyb, xyb_dc;
+  OcuChannels xyb, xyb_dc;
   xyb.ch[0] = lut(0, 0.975741017749f, -4.25328244168f, 0.454909521427f, 0.0738288224836f, 20.8029176447f);
   xyb.ch[1] = lut(1, 0.373995618954f, 1.5307267433f, 0.911952641929f, 1.1731667845f, 16.2447033988f);
   xyb.ch[2] = lut(2, 0.61582234137f, -4.25376118646f, 1.05105070921f, 0.47434643535f, 31.1444967089f);
@@ -548,20 +546,20 @@ void CudaKernels::doMask(ocu_channels mask /*in, out*/, ocu_channels mask_dc /*i
   launch2D(ocu, kernel, xsize, ysize, args);
 }
 
-void CudaKernels::maskOnDevice(ocu_channels mask /*out*/, ocu_channels mask_dc /*out*/, const ocu_channels& rgb,
-                               const ocu_channels& rgb2, const unsigned int xsize, const unsigned int ysize) {
+void CudaKernels::maskOnDevice(OcuChannels mask /*out*/, OcuChannels mask_dc /*out*/, const OcuChannels& rgb,
+                               const OcuChannels& rgb2, const unsigned int xsize, const unsigned int ysize) {
   diffPrecompute(mask, rgb, rgb2, xsize, ysize);
   for (int i = 0; i < 3; i++) {
     average5x5(mask.ch[i], xsize, ysize);
     minSquareVal(mask.ch[i], xsize, ysize, 4, 0);
 
-    static const float sigma[3] = {
+    static const float kSigma[3] = {
         9.65781083553f,
         14.2644604355f,
         4.53358927369f,
     };
 
-    blur(mask.ch[i], xsize, ysize, sigma[i], 0.0);
+    blur(mask.ch[i], xsize, ysize, kSigma[i], 0.0);
   }
 
   doMask(mask, mask_dc, xsize, ysize);
@@ -572,7 +570,7 @@ void CudaKernels::maskOnDevice(ocu_channels mask /*out*/, ocu_channels mask_dc /
   }
 }
 
-void CudaKernels::combineChannels(cu_mem result /*out*/, const ocu_channels& mask, const ocu_channels& mask_dc,
+void CudaKernels::combineChannels(cu_mem result /*out*/, const OcuChannels& mask, const OcuChannels& mask_dc,
                                   const unsigned int xsize, const unsigned int ysize, const cu_mem block_diff_dc,
                                   const cu_mem block_diff_ac, const cu_mem edge_detector_map,
                                   const unsigned int res_xsize, const unsigned int step) {
@@ -603,7 +601,7 @@ void CudaKernels::upsampleSquareRoot(cu_mem diffmap, const unsigned int xsize, c
 
   // 2D blocks with bounds guard in the kernel (was 1x1-thread blocks).
   ocu.launch(kernel, blockCount(res_xsize, 16), blockCount(res_ysize, 16), 16, 16, args);
-  CU_CHECK(ocu.driver().memcpyDtoDAsync(diffmap, diffmap_out.get(), xsize * ysize * sizeof(float), ocu.stream()));
+  CU_CHECK(ocu.driver().memcpy_dtod_async(diffmap, diffmap_out.get(), xsize * ysize * sizeof(float), ocu.stream()));
 }
 
 void CudaKernels::removeBorder(cu_mem out, const cu_mem in, const unsigned int xsize, const unsigned int ysize,
@@ -638,8 +636,8 @@ void CudaKernels::calculateDiffmap(cu_mem diffmap /*in,out*/, const unsigned int
   upsampleSquareRoot(diffmap, xsize, ysize, step);
 
   static const float kSigma = 8.8510880283;
-  static const float mul1 = 24.8235314874;
-  static const float scale = 1.0 / (1.0 + mul1);
+  static const float kMul1 = 24.8235314874;
+  static const float kScale = 1.0 / (1.0 + kMul1);
 
   const int s = 8 - step;
 
@@ -647,11 +645,11 @@ void CudaKernels::calculateDiffmap(cu_mem diffmap /*in,out*/, const unsigned int
   CuBuffer blurred = ocu.uninitialized((xsize - s) * (ysize - s) * sizeof(float));  // RemoveBorder writes every element
   removeBorder(blurred.get(), diffmap, xsize, ysize, step);
 
-  static const float border_ratio = 0.03027655136f;
-  blur(blurred.get(), xsize - s, ysize - s, kSigma, border_ratio);
+  static const float kBorderRatio = 0.03027655136f;
+  blur(blurred.get(), xsize - s, ysize - s, kSigma, kBorderRatio);
 
   addBorder(diffmap, xsize, ysize, step, blurred.get());
-  scaleImage(diffmap, xsize * ysize, scale);
+  scaleImage(diffmap, xsize * ysize, kScale);
 }
 
 void CudaKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint8_t* output_idct /*in,out*/,
@@ -663,15 +661,15 @@ void CudaKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint8_
   const CudaDriver& drv = ocu.driver();
 
   int src_block_count = jpeg_block_width * jpeg_block_height;
-  CuBuffer src_coeff = ocu.upload(src_block_count * sizeof(::coeff_t) * kDCTBlockSize, jpeg_batch);
+  CuBuffer src_coeff = ocu.upload(src_block_count * sizeof(::coeff_t) * kDctBlockSize, jpeg_batch);
 
-  size_t dst_coeff_size = output_block_width * output_block_height * sizeof(::coeff_t) * kDCTBlockSize;
+  size_t dst_coeff_size = output_block_width * output_block_height * sizeof(::coeff_t) * kDctBlockSize;
   CuBuffer dst_coeff = ocu.upload(dst_coeff_size, output_batch);
 
-  size_t dst_idct_size = output_block_width * output_block_height * sizeof(uint8_t) * kDCTBlockSize;
+  size_t dst_idct_size = output_block_width * output_block_height * sizeof(uint8_t) * kDctBlockSize;
   CuBuffer dst_idct = ocu.upload(dst_idct_size, output_idct);
 
-  size_t src_quant_size = kDCTBlockSize * sizeof(int);
+  size_t src_quant_size = kDctBlockSize * sizeof(int);
   CuBuffer src_quant = ocu.upload(src_quant_size, quant);
 
   CUfunction kernel = ocu.kernel(KERNEL_COPYFROMJPEGCOMPONENT);
@@ -681,8 +679,8 @@ void CudaKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint8_
 
   launch2D(ocu, kernel, output_block_width, output_block_height, args);
 
-  CU_CHECK(drv.memcpyDtoHAsync(output_batch, dst_coeff.get(), dst_coeff_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoHAsync(output_idct, dst_idct.get(), dst_idct_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(output_batch, dst_coeff.get(), dst_coeff_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(output_idct, dst_idct.get(), dst_idct_size, ocu.stream()));
   ocu.finish();
 }
 
@@ -692,16 +690,16 @@ void CudaKernels::applyGlobalQuantization(coeff_t* output_batch /*in,out*/, uint
   CudaContext& ocu = context();
   const CudaDriver& drv = ocu.driver();
 
-  size_t dst_coeff_size = block_width * block_height * sizeof(::coeff_t) * kDCTBlockSize;
+  size_t dst_coeff_size = block_width * block_height * sizeof(::coeff_t) * kDctBlockSize;
   CuBuffer dst_coeff = ocu.upload(dst_coeff_size, output_batch);
 
-  size_t dst_idct_size = block_width * block_height * sizeof(uint8_t) * kDCTBlockSize;
+  size_t dst_idct_size = block_width * block_height * sizeof(uint8_t) * kDctBlockSize;
   CuBuffer dst_idct = ocu.upload(dst_idct_size, output_idct);
 
   size_t dst_bool_size = block_width * block_height * sizeof(uchar);
   CuBuffer dst_bool = ocu.upload(dst_bool_size, output_bool);
 
-  size_t src_q_size = kDCTBlockSize * sizeof(int);
+  size_t src_q_size = kDctBlockSize * sizeof(int);
   CuBuffer src_q = ocu.upload(src_q_size, q);
 
   CUfunction kernel = ocu.kernel(KERNEL_APPLYGLOBALQUANTIZATION);
@@ -709,9 +707,9 @@ void CudaKernels::applyGlobalQuantization(coeff_t* output_batch /*in,out*/, uint
 
   launch2D(ocu, kernel, block_width, block_height, args);
 
-  CU_CHECK(drv.memcpyDtoHAsync(output_batch, dst_coeff.get(), dst_coeff_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoHAsync(output_idct, dst_idct.get(), dst_idct_size, ocu.stream()));
-  CU_CHECK(drv.memcpyDtoHAsync(output_bool, dst_bool.get(), dst_bool_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(output_batch, dst_coeff.get(), dst_coeff_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(output_idct, dst_idct.get(), dst_idct_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(output_bool, dst_bool.get(), dst_bool_size, ocu.stream()));
   ocu.finish();
 }
 
@@ -747,14 +745,14 @@ void CudaKernels::componentsToPixelsDevice(cu_mem out, const cu_mem pixels[3], c
     if (yend1 - yend0 > 0) {
       CUfunction kernel = ocu.kernel(KERNEL_COMPONENTSTOPIXELS_EX2);
       const void* args[] = {&out, &xmin, &ymin, &xsize, &ysize, &c, &width, &height};
-      ocu.launch(kernel, blockCount(xsize, BLOCK_SIZE), yend1 - yend0, BLOCK_SIZE, 1, args);
+      ocu.launch(kernel, blockCount(xsize, kBlockSize), yend1 - yend0, kBlockSize, 1, args);
     }
   }
 
   CUfunction kernel = ocu.kernel(KERNEL_COLORTRANSFORMYCBCRTORGB);
   const int pixel_count = xsize * ysize;
   const void* args[] = {&out, &pixel_count};
-  ocu.launch(kernel, blockCount(pixel_count, BLOCK_SIZE), 1, BLOCK_SIZE, 1, args);
+  ocu.launch(kernel, blockCount(pixel_count, kBlockSize), 1, kBlockSize, 1, args);
 }
 
 void CudaKernels::componentsToPixels(uint8_t* rgb, /*out*/
@@ -776,7 +774,7 @@ void CudaKernels::componentsToPixels(uint8_t* rgb, /*out*/
 
   componentsToPixelsDevice(cl_out.get(), pixel_mems, xmin, ymin, xsize, ysize, comps);
 
-  CU_CHECK(ocu.driver().memcpyDtoH(rgb, cl_out.get(), out_size));
+  CU_CHECK(ocu.driver().memcpy_dtoh(rgb, cl_out.get(), out_size));
 }
 
 std::unique_ptr<GpuCompareSession> CudaKernels::startCompare(const float* r, const float* g, const float* b, int xsize,
@@ -785,7 +783,7 @@ std::unique_ptr<GpuCompareSession> CudaKernels::startCompare(const float* r, con
   return std::make_unique<CompareSession>(*this, context().uploadChannels(channel_size, r, g, b), xsize, ysize);
 }
 
-void CudaKernels::compare(const ocu_channels& ref, const int xsize, const int ysize, const OutputImage& img, int step,
+void CudaKernels::compare(const OcuChannels& ref, const int xsize, const int ysize, const OutputImage& img, int step,
                           float* distmap /*out*/) {
   CudaContext& ocu = context();
   const CudaDriver& drv = ocu.driver();
@@ -810,10 +808,10 @@ void CudaKernels::compare(const ocu_channels& ref, const int xsize, const int ys
     componentsToPixelsDevice(srgb.get(), pixel_mems, 0, 0, xsize, ysize, comps);
 
     xyb1_buffers = ocu.uninitializedChannels(channel_size);
-    const ocu_channels xyb1 = xyb1_buffers.view();
+    const OcuChannels xyb1 = xyb1_buffers.view();
     // Same values as OutputImage::ToLinearRGB (the double table cast to float).
     const cu_mem lut = ocu.constants().srgbToLinear([&] {
-      const double* table = Srgb8ToLinearTable();
+      const double* table = srgb8ToLinearTable();
       float lut_f[256];
       for (int i = 0; i < 256; i++) lut_f[i] = static_cast<float>(table[i]);
       return ocu.uploadMemory(sizeof(lut_f), lut_f);
@@ -822,13 +820,13 @@ void CudaKernels::compare(const ocu_channels& ref, const int xsize, const int ys
     const void* args[] = {&srgb.get(), &xyb1.r, &xyb1.g, &xyb1.b, &lut, &size};
     ocu.launch(kernel, blockCount(size, 256), 1, 256, 1, args);
   }
-  const ocu_channels xyb1 = xyb1_buffers.view();
+  const OcuChannels xyb1 = xyb1_buffers.view();
 
   // 2. Reference stays resident; the diffmap mutates its input, so work on a copy.
   CuChannels xyb0_buffers = ocu.uninitializedChannels(channel_size);
-  const ocu_channels xyb0 = xyb0_buffers.view();
+  const OcuChannels xyb0 = xyb0_buffers.view();
   for (int c = 0; c < 3; ++c) {
-    CU_CHECK(drv.memcpyDtoDAsync(xyb0.ch[c], ref.ch[c], channel_size, ocu.stream()));
+    CU_CHECK(drv.memcpy_dtod_async(xyb0.ch[c], ref.ch[c], channel_size, ocu.stream()));
   }
 
   // Zero-filled: CombineChannels / UpsampleSquareRoot leave the borders untouched.
@@ -837,7 +835,7 @@ void CudaKernels::compare(const ocu_channels& ref, const int xsize, const int ys
   opsinDynamicsOnDevice(xyb1, xsize, ysize);
   diffmapOpsinDynamicsImage(mem_result.get(), xyb0, xyb1, xsize, ysize, step);
 
-  CU_CHECK(drv.memcpyDtoHAsync(distmap, mem_result.get(), channel_size, ocu.stream()));
+  CU_CHECK(drv.memcpy_dtoh_async(distmap, mem_result.get(), channel_size, ocu.stream()));
   ocu.finish();
 }
 

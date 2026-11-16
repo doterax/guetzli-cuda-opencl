@@ -17,9 +17,9 @@ class GpuDctOps final : public IDctOps {
  public:
   explicit GpuDctOps(std::shared_ptr<GpuDctKernels> kernels) : kernels_(std::move(kernels)) {}
 
-  void copyFromJpegComponent(OutputImageComponent& c, const JPEGComponent& comp, int factor_x, int factor_y,
+  void copyFromJpegComponent(OutputImageComponent& c, const JpegComponent& comp, int factor_x, int factor_y,
                              const int* quant) override;
-  void applyGlobalQuantization(OutputImageComponent& c, const int q[kDCTBlockSize]) override;
+  void applyGlobalQuantization(OutputImageComponent& c, const int q[kDctBlockSize]) override;
   void toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize, std::vector<uint8_t>& rgb) override;
 
  private:

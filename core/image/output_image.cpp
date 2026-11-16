@@ -33,36 +33,36 @@
 namespace guetzli {
 
 OutputImageComponent::OutputImageComponent(int w, int h) : width_(w), height_(h) {
-  Reset(1, 1);
+  reset(1, 1);
 }
 
-void OutputImageComponent::Reset(int factor_x, int factor_y) {
+void OutputImageComponent::reset(int factor_x, int factor_y) {
   factor_x_ = factor_x;
   factor_y_ = factor_y;
   width_in_blocks_ = (width_ + 8 * factor_x_ - 1) / (8 * factor_x_);
   height_in_blocks_ = (height_ + 8 * factor_y_ - 1) / (8 * factor_y_);
   num_blocks_ = width_in_blocks_ * height_in_blocks_;
-  coeffs_ = std::vector<coeff_t>(num_blocks_ * kDCTBlockSize);
+  coeffs_ = std::vector<coeff_t>(num_blocks_ * kDctBlockSize);
   pixels_ = std::vector<uint16_t>(width_ * height_, 128 << 4);
   quant_.fill(1);
 }
 
-bool OutputImageComponent::IsAllZero() const {
-  int numcoeffs = num_blocks_ * kDCTBlockSize;
+bool OutputImageComponent::isAllZero() const {
+  int numcoeffs = num_blocks_ * kDctBlockSize;
   for (int i = 0; i < numcoeffs; ++i) {
     if (coeffs_[i] != 0) return false;
   }
   return true;
 }
 
-void OutputImageComponent::GetCoeffBlock(int block_x, int block_y, coeff_t block[kDCTBlockSize]) const {
+void OutputImageComponent::getCoeffBlock(int block_x, int block_y, coeff_t block[kDctBlockSize]) const {
   assert(block_x < width_in_blocks_);
   assert(block_y < height_in_blocks_);
-  const int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
-  std::copy_n(&coeffs_[offset], kDCTBlockSize, block);
+  const int offset = (block_y * width_in_blocks_ + block_x) * kDctBlockSize;
+  std::copy_n(&coeffs_[offset], kDctBlockSize, block);
 }
 
-void OutputImageComponent::ToPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const {
+void OutputImageComponent::toPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const {
   assert(xmin >= 0);
   assert(ymin >= 0);
   assert(xmin < width_);
@@ -93,18 +93,18 @@ void OutputImageComponent::ToPixels(int xmin, int ymin, int xsize, int ysize, ui
   }
 }
 
-void OutputImageComponent::ToFloatPixels(float* out, int stride) const {
+void OutputImageComponent::toFloatPixels(float* out, int stride) const {
   assert(factor_x_ == 1);
   assert(factor_y_ == 1);
   for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
     for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
-      coeff_t block[kDCTBlockSize];
-      GetCoeffBlock(block_x, block_y, block);
-      double blockd[kDCTBlockSize];
-      for (int k = 0; k < kDCTBlockSize; ++k) {
+      coeff_t block[kDctBlockSize];
+      getCoeffBlock(block_x, block_y, block);
+      double blockd[kDctBlockSize];
+      for (int k = 0; k < kDctBlockSize; ++k) {
         blockd[k] = block[k];
       }
-      ComputeBlockIDCTDouble(blockd);
+      computeBlockIdctDouble(blockd);
       for (int iy = 0; iy < 8; ++iy) {
         for (int ix = 0; ix < 8; ++ix) {
           int y = block_y * 8 + iy;
@@ -117,20 +117,20 @@ void OutputImageComponent::ToFloatPixels(float* out, int stride) const {
   }
 }
 
-void OutputImageComponent::SetCoeffBlock(int block_x, int block_y, const coeff_t block[kDCTBlockSize]) {
+void OutputImageComponent::setCoeffBlock(int block_x, int block_y, const coeff_t block[kDctBlockSize]) {
   assert(block_x < width_in_blocks_);
   assert(block_y < height_in_blocks_);
-  const int offset = (block_y * width_in_blocks_ + block_x) * kDCTBlockSize;
+  const int offset = (block_y * width_in_blocks_ + block_x) * kDctBlockSize;
 #ifndef NDEBUG
   for (int k = 0; k < kDCTBlockSize; ++k) assert(block[k] % quant_[k] == 0);
 #endif
-  std::copy_n(block, kDCTBlockSize, &coeffs_[offset]);
-  uint8_t idct[kDCTBlockSize];
-  ComputeBlockIDCT(&coeffs_[offset], idct);
-  UpdatePixelsForBlock(block_x, block_y, idct);
+  std::copy_n(block, kDctBlockSize, &coeffs_[offset]);
+  uint8_t idct[kDctBlockSize];
+  computeBlockIdct(&coeffs_[offset], idct);
+  updatePixelsForBlock(block_x, block_y, idct);
 }
 
-void OutputImageComponent::UpdatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDCTBlockSize]) {
+void OutputImageComponent::updatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDctBlockSize]) {
   if (factor_x_ == 1 && factor_y_ == 1) {
     for (int iy = 0; iy < 8; ++iy) {
       for (int ix = 0; ix < 8; ++ix) {
@@ -203,49 +203,49 @@ void OutputImageComponent::UpdatePixelsForBlock(int block_x, int block_y, const 
   }
 }
 
-void OutputImageComponent::CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y,
+void OutputImageComponent::copyFromJpegComponent(const JpegComponent& comp, int factor_x, int factor_y,
                                                  const int* quant) {
-  Reset(factor_x, factor_y);
+  reset(factor_x, factor_y);
   assert(width_in_blocks_ <= comp.width_in_blocks);
   assert(height_in_blocks_ <= comp.height_in_blocks);
-  const size_t src_row_size = comp.width_in_blocks * kDCTBlockSize;
+  const size_t src_row_size = comp.width_in_blocks * kDctBlockSize;
   for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
     const coeff_t* src_coeffs = &comp.coeffs[block_y * src_row_size];
     for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
-      coeff_t block[kDCTBlockSize];
-      for (int i = 0; i < kDCTBlockSize; ++i) {
+      coeff_t block[kDctBlockSize];
+      for (int i = 0; i < kDctBlockSize; ++i) {
         block[i] = src_coeffs[i] * quant[i];
       }
-      SetCoeffBlock(block_x, block_y, block);
-      src_coeffs += kDCTBlockSize;
+      setCoeffBlock(block_x, block_y, block);
+      src_coeffs += kDctBlockSize;
     }
   }
-  std::copy_n(quant, kDCTBlockSize, quant_.begin());
+  std::copy_n(quant, kDctBlockSize, quant_.begin());
 }
 
-void OutputImageComponent::ApplyGlobalQuantization(const int q[kDCTBlockSize]) {
+void OutputImageComponent::applyGlobalQuantization(const int q[kDctBlockSize]) {
   for (int block_y = 0; block_y < height_in_blocks_; ++block_y) {
     for (int block_x = 0; block_x < width_in_blocks_; ++block_x) {
-      coeff_t block[kDCTBlockSize];
-      GetCoeffBlock(block_x, block_y, block);
-      if (QuantizeBlock(block, q)) {
-        SetCoeffBlock(block_x, block_y, block);
+      coeff_t block[kDctBlockSize];
+      getCoeffBlock(block_x, block_y, block);
+      if (quantizeBlock(block, q)) {
+        setCoeffBlock(block_x, block_y, block);
       }
     }
   }
-  std::copy_n(q, kDCTBlockSize, quant_.begin());
+  std::copy_n(q, kDctBlockSize, quant_.begin());
 }
 
-void OutputImageComponent::SetQuant(const int q[kDCTBlockSize]) {
-  std::copy_n(q, kDCTBlockSize, quant_.begin());
+void OutputImageComponent::setQuant(const int q[kDctBlockSize]) {
+  std::copy_n(q, kDctBlockSize, quant_.begin());
 }
 
 OutputImage::OutputImage(int w, int h, IDctOps& ops)
     : width_(w), height_(h), ops_(&ops), components_(3, OutputImageComponent(w, h)) {}
 
-void OutputImage::CopyFromJpegData(const JPEGData& jpg) {
+void OutputImage::copyFromJpegData(const JpegData& jpg) {
   for (size_t i = 0; i < jpg.components.size(); ++i) {
-    const JPEGComponent& comp = jpg.components[i];
+    const JpegComponent& comp = jpg.components[i];
     assert(jpg.max_h_samp_factor % comp.h_samp_factor == 0);
     assert(jpg.max_v_samp_factor % comp.v_samp_factor == 0);
     // Ensure h_samp_factor and v_samp_factor are not zero to prevent division by zero
@@ -260,13 +260,13 @@ void OutputImage::CopyFromJpegData(const JPEGData& jpg) {
 
 namespace {
 
-void SetDownsampledCoefficients(const std::vector<float>& pixels, int factor_x, int factor_y,
+void setDownsampledCoefficients(const std::vector<float>& pixels, int factor_x, int factor_y,
                                 OutputImageComponent* comp) {
   assert(pixels.size() == comp->width() * comp->height());
-  comp->Reset(factor_x, factor_y);
-  for (int block_y = 0; block_y < comp->height_in_blocks(); ++block_y) {
-    for (int block_x = 0; block_x < comp->width_in_blocks(); ++block_x) {
-      double blockd[kDCTBlockSize];
+  comp->reset(factor_x, factor_y);
+  for (int block_y = 0; block_y < comp->heightInBlocks(); ++block_y) {
+    for (int block_x = 0; block_x < comp->widthInBlocks(); ++block_x) {
+      double blockd[kDctBlockSize];
       int x0 = 8 * block_x * factor_x;
       int y0 = 8 * block_y * factor_y;
       assert(x0 < comp->width());
@@ -285,131 +285,131 @@ void SetDownsampledCoefficients(const std::vector<float>& pixels, int factor_x, 
           blockd[iy * 8 + ix] = avg;
         }
       }
-      ComputeBlockDCTDouble(blockd);
+      computeBlockDctDouble(blockd);
       blockd[0] -= 1024.0;
-      coeff_t block[kDCTBlockSize];
-      for (int k = 0; k < kDCTBlockSize; ++k) {
+      coeff_t block[kDctBlockSize];
+      for (int k = 0; k < kDctBlockSize; ++k) {
         block[k] = static_cast<coeff_t>(std::round(blockd[k]));
       }
-      comp->SetCoeffBlock(block_x, block_y, block);
+      comp->setCoeffBlock(block_x, block_y, block);
     }
   }
 }
 
 }  // namespace
 
-void OutputImage::Downsample(const DownsampleConfig& cfg) {
-  if (components_[1].IsAllZero() && components_[2].IsAllZero()) {
+void OutputImage::downsample(const DownsampleConfig& cfg) {
+  if (components_[1].isAllZero() && components_[2].isAllZero()) {
     // If the image is already grayscale, nothing to do.
     return;
   }
   if (cfg.use_silver_screen && cfg.u_factor_x == 2 && cfg.u_factor_y == 2 && cfg.v_factor_x == 2 &&
       cfg.v_factor_y == 2) {
-    std::vector<uint8_t> rgb = ToSRGB();
-    std::vector<std::vector<float>> yuv = RGBToYUV420(rgb, width_, height_);
-    SetDownsampledCoefficients(yuv[0], 1, 1, &components_[0]);
-    SetDownsampledCoefficients(yuv[1], 2, 2, &components_[1]);
-    SetDownsampledCoefficients(yuv[2], 2, 2, &components_[2]);
+    std::vector<uint8_t> rgb = toSrgb();
+    std::vector<std::vector<float>> yuv = rgbToYuv420(rgb, width_, height_);
+    setDownsampledCoefficients(yuv[0], 1, 1, &components_[0]);
+    setDownsampledCoefficients(yuv[1], 2, 2, &components_[1]);
+    setDownsampledCoefficients(yuv[2], 2, 2, &components_[2]);
     return;
   }
   // Get the floating-point precision YUV array represented by the set of
   // DCT coefficients.
   std::vector<std::vector<float>> yuv(3, std::vector<float>(width_ * height_));
   for (int c = 0; c < 3; ++c) {
-    components_[c].ToFloatPixels(&yuv[c][0], 1);
+    components_[c].toFloatPixels(&yuv[c][0], 1);
   }
 
-  yuv = PreProcessChannel(width_, height_, 2, 1.3f, 0.5f, cfg.u_sharpen, cfg.u_blur, yuv);
-  yuv = PreProcessChannel(width_, height_, 1, 1.3f, 0.5f, cfg.v_sharpen, cfg.v_blur, yuv);
+  yuv = preProcessChannel(width_, height_, 2, 1.3f, 0.5f, cfg.u_sharpen, cfg.u_blur, yuv);
+  yuv = preProcessChannel(width_, height_, 1, 1.3f, 0.5f, cfg.v_sharpen, cfg.v_blur, yuv);
 
   // Do the actual downsampling (averaging) and forward-DCT.
   if (cfg.u_factor_x != 1 || cfg.u_factor_y != 1) {
-    SetDownsampledCoefficients(yuv[1], cfg.u_factor_x, cfg.u_factor_y, &components_[1]);
+    setDownsampledCoefficients(yuv[1], cfg.u_factor_x, cfg.u_factor_y, &components_[1]);
   }
   if (cfg.v_factor_x != 1 || cfg.v_factor_y != 1) {
-    SetDownsampledCoefficients(yuv[2], cfg.v_factor_x, cfg.v_factor_y, &components_[2]);
+    setDownsampledCoefficients(yuv[2], cfg.v_factor_x, cfg.v_factor_y, &components_[2]);
   }
 }
 
-void OutputImage::ApplyGlobalQuantization(const int q[3][kDCTBlockSize]) {
+void OutputImage::applyGlobalQuantization(const int q[3][kDctBlockSize]) {
   for (int c = 0; c < 3; ++c) {
     ops_->applyGlobalQuantization(components_[c], &q[c][0]);
   }
 }
 
-void OutputImage::SaveToJpegData(JPEGData* jpg) const {
+void OutputImage::saveToJpegData(JpegData* jpg) const {
   assert(components_[0].factor_x() == 1);
   assert(components_[0].factor_y() == 1);
   jpg->width = width_;
   jpg->height = height_;
   jpg->max_h_samp_factor = 1;
   jpg->max_v_samp_factor = 1;
-  jpg->MCU_cols = components_[0].width_in_blocks();
-  jpg->MCU_rows = components_[0].height_in_blocks();
-  int ncomp = components_[1].IsAllZero() && components_[2].IsAllZero() ? 1 : 3;
+  jpg->mcu_cols = components_[0].widthInBlocks();
+  jpg->mcu_rows = components_[0].heightInBlocks();
+  int ncomp = components_[1].isAllZero() && components_[2].isAllZero() ? 1 : 3;
   for (int i = 1; i < ncomp; ++i) {
-    jpg->max_h_samp_factor = std::max(jpg->max_h_samp_factor, components_[i].factor_x());
-    jpg->max_v_samp_factor = std::max(jpg->max_v_samp_factor, components_[i].factor_y());
-    jpg->MCU_cols = std::min(jpg->MCU_cols, components_[i].width_in_blocks());
-    jpg->MCU_rows = std::min(jpg->MCU_rows, components_[i].height_in_blocks());
+    jpg->max_h_samp_factor = std::max(jpg->max_h_samp_factor, components_[i].factorX());
+    jpg->max_v_samp_factor = std::max(jpg->max_v_samp_factor, components_[i].factorY());
+    jpg->mcu_cols = std::min(jpg->mcu_cols, components_[i].widthInBlocks());
+    jpg->mcu_rows = std::min(jpg->mcu_rows, components_[i].heightInBlocks());
   }
   jpg->components.resize(ncomp);
-  int q[3][kDCTBlockSize];
+  int q[3][kDctBlockSize];
   for (int c = 0; c < 3; ++c) {
-    std::copy_n(components_[c].quant(), kDCTBlockSize, &q[c][0]);
+    std::copy_n(components_[c].quant(), kDctBlockSize, &q[c][0]);
   }
   for (int c = 0; c < ncomp; ++c) {
-    JPEGComponent* comp = &jpg->components[c];
+    JpegComponent* comp = &jpg->components[c];
     assert(jpg->max_h_samp_factor % components_[c].factor_x() == 0);
     assert(jpg->max_v_samp_factor % components_[c].factor_y() == 0);
     comp->id = c;
-    comp->h_samp_factor = jpg->max_h_samp_factor / components_[c].factor_x();
-    comp->v_samp_factor = jpg->max_v_samp_factor / components_[c].factor_y();
-    comp->width_in_blocks = jpg->MCU_cols * comp->h_samp_factor;
-    comp->height_in_blocks = jpg->MCU_rows * comp->v_samp_factor;
+    comp->h_samp_factor = jpg->max_h_samp_factor / components_[c].factorX();
+    comp->v_samp_factor = jpg->max_v_samp_factor / components_[c].factorY();
+    comp->width_in_blocks = jpg->mcu_cols * comp->h_samp_factor;
+    comp->height_in_blocks = jpg->mcu_rows * comp->v_samp_factor;
     comp->num_blocks = comp->width_in_blocks * comp->height_in_blocks;
-    comp->coeffs.resize(kDCTBlockSize * comp->num_blocks);
+    comp->coeffs.resize(kDctBlockSize * comp->num_blocks);
 
     int last_dc = 0;
     const coeff_t* src_coeffs = components_[c].coeffs();
     coeff_t* dest_coeffs = &comp->coeffs[0];
     for (int block_y = 0; block_y < comp->height_in_blocks; ++block_y) {
       for (int block_x = 0; block_x < comp->width_in_blocks; ++block_x) {
-        if (block_y >= components_[c].height_in_blocks() || block_x >= components_[c].width_in_blocks()) {
+        if (block_y >= components_[c].heightInBlocks() || block_x >= components_[c].widthInBlocks()) {
           dest_coeffs[0] = last_dc;
-          for (int k = 1; k < kDCTBlockSize; ++k) {
+          for (int k = 1; k < kDctBlockSize; ++k) {
             dest_coeffs[k] = 0;
           }
         } else {
-          for (int k = 0; k < kDCTBlockSize; ++k) {
+          for (int k = 0; k < kDctBlockSize; ++k) {
             const int quant = q[c][k];
             const int coeff = src_coeffs[k];
             assert(coeff % quant == 0);
             dest_coeffs[k] = coeff / quant;
           }
-          src_coeffs += kDCTBlockSize;
+          src_coeffs += kDctBlockSize;
         }
         last_dc = dest_coeffs[0];
-        dest_coeffs += kDCTBlockSize;
+        dest_coeffs += kDctBlockSize;
       }
     }
   }
-  SaveQuantTables(q, jpg);
+  saveQuantTables(q, jpg);
 }
 
-std::vector<uint8_t> OutputImage::ToSRGB(int xmin, int ymin, int xsize, int ysize) const {
+std::vector<uint8_t> OutputImage::toSrgb(int xmin, int ymin, int xsize, int ysize) const {
   std::vector<uint8_t> rgb(xsize * ysize * 3);
   ops_->toSrgb(*this, xmin, ymin, xsize, ysize, rgb);
   return rgb;
 }
 
-std::vector<uint8_t> OutputImage::ToSRGB() const {
-  return ToSRGB(0, 0, width_, height_);
+std::vector<uint8_t> OutputImage::toSrgb() const {
+  return toSrgb(0, 0, width_, height_);
 }
 
-void OutputImage::ToLinearRGB(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const {
-  const double* lut = Srgb8ToLinearTable();
-  std::vector<uint8_t> rgb_pixels = ToSRGB(xmin, ymin, xsize, ysize);
+void OutputImage::toLinearRgb(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const {
+  const double* lut = srgb8ToLinearTable();
+  std::vector<uint8_t> rgb_pixels = toSrgb(xmin, ymin, xsize, ysize);
   for (int p = 0; p < xsize * ysize; ++p) {
     for (int i = 0; i < 3; ++i) {
       (*rgb)[i][p] = static_cast<float>(lut[rgb_pixels[3 * p + i]]);
@@ -417,33 +417,33 @@ void OutputImage::ToLinearRGB(int xmin, int ymin, int xsize, int ysize, std::vec
   }
 }
 
-void OutputImage::ToLinearRGB(std::vector<std::vector<float>>* rgb) const {
-  ToLinearRGB(0, 0, width_, height_, rgb);
+void OutputImage::toLinearRgb(std::vector<std::vector<float>>* rgb) const {
+  toLinearRgb(0, 0, width_, height_, rgb);
 }
 
-std::string OutputImage::FrameTypeStr() const {
+std::string OutputImage::frameTypeStr() const {
   char buf[128];
   int len =
-      std::snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factor_x(), component(0).factor_y(),
-                    component(1).factor_x(), component(1).factor_y(), component(2).factor_x(), component(2).factor_y());
+      std::snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factorX(), component(0).factorY(),
+                    component(1).factorX(), component(1).factorY(), component(2).factorX(), component(2).factorY());
   return std::string(buf, len);
 }
 
-void CpuDctOps::copyFromJpegComponent(OutputImageComponent& c, const JPEGComponent& comp, int factor_x, int factor_y,
+void CpuDctOps::copyFromJpegComponent(OutputImageComponent& c, const JpegComponent& comp, int factor_x, int factor_y,
                                       const int* quant) {
-  c.CopyFromJpegComponent(comp, factor_x, factor_y, quant);
+  c.copyFromJpegComponent(comp, factor_x, factor_y, quant);
 }
 
-void CpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDCTBlockSize]) {
-  c.ApplyGlobalQuantization(q);
+void CpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDctBlockSize]) {
+  c.applyGlobalQuantization(q);
 }
 
 void CpuDctOps::toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize, std::vector<uint8_t>& rgb) {
   for (int c = 0; c < 3; ++c) {
-    img.component(c).ToPixels(xmin, ymin, xsize, ysize, &rgb[c], 3);
+    img.component(c).toPixels(xmin, ymin, xsize, ysize, &rgb[c], 3);
   }
   for (size_t p = 0; p < rgb.size(); p += 3) {
-    ColorTransformYCbCrToRGB(&rgb[p]);
+    colorTransformYCbCrToRgb(&rgb[p]);
   }
 }
 

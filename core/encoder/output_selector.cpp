@@ -16,17 +16,17 @@ int appendToString(void* data, const uint8_t* buf, size_t count) {
 
 }  // namespace
 
-std::string OutputSelector::serialize(const JPEGData& jpg) const {
+std::string OutputSelector::serialize(const JpegData& jpg) const {
   std::string out;
-  JPEGOutput output(appendToString, &out);
-  if (!WriteJpeg(jpg, clear_metadata_, output)) {
+  JpegOutput output(appendToString, &out);
+  if (!writeJpeg(jpg, clear_metadata_, output)) {
     throw std::logic_error("could not serialize the JPEG data");
   }
   return out;
 }
 
 void OutputSelector::offer(const std::string& encoded, const Comparator& comparator) {
-  const double score = comparator.ScoreOutputSize(static_cast<int>(encoded.size()));
+  const double score = comparator.scoreOutputSize(static_cast<int>(encoded.size()));
   GUETZLI_LOG(stats_, " Score[%.4f]", score);
   if (score < score_ || score_ < 0) {
     best_ = encoded;

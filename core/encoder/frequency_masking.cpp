@@ -45,8 +45,8 @@ struct BlockGrid {
 
 BlockGrid blockGrid(const OutputImage& img, int last_c) {
   BlockGrid g;
-  g.factor_x = img.component(last_c).factor_x();
-  g.factor_y = img.component(last_c).factor_y();
+  g.factor_x = img.component(last_c).factorX();
+  g.factor_y = img.component(last_c).factorY();
   g.block_width = (img.width() + 8 * g.factor_x - 1) / (8 * g.factor_x);
   g.block_height = (img.height() + 8 * g.factor_y - 1) / (8 * g.factor_y);
   g.num_blocks = g.block_width * g.block_height;
@@ -55,7 +55,7 @@ BlockGrid blockGrid(const OutputImage& img, int last_c) {
 
 }  // namespace
 
-ZeroingCandidates CollectZeroingCandidates(std::span<const CoeffData> orders, int num_blocks, float block_error_limit) {
+ZeroingCandidates collectZeroingCandidates(std::span<const CoeffData> orders, int num_blocks, float block_error_limit) {
   ZeroingCandidates out;
   out.offsets.resize(num_blocks + 1);
   for (int block_ix = 0; block_ix < num_blocks; ++block_ix) {
@@ -72,32 +72,32 @@ ZeroingCandidates CollectZeroingCandidates(std::span<const CoeffData> orders, in
   return out;
 }
 
-void FrequencyMasking::run(const JPEGData& jpg, OutputImage& img, const uint8_t comp_mask, const double target_mul,
+void FrequencyMasking::run(const JpegData& jpg, OutputImage& img, const uint8_t comp_mask, const double target_mul,
                            bool stop_early) {
-  const int last_c = Log2FloorNonZero(comp_mask);
+  const int last_c = log2FloorNonZero(comp_mask);
   if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
   const BlockGrid grid = blockGrid(img, last_c);
 
-  comparator_->StartBlockComparisons();
+  comparator_->startBlockComparisons();
   const BlockZeroingInput search_input{
       jpg, img, comp_mask, *comparator_, params_->zeroing_greedy_lookahead, params_->new_zeroing_model};
   const std::vector<CoeffData> orders = search_->run(search_input);
   const ZeroingCandidates candidates =
-      CollectZeroingCandidates(orders, grid.num_blocks, comparator_->BlockErrorLimit());
-  comparator_->FinishBlockComparisons();
+      collectZeroingCandidates(orders, grid.num_blocks, comparator_->blockErrorLimit());
+  comparator_->finishBlockComparisons();
 
   if (candidates.coeffs.empty()) return;  // nothing to do
   adjust(jpg, img, comp_mask, target_mul, stop_early, candidates);
 }
 
-void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8_t comp_mask, const double target_mul,
+void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8_t comp_mask, const double target_mul,
                               bool stop_early, const ZeroingCandidates& candidates) {
   const std::vector<int>& candidate_coeff_offsets = candidates.offsets;
   const std::vector<uint8_t>& candidate_coeffs = candidates.coeffs;
   const std::vector<float>& candidate_coeff_errors = candidates.errors;
   const int width = img.width();
   const int height = img.height();
-  const BlockGrid grid = blockGrid(img, Log2FloorNonZero(comp_mask));
+  const BlockGrid grid = blockGrid(img, log2FloorNonZero(comp_mask));
   const int factor_x = grid.factor_x;
   const int factor_y = grid.factor_y;
   const int block_width = grid.block_width;
@@ -105,8 +105,8 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
   const int num_blocks = grid.num_blocks;
 
   JpegSizeEstimator size_estimator = [&] {
-    JPEGData jpg_out = jpg;
-    img.SaveToJpegData(&jpg_out);
+    JpegData jpg_out = jpg;
+    img.saveToJpegData(&jpg_out);
     return JpegSizeEstimator(jpg_out, jpg.components.size(), params_->clear_metadata);
   }();
   const int base_size = static_cast<int>(size_estimator.estimate());
@@ -136,7 +136,7 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
         if (!first_up_iter) {
           distmap = comparator_->distmap();
         }
-        comparator_->ComputeBlockErrorAdjustmentWeights(direction, rblock, target_mul, factor_x, factor_y, distmap,
+        comparator_->computeBlockErrorAdjustmentWeights(direction, rblock, target_mul, factor_x, factor_y, distmap,
                                                         &block_weight);
         global_order.clear();
         blocks_to_change = 0;
@@ -180,7 +180,7 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
                 [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
 
       double rel_size_delta = direction > 0 ? 0.01 : 0.0005;
-      if (direction > 0 && comparator_->DistanceOK(1.0)) {
+      if (direction > 0 && comparator_->distanceOk(1.0)) {
         rel_size_delta = 0.05;
       }
       double min_size_delta = base_size * rel_size_delta;
@@ -189,7 +189,7 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
       int min_coeffs_to_change = coeffs_to_change_per_block * blocks_to_change;
 
       if (first_up_iter) {
-        const float limit = 0.75f * comparator_->BlockErrorLimit();
+        const float limit = 0.75f * comparator_->blockErrorLimit();
         auto it = std::partition_point(global_order.begin(), global_order.end(),
                                        [=](const std::pair<int, float>& a) { return a.second < limit; });
         min_coeffs_to_change = std::max<int>(min_coeffs_to_change, it - global_order.begin());
@@ -208,21 +208,21 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
         const int last_idx = last_indexes[block_ix];
         const uint8_t* block_candidates = candidate_coeffs.data() + candidate_coeff_offsets[block_ix];
         const int idx = block_candidates[last_idx + std::min(direction, 0)];
-        const int c = idx / kDCTBlockSize;
-        const int k = idx % kDCTBlockSize;
+        const int c = idx / kDctBlockSize;
+        const int k = idx % kDctBlockSize;
         const int* quant = img.component(c).quant();
-        const JPEGComponent& comp = jpg.components[c];
+        const JpegComponent& comp = jpg.components[c];
         assert(img.component(c).factor_x() == factor_x && img.component(c).factor_y() == factor_y);
 
         const int jpg_block_ix = block_y * comp.width_in_blocks + block_x;
-        const int newval = direction > 0 ? 0 : Quantize(comp.coeffs[jpg_block_ix * kDCTBlockSize + k], quant[k]);
-        coeff_t old_block[kDCTBlockSize];
-        img.component(c).GetCoeffBlock(block_x, block_y, old_block);
-        coeff_t block[kDCTBlockSize];
+        const int newval = direction > 0 ? 0 : quantize(comp.coeffs[jpg_block_ix * kDctBlockSize + k], quant[k]);
+        coeff_t old_block[kDctBlockSize];
+        img.component(c).getCoeffBlock(block_x, block_y, old_block);
+        coeff_t block[kDctBlockSize];
         std::memcpy(block, old_block, sizeof(block));
         block[k] = newval;
         size_estimator.replaceBlock(c, old_block, block, quant);
-        img.component(c).SetCoeffBlock(block_x, block_y, block);
+        img.component(c).setCoeffBlock(block_x, block_y, block);
         last_indexes[block_ix] += direction;
         changed_blocks.insert(block_ix);
         val_threshold = global_order[i].second;
@@ -247,17 +247,17 @@ void FrequencyMasking::adjust(const JPEGData& jpg, OutputImage& img, const uint8
       ++stats_->counters[direction > 0 ? kNumItersUpCnt : kNumItersDownCnt];
       std::string encoded_jpg;
       {
-        JPEGData jpg_out = jpg;
-        img.SaveToJpegData(&jpg_out);
+        JpegData jpg_out = jpg;
+        img.saveToJpegData(&jpg_out);
         encoded_jpg = selector_->serialize(jpg_out);
       }
       GUETZLI_LOG(stats_,
                   "Iter %2d: %s(%d) %s Coeffs[%d/%zd] "
                   "Blocks[%zd/%d/%d] ValThres[%.4f] Out[%7zd] EstErr[%.2f%%]",
-                  stats_->counters[kNumItersCnt], img.FrameTypeStr().c_str(), comp_mask, direction > 0 ? "up" : "down",
+                  stats_->counters[kNumItersCnt], img.frameTypeStr().c_str(), comp_mask, direction > 0 ? "up" : "down",
                   changed_coeffs, global_order_size, changed_blocks.size(), blocks_to_change, num_blocks, val_threshold,
                   encoded_jpg.size(), 100.0 - (100.0 * est_jpg_size) / encoded_jpg.size());
-      comparator_->Compare(img);
+      comparator_->compare(img);
       selector_->offer(encoded_jpg, *comparator_);
       prev_size = est_jpg_size;
     }

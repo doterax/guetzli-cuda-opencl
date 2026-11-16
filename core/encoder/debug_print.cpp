@@ -18,7 +18,7 @@
 
 namespace guetzli {
 
-void PrintDebug(ProcessStats* stats, std::string s) {
+void printDebug(ProcessStats* stats, std::string s) {
   if (stats->logger) {
     stats->logger->write(LogLevel::Debug, s);
   }

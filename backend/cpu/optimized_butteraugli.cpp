@@ -15,12 +15,12 @@ namespace butteraugli {
 static const float kInternalGoodQualityThreshold = 14.921561160295326f;
 static const float kGlobalScale = 1.0f / kInternalGoodQualityThreshold;
 
-inline float DotProductOpt(const float u[3], const float v[3]) {
+inline float dotProductOpt(const float u[3], const float v[3]) {
   return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
 // Computes a horizontal convolution and transposes the result.
-void ConvolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t offset,
+void convolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t offset,
                     const float* __restrict__ multipliers, const float* __restrict__ inp, float border_ratio,
                     float* __restrict__ result) {
   float weight_no_border = 0;
@@ -47,7 +47,7 @@ void ConvolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t
   }
 }
 
-void BlurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float border_ratio) {
+void blurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float border_ratio) {
   float m = 2.25;  // Accuracy increases when m is increased.
   const float scaler = -1.0f / (2.0f * sigma * sigma);
   // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
@@ -62,14 +62,14 @@ void BlurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float bord
   int dxsize = (xsize + xstep - 1) / xstep;
   int dysize = (ysize + ystep - 1) / ystep;
   std::vector<float> tmp(dxsize * ysize);
-  ConvolutionOpt(xsize, ysize, xstep, expn_size, diff, expn.data(), channel, border_ratio, tmp.data());
+  convolutionOpt(xsize, ysize, xstep, expn_size, diff, expn.data(), channel, border_ratio, tmp.data());
   float* output = channel;
   std::vector<float> downsampled_output;
   if (xstep > 1) {
     downsampled_output.resize(dxsize * dysize);
     output = downsampled_output.data();
   }
-  ConvolutionOpt(ysize, dxsize, ystep, expn_size, diff, expn.data(), tmp.data(), border_ratio, output);
+  convolutionOpt(ysize, dxsize, ystep, expn_size, diff, expn.data(), tmp.data(), border_ratio, output);
   if (xstep > 1) {
     for (size_t y = 0; y < ysize; y++) {
       for (size_t x = 0; x < xsize; x++) {
@@ -87,7 +87,7 @@ constexpr size_t kBlockEdgeHalf = kBlockEdge / 2;
 constexpr size_t kBlockHalf = kBlockEdge * kBlockEdgeHalf;
 
 // Contrast sensitivity related weights.
-static const float* GetContrastSensitivityMatrixOpt() {
+static const float* getContrastSensitivityMatrixOpt() {
   static float csf8x8[kBlockHalf + kBlockEdgeHalf + 1] = {
       5.28270670524,
       0.0,
@@ -130,56 +130,56 @@ static const float* GetContrastSensitivityMatrixOpt() {
   return &csf8x8[0];
 }
 
-std::array<float, 21> MakeHighFreqColorDiffDxOpt() {
+std::array<float, 21> makeHighFreqColorDiffDxOpt() {
   std::array<float, 21> lut;
-  static const float off = 11.38708334481672;
-  static const float inc = 14.550189611520716;
+  static const float kOff = 11.38708334481672;
+  static const float kInc = 14.550189611520716;
   lut[0] = 0.0;
-  lut[1] = off;
+  lut[1] = kOff;
   for (int i = 2; i < 21; ++i) {
-    lut[i] = lut[i - 1] + inc;
+    lut[i] = lut[i - 1] + kInc;
   }
   return lut;
 }
 
-const float* GetHighFreqColorDiffDxOpt() {
-  static const std::array<float, 21> kLut = MakeHighFreqColorDiffDxOpt();
+const float* getHighFreqColorDiffDxOpt() {
+  static const std::array<float, 21> kLut = makeHighFreqColorDiffDxOpt();
   return kLut.data();
 }
 
-std::array<float, 21> MakeHighFreqColorDiffDyOpt() {
+std::array<float, 21> makeHighFreqColorDiffDyOpt() {
   std::array<float, 21> lut;
-  static const float off = 1.4103373714040413;
-  static const float inc = 0.7084088867024;
+  static const float kOff = 1.4103373714040413;
+  static const float kInc = 0.7084088867024;
   lut[0] = 0.0;
-  lut[1] = off;
+  lut[1] = kOff;
   for (int i = 2; i < 21; ++i) {
-    lut[i] = lut[i - 1] + inc;
+    lut[i] = lut[i - 1] + kInc;
   }
   return lut;
 }
 
-const float* GetHighFreqColorDiffDyOpt() {
-  static const std::array<float, 21> kLut = MakeHighFreqColorDiffDyOpt();
+const float* getHighFreqColorDiffDyOpt() {
+  static const std::array<float, 21> kLut = makeHighFreqColorDiffDyOpt();
   return kLut.data();
 }
 
-std::array<float, 21> MakeLowFreqColorDiffDyOpt() {
+std::array<float, 21> makeLowFreqColorDiffDyOpt() {
   std::array<float, 21> lut;
-  static const float inc = 5.2511644570349185;
+  static const float kInc = 5.2511644570349185;
   lut[0] = 0.0;
   for (int i = 1; i < 21; ++i) {
-    lut[i] = lut[i - 1] + inc;
+    lut[i] = lut[i - 1] + kInc;
   }
   return lut;
 }
 
-const float* GetLowFreqColorDiffDyOpt() {
-  static const std::array<float, 21> kLut = MakeLowFreqColorDiffDyOpt();
+const float* getLowFreqColorDiffDyOpt() {
+  static const std::array<float, 21> kLut = makeLowFreqColorDiffDyOpt();
   return kLut.data();
 }
 
-inline float InterpolateOpt(const float* array, int size, float sx) {
+inline float interpolateOpt(const float* array, int size, float sx) {
   float ix = fabs(sx);
   assert(ix < 10000);
   int baseix = static_cast<int>(ix);
@@ -195,7 +195,7 @@ inline float InterpolateOpt(const float* array, int size, float sx) {
   return res;
 }
 
-inline float InterpolateClampNegativeOpt(const float* array, int size, float sx) {
+inline float interpolateClampNegativeOpt(const float* array, int size, float sx) {
   if (sx < 0) {
     sx = 0;
   }
@@ -212,38 +212,38 @@ inline float InterpolateClampNegativeOpt(const float* array, int size, float sx)
   return res;
 }
 
-void RgbToXybOpt(float r, float g, float b, float* valx, float* valy, float* valz) {
-  static const float a0 = 1.01611726948;
-  static const float a1 = 0.982482243696;
-  static const float a2 = 1.43571362627;
-  static const float a3 = 0.896039849412;
-  *valx = a0 * r - a1 * g;
-  *valy = a2 * r + a3 * g;
+void rgbToXybOpt(float r, float g, float b, float* valx, float* valy, float* valz) {
+  static const float kA0 = 1.01611726948;
+  static const float kA1 = 0.982482243696;
+  static const float kA2 = 1.43571362627;
+  static const float kA3 = 0.896039849412;
+  *valx = kA0 * r - kA1 * g;
+  *valy = kA2 * r + kA3 * g;
   *valz = b;
 }
 
-static inline void XybToValsOpt(float x, float y, float z, float* valx, float* valy, float* valz) {
-  static const float xmul = 0.758304045695;
-  static const float ymul = 2.28148649801;
-  static const float zmul = 1.87816926918;
-  *valx = InterpolateOpt(GetHighFreqColorDiffDxOpt(), 21, x * xmul);
-  *valy = InterpolateOpt(GetHighFreqColorDiffDyOpt(), 21, y * ymul);
-  *valz = zmul * z;
+static inline void xybToValsOpt(float x, float y, float z, float* valx, float* valy, float* valz) {
+  static const float kXmul = 0.758304045695;
+  static const float kYmul = 2.28148649801;
+  static const float kZmul = 1.87816926918;
+  *valx = interpolateOpt(getHighFreqColorDiffDxOpt(), 21, x * kXmul);
+  *valy = interpolateOpt(getHighFreqColorDiffDyOpt(), 21, y * kYmul);
+  *valz = kZmul * z;
 }
 
 // Rough psychovisual distance to gray for low frequency colors.
-static void XybLowFreqToValsOpt(float x, float y, float z, float* valx, float* valy, float* valz) {
-  static const float xmul = 6.64482198135;
-  static const float ymul = 0.837846224276;
-  static const float zmul = 7.34905756986;
-  static const float y_to_z_mul = 0.0812519812628;
-  z += y_to_z_mul * y;
-  *valz = z * zmul;
-  *valx = x * xmul;
-  *valy = InterpolateOpt(GetLowFreqColorDiffDyOpt(), 21, y * ymul);
+static void xybLowFreqToValsOpt(float x, float y, float z, float* valx, float* valy, float* valz) {
+  static const float kXmul = 6.64482198135;
+  static const float kYmul = 0.837846224276;
+  static const float kZmul = 7.34905756986;
+  static const float kYToZMul = 0.0812519812628;
+  z += kYToZMul * y;
+  *valz = z * kZmul;
+  *valx = x * kXmul;
+  *valy = interpolateOpt(getLowFreqColorDiffDyOpt(), 21, y * kYmul);
 }
 
-float RemoveRangeAroundZeroOpt(float v, float range) {
+float removeRangeAroundZeroOpt(float v, float range) {
   if (v >= -range && v < range) {
     return 0;
   }
@@ -254,18 +254,18 @@ float RemoveRangeAroundZeroOpt(float v, float range) {
   }
 }
 
-void XybDiffLowFreqSquaredAccumulateOpt(float r0, float g0, float b0, float r1, float g1, float b1, float factor,
+void xybDiffLowFreqSquaredAccumulateOpt(float r0, float g0, float b0, float r1, float g1, float b1, float factor,
                                         float res[3]) {
   float valx0, valy0, valz0;
   float valx1, valy1, valz1;
-  XybLowFreqToValsOpt(r0, g0, b0, &valx0, &valy0, &valz0);
+  xybLowFreqToValsOpt(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
     res[0] += factor * valx0 * valx0;
     res[1] += factor * valy0 * valy0;
     res[2] += factor * valz0 * valz0;
     return;
   }
-  XybLowFreqToValsOpt(r1, g1, b1, &valx1, &valy1, &valz1);
+  xybLowFreqToValsOpt(r1, g1, b1, &valx1, &valy1, &valz1);
   // Approximate the distance of the colors by their respective distances
   // to gray.
   float valx = valx0 - valx1;
@@ -286,7 +286,7 @@ inline float abssq(const ComplexOpt& c) {
   return c.real * c.real + c.imag * c.imag;
 }
 
-static void TransposeBlock(ComplexOpt data[kBlockSize]) {
+static void transposeBlock(ComplexOpt data[kBlockSize]) {
   for (int i = 0; i < kBlockEdge; i++) {
     for (int j = 0; j < i; j++) {
       std::swap(data[kBlockEdge * i + j], data[kBlockEdge * j + i]);
@@ -295,7 +295,7 @@ static void TransposeBlock(ComplexOpt data[kBlockSize]) {
 }
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
-inline void FFT4Opt(ComplexOpt* a) {
+inline void fft4Opt(ComplexOpt* a) {
   float t1, t2, t3, t4, t5, t6, t7, t8;
   t5 = a[2].real;
   t1 = a[0].real - t5;
@@ -327,7 +327,7 @@ inline void FFT4Opt(ComplexOpt* a) {
 static const float kSqrtHalf = 0.70710678118654752440084436210484903;
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
-void FFT8OptOpt(ComplexOpt* a) {
+void fft8OptOpt(ComplexOpt* a) {
   float t1, t2, t3, t4, t5, t6, t7, t8;
 
   t7 = a[4].imag;
@@ -406,7 +406,7 @@ void FFT8OptOpt(ComplexOpt* a) {
   t5 += a[6].imag;
   a[6].imag = t5;
 
-  FFT4Opt(a);
+  fft4Opt(a);
 
   // Reorder to the correct output order.
   // TODO: Modify the above computation so that this is not needed.
@@ -423,7 +423,7 @@ void FFT8OptOpt(ComplexOpt* a) {
 // Same as FFT8, but all inputs are real.
 // TODO: Since this does not need to be in-place, maybe there is a
 // faster FFT than this one, which is derived from DJB's in-place complex FFT.
-void RealFFT8Opt(const float* in, ComplexOpt* out) {
+void realFft8Opt(const float* in, ComplexOpt* out) {
   float t1, t2, t3, t5, t6, t7, t8;
   t8 = in[6];
   t5 = in[2] - t8;
@@ -498,24 +498,24 @@ void RealFFT8Opt(const float* in, ComplexOpt* out) {
 
 // Fills in block[kBlockEdgeHalf..(kBlockHalf+kBlockEdgeHalf)], and leaves the
 // rest unmodified.
-void ButteraugliFFTSquaredOpt(float block[kBlockSize]) {
+void butteraugliFftSquaredOpt(float block[kBlockSize]) {
   float global_mul = 0.000064;
   ComplexOpt block_c[kBlockSize];
   assert(kBlockEdge == 8);
   for (int y = 0; y < kBlockEdge; ++y) {
-    RealFFT8Opt(block + y * kBlockEdge, block_c + y * kBlockEdge);
+    realFft8Opt(block + y * kBlockEdge, block_c + y * kBlockEdge);
   }
-  TransposeBlock(block_c);
+  transposeBlock(block_c);
   float r0[kBlockEdge];
   float r1[kBlockEdge];
   for (int x = 0; x < kBlockEdge; ++x) {
     r0[x] = block_c[x].real;
     r1[x] = block_c[kBlockHalf + x].real;
   }
-  RealFFT8Opt(r0, block_c);
-  RealFFT8Opt(r1, block_c + kBlockHalf);
+  realFft8Opt(r0, block_c);
+  realFft8Opt(r1, block_c + kBlockHalf);
   for (int y = 1; y < kBlockEdgeHalf; ++y) {
-    FFT8OptOpt(block_c + y * kBlockEdge);
+    fft8OptOpt(block_c + y * kBlockEdge);
   }
   for (int i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i) {
     block[i] = abssq(block_c[i]);
@@ -526,9 +526,9 @@ void ButteraugliFFTSquaredOpt(float block[kBlockSize]) {
 // Computes 8x8 FFT of each channel of xyb0 and xyb1 and adds the total squared
 // 3-dimensional xybdiff of the two blocks to diff_xyb_{dc,ac} and the average
 // diff on the edges to diff_xyb_edge_dc.
-void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSize], float diff_xyb_dc[3],
+void butteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSize], float diff_xyb_dc[3],
                              float diff_xyb_ac[3], float diff_xyb_edge_dc[3]) {
-  const float* csf8x8 = GetContrastSensitivityMatrixOpt();
+  const float* csf8x8 = getContrastSensitivityMatrixOpt();
 
   float avgdiff_xyb[3] = {0.0};
   float avgdiff_edge[3][4] = {{0.0}};
@@ -548,9 +548,9 @@ void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
       avgdiff_edge[c][v_edge_idx] += diff_xyb / kBlockEdge;
     }
   }
-  XybDiffLowFreqSquaredAccumulateOpt(avgdiff_xyb[0], avgdiff_xyb[1], avgdiff_xyb[2], 0, 0, 0, csf8x8[0], diff_xyb_dc);
+  xybDiffLowFreqSquaredAccumulateOpt(avgdiff_xyb[0], avgdiff_xyb[1], avgdiff_xyb[2], 0, 0, 0, csf8x8[0], diff_xyb_dc);
   for (int i = 0; i < 4; ++i) {
-    XybDiffLowFreqSquaredAccumulateOpt(avgdiff_edge[0][i], avgdiff_edge[1][i], avgdiff_edge[2][i], 0, 0, 0, csf8x8[0],
+    xybDiffLowFreqSquaredAccumulateOpt(avgdiff_edge[0][i], avgdiff_edge[1][i], avgdiff_edge[2][i], 0, 0, 0, csf8x8[0],
                                        diff_xyb_edge_dc);
   }
 
@@ -566,20 +566,20 @@ void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
   float* x_halfdiff_squared = &xyb_halfdiff[0];
   float* y_halfdiff = &xyb_halfdiff[kBlockSize];
   float* z_halfdiff_squared = &xyb_halfdiff[2 * kBlockSize];
-  ButteraugliFFTSquaredOpt(y_avg);
-  ButteraugliFFTSquaredOpt(x_halfdiff_squared);
-  ButteraugliFFTSquaredOpt(y_halfdiff);
-  ButteraugliFFTSquaredOpt(z_halfdiff_squared);
+  butteraugliFftSquaredOpt(y_avg);
+  butteraugliFftSquaredOpt(x_halfdiff_squared);
+  butteraugliFftSquaredOpt(y_halfdiff);
+  butteraugliFftSquaredOpt(z_halfdiff_squared);
 
-  static const float xmul = 64.8;
-  static const float ymul = 1.753123908348329;
-  static const float ymul2 = 1.51983458269;
-  static const float zmul = 2.4;
+  static const float kXmul = 64.8;
+  static const float kYmul = 1.753123908348329;
+  static const float kYmul2 = 1.51983458269;
+  static const float kZmul = 2.4;
 
   for (size_t i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i) {
     float d = csf8x8[i];
-    diff_xyb_ac[0] += d * xmul * x_halfdiff_squared[i];
-    diff_xyb_ac[2] += d * zmul * z_halfdiff_squared[i];
+    diff_xyb_ac[0] += d * kXmul * x_halfdiff_squared[i];
+    diff_xyb_ac[2] += d * kZmul * z_halfdiff_squared[i];
 
     y_avg[i] = sqrt(y_avg[i]);
     y_halfdiff[i] = sqrt(y_halfdiff[i]);
@@ -587,13 +587,13 @@ void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
     float y1 = y_avg[i] + y_halfdiff[i];
     // Remove the impact of small absolute values.
     // This improves the behavior with flat noise.
-    static const float ylimit = 0.04;
-    y0 = RemoveRangeAroundZeroOpt(y0, ylimit);
-    y1 = RemoveRangeAroundZeroOpt(y1, ylimit);
+    static const float kYlimit = 0.04;
+    y0 = removeRangeAroundZeroOpt(y0, kYlimit);
+    y1 = removeRangeAroundZeroOpt(y1, kYlimit);
     if (y0 != y1) {
-      float valy0 = InterpolateOpt(GetHighFreqColorDiffDyOpt(), 21, y0 * ymul2);
-      float valy1 = InterpolateOpt(GetHighFreqColorDiffDyOpt(), 21, y1 * ymul2);
-      float valy = ymul * (valy0 - valy1);
+      float valy0 = interpolateOpt(getHighFreqColorDiffDyOpt(), 21, y0 * kYmul2);
+      float valy1 = interpolateOpt(getHighFreqColorDiffDyOpt(), 21, y1 * kYmul2);
+      float valy = kYmul * (valy0 - valy1);
       diff_xyb_ac[1] += d * valy * valy;
     }
   }
@@ -602,12 +602,12 @@ void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
 // Low frequency edge detectors.
 // Two edge detectors are applied in each corner of the 8x8 square.
 // The squared 3-dimensional error vector is added to diff_xyb.
-void Butteraugli8x8CornerEdgeDetectorDiffOpt(const size_t pos_x, const size_t pos_y, const size_t xsize,
+void butteraugli8x8CornerEdgeDetectorDiffOpt(const size_t pos_x, const size_t pos_y, const size_t xsize,
                                              const size_t ysize, const std::vector<std::vector<float>>& blurred0,
                                              const std::vector<std::vector<float>>& blurred1, float diff_xyb[3]) {
   int local_count = 0;
   float local_xyb[3] = {0};
-  static const float w = 0.711100840192;
+  static const float kW = 0.711100840192;
   for (int k = 0; k < 4; ++k) {
     size_t step = 3;
     size_t offset[4][2] = {{0, 0}, {0, 7}, {7, 0}, {7, 7}};
@@ -616,31 +616,31 @@ void Butteraugli8x8CornerEdgeDetectorDiffOpt(const size_t pos_x, const size_t po
     if (x >= step && x + step < xsize) {
       size_t ix = y * xsize + (x - step);
       size_t ix2 = ix + 2 * step;
-      XybDiffLowFreqSquaredAccumulateOpt(
-          w * (blurred0[0][ix] - blurred0[0][ix2]), w * (blurred0[1][ix] - blurred0[1][ix2]),
-          w * (blurred0[2][ix] - blurred0[2][ix2]), w * (blurred1[0][ix] - blurred1[0][ix2]),
-          w * (blurred1[1][ix] - blurred1[1][ix2]), w * (blurred1[2][ix] - blurred1[2][ix2]), 1.0, local_xyb);
+      xybDiffLowFreqSquaredAccumulateOpt(
+          kW * (blurred0[0][ix] - blurred0[0][ix2]), kW * (blurred0[1][ix] - blurred0[1][ix2]),
+          kW * (blurred0[2][ix] - blurred0[2][ix2]), kW * (blurred1[0][ix] - blurred1[0][ix2]),
+          kW * (blurred1[1][ix] - blurred1[1][ix2]), kW * (blurred1[2][ix] - blurred1[2][ix2]), 1.0, local_xyb);
       ++local_count;
     }
     if (y >= step && y + step < ysize) {
       size_t ix = (y - step) * xsize + x;
       size_t ix2 = ix + 2 * step * xsize;
-      XybDiffLowFreqSquaredAccumulateOpt(
-          w * (blurred0[0][ix] - blurred0[0][ix2]), w * (blurred0[1][ix] - blurred0[1][ix2]),
-          w * (blurred0[2][ix] - blurred0[2][ix2]), w * (blurred1[0][ix] - blurred1[0][ix2]),
-          w * (blurred1[1][ix] - blurred1[1][ix2]), w * (blurred1[2][ix] - blurred1[2][ix2]), 1.0, local_xyb);
+      xybDiffLowFreqSquaredAccumulateOpt(
+          kW * (blurred0[0][ix] - blurred0[0][ix2]), kW * (blurred0[1][ix] - blurred0[1][ix2]),
+          kW * (blurred0[2][ix] - blurred0[2][ix2]), kW * (blurred1[0][ix] - blurred1[0][ix2]),
+          kW * (blurred1[1][ix] - blurred1[1][ix2]), kW * (blurred1[2][ix] - blurred1[2][ix2]), 1.0, local_xyb);
       ++local_count;
     }
   }
-  static const float weight = 0.01617112696;
-  const float mul = weight * 8.0 / local_count;
+  static const float kWeight = 0.01617112696;
+  const float mul = kWeight * 8.0 / local_count;
   for (int i = 0; i < 3; ++i) {
     diff_xyb[i] += mul * local_xyb[i];
   }
 }
 
 // https://en.wikipedia.org/wiki/Photopsin absordance modeling.
-const float* GetOpsinAbsorbanceOpt() {
+const float* getOpsinAbsorbanceOpt() {
   static const float kMix[12] = {
       0.348036746003,  0.577814843137, 0.0544556093735, 0.774145581713, 0.26922717275,  0.767247733938,
       0.0366922708552, 0.920130265014, 0.0882062883536, 0.158581714673, 0.712857943858, 10.6524069248,
@@ -648,14 +648,14 @@ const float* GetOpsinAbsorbanceOpt() {
   return &kMix[0];
 }
 
-void OpsinAbsorbanceOpt(const float in[3], float out[3]) {
-  const float* mix = GetOpsinAbsorbanceOpt();
+void opsinAbsorbanceOpt(const float in[3], float out[3]) {
+  const float* mix = getOpsinAbsorbanceOpt();
   out[0] = mix[0] * in[0] + mix[1] * in[1] + mix[2] * in[2] + mix[3];
   out[1] = mix[4] * in[0] + mix[5] * in[1] + mix[6] * in[2] + mix[7];
   out[2] = mix[8] * in[0] + mix[9] * in[1] + mix[10] * in[2] + mix[11];
 }
 
-void MaskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+void maskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                 const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
                                 std::vector<std::vector<float>>& xyb1) {
   for (size_t y = 0; y < ysize; ++y) {
@@ -707,18 +707,18 @@ void MaskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<st
 // Template enables compile-time unrolling of the recursion, but must reside
 // outside of a class due to the specialization.
 template <int INDEX>
-static inline void ClenshawRecursionOpt(const float x, const float* coefficients, float* b1, float* b2) {
+static inline void clenshawRecursionOpt(const float x, const float* coefficients, float* b1, float* b2) {
   const float x_b1 = x * (*b1);
   const float t = (x_b1 + x_b1) - (*b2) + coefficients[INDEX];
   *b2 = *b1;
   *b1 = t;
 
-  ClenshawRecursionOpt<INDEX - 1>(x, coefficients, b1, b2);
+  clenshawRecursionOpt<INDEX - 1>(x, coefficients, b1, b2);
 }
 
 // Base case
 template <>
-inline void ClenshawRecursionOpt<0>(const float x, const float* coefficients, float* b1, float* b2) {
+inline void clenshawRecursionOpt<0>(const float x, const float* coefficients, float* b1, float* b2) {
   const float x_b1 = x * (*b1);
   // The final iteration differs - no 2 * x_b1 here.
   *b1 = x_b1 - (*b2) + coefficients[0];
@@ -728,10 +728,10 @@ inline void ClenshawRecursionOpt<0>(const float x, const float* coefficients, fl
 // to find than minimax polynomials.
 struct RationalPolynomialOpt {
   template <int N>
-  static float EvaluatePolynomial(const float x, const float (&coefficients)[N]) {
+  static float evaluatePolynomial(const float x, const float (&coefficients)[N]) {
     float b1 = 0.0;
     float b2 = 0.0;
-    ClenshawRecursionOpt<N - 1>(x, coefficients, &b1, &b2);
+    clenshawRecursionOpt<N - 1>(x, coefficients, &b1, &b2);
     return b1;
   }
 
@@ -742,8 +742,8 @@ struct RationalPolynomialOpt {
     // And then to [-1, 1] domain of Chebyshev polynomials.
     const float xc = 2.0 * x01 - 1.0;
 
-    const float yp = EvaluatePolynomial(xc, p);
-    const float yq = EvaluatePolynomial(xc, q);
+    const float yp = evaluatePolynomial(xc, p);
+    const float yq = evaluatePolynomial(xc, q);
     if (yq == 0.0) return 0.0;
     return static_cast<float>(yp / yq);
   }
@@ -758,39 +758,39 @@ struct RationalPolynomialOpt {
   float q[5 + 1];
 };
 
-static inline float GammaPolynomialOpt(float value) {
+static inline float gammaPolynomialOpt(float value) {
   // Generated by gamma_polynomial.m from equispaced x/gamma(x) samples.
-  static const RationalPolynomialOpt r = {0.770000000000000,
-                                          274.579999999999984,
-                                          {
-                                              881.979476556478289,
-                                              1496.058452015812463,
-                                              908.662212739659481,
-                                              373.566100223287378,
-                                              85.840860336314364,
-                                              6.683258861509244,
-                                          },
-                                          {
-                                              12.262350348616792,
-                                              20.557285797683576,
-                                              12.161463238367844,
-                                              4.711532733641639,
-                                              0.899112889751053,
-                                              0.035662329617191,
-                                          }};
-  return static_cast<float>(r(value));
+  static const RationalPolynomialOpt kR = {0.770000000000000,
+                                           274.579999999999984,
+                                           {
+                                               881.979476556478289,
+                                               1496.058452015812463,
+                                               908.662212739659481,
+                                               373.566100223287378,
+                                               85.840860336314364,
+                                               6.683258861509244,
+                                           },
+                                           {
+                                               12.262350348616792,
+                                               20.557285797683576,
+                                               12.161463238367844,
+                                               4.711532733641639,
+                                               0.899112889751053,
+                                               0.035662329617191,
+                                           }};
+  return static_cast<float>(kR(value));
 }
 
-static inline float GammaOpt(float v) {
+static inline float gammaOpt(float v) {
   // return SimpleGamma(v);
-  return GammaPolynomialOpt(static_cast<float>(v));
+  return gammaPolynomialOpt(static_cast<float>(v));
 }
 
-void OpsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
+void opsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
   std::vector<std::vector<float>> blurred = rgb;
   static const float kSigma = 1.1;
   for (int i = 0; i < 3; ++i) {
-    BlurOpt(xsize, ysize, blurred[i].data(), kSigma, 0.0);
+    blurOpt(xsize, ysize, blurred[i].data(), kSigma, 0.0);
   }
   for (size_t i = 0; i < rgb[0].size(); ++i) {
     float sensitivity[3];
@@ -798,26 +798,26 @@ void OpsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<f
       // Calculate sensitivity[3] based on the smoothed image gamma derivative.
       float pre_rgb[3] = {blurred[0][i], blurred[1][i], blurred[2][i]};
       float pre_mixed[3];
-      OpsinAbsorbanceOpt(pre_rgb, pre_mixed);
-      sensitivity[0] = GammaOpt(pre_mixed[0]) / pre_mixed[0];
-      sensitivity[1] = GammaOpt(pre_mixed[1]) / pre_mixed[1];
-      sensitivity[2] = GammaOpt(pre_mixed[2]) / pre_mixed[2];
+      opsinAbsorbanceOpt(pre_rgb, pre_mixed);
+      sensitivity[0] = gammaOpt(pre_mixed[0]) / pre_mixed[0];
+      sensitivity[1] = gammaOpt(pre_mixed[1]) / pre_mixed[1];
+      sensitivity[2] = gammaOpt(pre_mixed[2]) / pre_mixed[2];
     }
     float cur_rgb[3] = {rgb[0][i], rgb[1][i], rgb[2][i]};
     float cur_mixed[3];
-    OpsinAbsorbanceOpt(cur_rgb, cur_mixed);
+    opsinAbsorbanceOpt(cur_rgb, cur_mixed);
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
     float x, y, z;
-    RgbToXybOpt(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
+    rgbToXybOpt(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     rgb[0][i] = static_cast<float>(x);
     rgb[1][i] = static_cast<float>(y);
     rgb[2][i] = static_cast<float>(z);
   }
 }
 
-void ScaleImageOpt(float scale, std::vector<float>* result) {
+void scaleImageOpt(float scale, std::vector<float>* result) {
   for (size_t i = 0; i < result->size(); ++i) {
     (*result)[i] *= static_cast<float>(scale);
   }
@@ -825,7 +825,7 @@ void ScaleImageOpt(float scale, std::vector<float>* result) {
 
 // Making a cluster of local errors to be more impactful than
 // just a single error.
-void CalculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t step, std::vector<float>* diffmap) {
+void calculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t step, std::vector<float>* diffmap) {
   // Shift the diffmap more correctly above the pixels, from 2.5 pixels to 0.5
   // pixels distance over the original image. The border of 2 pixels on top and
   // left side and 3 pixels on right and bottom side are zeroed, but these
@@ -855,8 +855,8 @@ void CalculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t st
   }
   {
     static const float kSigma = 8.8510880283;
-    static const float mul1 = 24.8235314874;
-    static const float scale = 1.0 / (1.0 + mul1);
+    static const float kMul1 = 24.8235314874;
+    static const float kScale = 1.0 / (1.0 + kMul1);
     const int s = 8 - step;
     std::vector<float> blurred((xsize - s) * (ysize - s));
     for (size_t y = 0; y < ysize - s; ++y) {
@@ -864,18 +864,18 @@ void CalculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t st
         blurred[y * (xsize - s) + x] = (*diffmap)[(y + s2) * xsize + x + s2];
       }
     }
-    static const float border_ratio = 0.03027655136;
-    BlurOpt(xsize - s, ysize - s, blurred.data(), kSigma, border_ratio);
+    static const float kBorderRatio = 0.03027655136;
+    blurOpt(xsize - s, ysize - s, blurred.data(), kSigma, kBorderRatio);
     for (size_t y = 0; y < ysize - s; ++y) {
       for (size_t x = 0; x < xsize - s; ++x) {
-        (*diffmap)[(y + s2) * xsize + x + s2] += static_cast<float>(mul1) * blurred[y * (xsize - s) + x];
+        (*diffmap)[(y + s2) * xsize + x + s2] += static_cast<float>(kMul1) * blurred[y * (xsize - s) + x];
       }
     }
-    ScaleImageOpt(scale, diffmap);
+    scaleImageOpt(kScale, diffmap);
   }
 }
 
-static std::array<float, 512> MakeMaskOpt(float extmul, float extoff, float mul, float offset, float scaler) {
+static std::array<float, 512> makeMaskOpt(float extmul, float extoff, float mul, float offset, float scaler) {
   std::array<float, 512> lut;
   for (size_t i = 0; i < lut.size(); ++i) {
     const float c = mul / ((0.01 * scaler * i) + offset);
@@ -886,71 +886,71 @@ static std::array<float, 512> MakeMaskOpt(float extmul, float extoff, float mul,
   return lut;
 }
 
-float MaskXOpt(float delta) {
-  static const float extmul = 0.975741017749f;
-  static const float extoff = -4.25328244168f;
-  static const float offset = 0.454909521427f;
-  static const float scaler = 0.0738288224836f;
-  static const float mul = 20.8029176447f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskXOpt(float delta) {
+  static const float kExtmul = 0.975741017749f;
+  static const float kExtoff = -4.25328244168f;
+  static const float kOffset = 0.454909521427f;
+  static const float kScaler = 0.0738288224836f;
+  static const float kMul = 20.8029176447f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
-float MaskYOpt(float delta) {
-  static const float extmul = 0.373995618954f;
-  static const float extoff = 1.5307267433f;
-  static const float offset = 0.911952641929f;
-  static const float scaler = 1.1731667845f;
-  static const float mul = 16.2447033988f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskYOpt(float delta) {
+  static const float kExtmul = 0.373995618954f;
+  static const float kExtoff = 1.5307267433f;
+  static const float kOffset = 0.911952641929f;
+  static const float kScaler = 1.1731667845f;
+  static const float kMul = 16.2447033988f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
-float MaskBOpt(float delta) {
-  static const float extmul = 0.61582234137f;
-  static const float extoff = -4.25376118646f;
-  static const float offset = 1.05105070921f;
-  static const float scaler = 0.47434643535f;
-  static const float mul = 31.1444967089f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskBOpt(float delta) {
+  static const float kExtmul = 0.61582234137f;
+  static const float kExtoff = -4.25376118646f;
+  static const float kOffset = 1.05105070921f;
+  static const float kScaler = 0.47434643535f;
+  static const float kMul = 31.1444967089f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
-float MaskDcXOpt(float delta) {
-  static const float extmul = 1.79116943438f;
-  static const float extoff = -3.86797479189f;
-  static const float offset = 0.670960225853f;
-  static const float scaler = 0.486575865525f;
-  static const float mul = 20.4563479139f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskDcXOpt(float delta) {
+  static const float kExtmul = 1.79116943438f;
+  static const float kExtoff = -3.86797479189f;
+  static const float kOffset = 0.670960225853f;
+  static const float kScaler = 0.486575865525f;
+  static const float kMul = 20.4563479139f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
-float MaskDcYOpt(float delta) {
-  static const float extmul = 0.212223514236f;
-  static const float extoff = -3.65647120524f;
-  static const float offset = 1.73396799447f;
-  static const float scaler = 0.170392660501f;
-  static const float mul = 21.6566724788f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskDcYOpt(float delta) {
+  static const float kExtmul = 0.212223514236f;
+  static const float kExtoff = -3.65647120524f;
+  static const float kOffset = 1.73396799447f;
+  static const float kScaler = 0.170392660501f;
+  static const float kMul = 21.6566724788f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
-float MaskDcBOpt(float delta) {
-  static const float extmul = 0.349376011816f;
-  static const float extoff = -0.894711072781f;
-  static const float offset = 0.901647926679f;
-  static const float scaler = 0.380086095024f;
-  static const float mul = 18.0373825149f;
-  static const std::array<float, 512> lut = MakeMaskOpt(extmul, extoff, mul, offset, scaler);
-  return InterpolateClampNegativeOpt(lut.data(), lut.size(), delta);
+float maskDcBOpt(float delta) {
+  static const float kExtmul = 0.349376011816f;
+  static const float kExtoff = -0.894711072781f;
+  static const float kOffset = 0.901647926679f;
+  static const float kScaler = 0.380086095024f;
+  static const float kMul = 18.0373825149f;
+  static const std::array<float, 512> kLut = makeMaskOpt(kExtmul, kExtoff, kMul, kOffset, kScaler);
+  return interpolateClampNegativeOpt(kLut.data(), kLut.size(), delta);
 }
 
 // Replaces values[x + y * xsize] with the minimum of the values in the
 // square_size square with coordinates
 //   x - offset .. x + square_size - offset - 1,
 //   y - offset .. y + square_size - offset - 1.
-void MinSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysize, float* values) {
+void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysize, float* values) {
   // offset is not negative and smaller than square_size.
   assert(offset < square_size);
   std::vector<float> tmp(xsize * ysize);
@@ -980,7 +980,7 @@ void MinSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
   }
 }
 
-void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
+void diffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                        size_t xsize, size_t ysize, std::vector<std::vector<float>>* mask) {
   mask->resize(3, std::vector<float>(xyb0[0].size()));
   float valsh0[3] = {0.0};
@@ -1000,11 +1000,11 @@ void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
         float x0 = (xyb0[0][ix] - xyb0[0][ix2]);
         float y0 = (xyb0[1][ix] - xyb0[1][ix2]);
         float z0 = (xyb0[2][ix] - xyb0[2][ix2]);
-        XybToValsOpt(x0, y0, z0, &valsh0[0], &valsh0[1], &valsh0[2]);
+        xybToValsOpt(x0, y0, z0, &valsh0[0], &valsh0[1], &valsh0[2]);
         float x1 = (xyb1[0][ix] - xyb1[0][ix2]);
         float y1 = (xyb1[1][ix] - xyb1[1][ix2]);
         float z1 = (xyb1[2][ix] - xyb1[2][ix2]);
-        XybToValsOpt(x1, y1, z1, &valsh1[0], &valsh1[1], &valsh1[2]);
+        xybToValsOpt(x1, y1, z1, &valsh1[0], &valsh1[1], &valsh1[2]);
       }
       if (y + 1 < ysize) {
         ix2 = ix + xsize;
@@ -1015,11 +1015,11 @@ void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
         float x0 = (xyb0[0][ix] - xyb0[0][ix2]);
         float y0 = (xyb0[1][ix] - xyb0[1][ix2]);
         float z0 = (xyb0[2][ix] - xyb0[2][ix2]);
-        XybToValsOpt(x0, y0, z0, &valsv0[0], &valsv0[1], &valsv0[2]);
+        xybToValsOpt(x0, y0, z0, &valsv0[0], &valsv0[1], &valsv0[2]);
         float x1 = (xyb1[0][ix] - xyb1[0][ix2]);
         float y1 = (xyb1[1][ix] - xyb1[1][ix2]);
         float z1 = (xyb1[2][ix] - xyb1[2][ix2]);
-        XybToValsOpt(x1, y1, z1, &valsv1[0], &valsv1[1], &valsv1[2]);
+        xybToValsOpt(x1, y1, z1, &valsv1[0], &valsv1[1], &valsv1[2]);
       }
       for (int i = 0; i < 3; ++i) {
         float sup0 = fabs(valsh0[i]) + fabs(valsv0[i]);
@@ -1031,26 +1031,26 @@ void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
   }
 }
 
-void MaskOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
+void maskOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
              size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc) {
   mask->resize(3);
   for (int i = 0; i < 3; ++i) {
     (*mask)[i].resize(xsize * ysize);
   }
-  DiffPrecomputeOpt(xyb0, xyb1, xsize, ysize, mask);
+  diffPrecomputeOpt(xyb0, xyb1, xsize, ysize, mask);
   for (int i = 0; i < 3; ++i) {
-    Average5x5(xsize, ysize, &(*mask)[i]);
-    MinSquareValOpt(4, 0, xsize, ysize, (*mask)[i].data());
-    static const float sigma[3] = {
+    average5x5(xsize, ysize, &(*mask)[i]);
+    minSquareValOpt(4, 0, xsize, ysize, (*mask)[i].data());
+    static const float kSigma[3] = {
         9.65781083553,
         14.2644604355,
         4.53358927369,
     };
-    BlurOpt(xsize, ysize, (*mask)[i].data(), sigma[i], 0.0);
+    blurOpt(xsize, ysize, (*mask)[i].data(), kSigma[i], 0.0);
   }
-  static const float w00 = 232.206464018;
-  static const float w11 = 22.9455222245;
-  static const float w22 = 503.962310606;
+  static const float kW00 = 232.206464018;
+  static const float kW11 = 22.9455222245;
+  static const float kW22 = 503.962310606;
 
   mask_dc->resize(3);
   for (int i = 0; i < 3; ++i) {
@@ -1062,38 +1062,38 @@ void MaskOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std:
       const float s0 = (*mask)[0][idx];
       const float s1 = (*mask)[1][idx];
       const float s2 = (*mask)[2][idx];
-      const float p0 = w00 * s0;
-      const float p1 = w11 * s1;
-      const float p2 = w22 * s2;
+      const float p0 = kW00 * s0;
+      const float p1 = kW11 * s1;
+      const float p2 = kW22 * s2;
 
-      (*mask)[0][idx] = static_cast<float>(MaskXOpt(p0));
-      (*mask)[1][idx] = static_cast<float>(MaskYOpt(p1));
-      (*mask)[2][idx] = static_cast<float>(MaskBOpt(p2));
-      (*mask_dc)[0][idx] = static_cast<float>(MaskDcXOpt(p0));
-      (*mask_dc)[1][idx] = static_cast<float>(MaskDcYOpt(p1));
-      (*mask_dc)[2][idx] = static_cast<float>(MaskDcBOpt(p2));
+      (*mask)[0][idx] = static_cast<float>(maskXOpt(p0));
+      (*mask)[1][idx] = static_cast<float>(maskYOpt(p1));
+      (*mask)[2][idx] = static_cast<float>(maskBOpt(p2));
+      (*mask_dc)[0][idx] = static_cast<float>(maskDcXOpt(p0));
+      (*mask_dc)[1][idx] = static_cast<float>(maskDcYOpt(p1));
+      (*mask_dc)[2][idx] = static_cast<float>(maskDcBOpt(p2));
     }
   }
   for (int i = 0; i < 3; ++i) {
-    ScaleImageOpt(kGlobalScale * kGlobalScale, &(*mask)[i]);
-    ScaleImageOpt(kGlobalScale * kGlobalScale, &(*mask_dc)[i]);
+    scaleImageOpt(kGlobalScale * kGlobalScale, &(*mask)[i]);
+    scaleImageOpt(kGlobalScale * kGlobalScale, &(*mask_dc)[i]);
   }
 }
 
 }  // namespace butteraugli
 
 namespace butteraugli {
-clButteraugliComparator::clButteraugliComparator(size_t xsize, size_t ysize, int step)
+OptimizedButteraugliComparator::OptimizedButteraugliComparator(size_t xsize, size_t ysize, int step)
     : ButteraugliComparator(xsize, ysize, step) {}
 
-void clButteraugliComparator::DiffmapOpsinDynamicsImageOpt(std::vector<std::vector<float>>& xyb0,
-                                                           std::vector<std::vector<float>>& xyb1,
-                                                           std::vector<float>& result) {
+void OptimizedButteraugliComparator::diffmapOpsinDynamicsImageOpt(std::vector<std::vector<float>>& xyb0,
+                                                                  std::vector<std::vector<float>>& xyb1,
+                                                                  std::vector<float>& result) {
   if (xsize_ < 8 || ysize_ < 8) return;
   {
     auto xyb0_c = xyb0;
     auto xyb1_c = xyb1;
-    MaskHighIntensityChangeOpt(xsize_, ysize_, xyb0_c, xyb1_c, xyb0, xyb1);
+    maskHighIntensityChangeOpt(xsize_, ysize_, xyb0_c, xyb1_c, xyb0, xyb1);
   }
   assert(8 <= xsize_);
   for (int i = 0; i < 3; i++) {
@@ -1101,23 +1101,24 @@ void clButteraugliComparator::DiffmapOpsinDynamicsImageOpt(std::vector<std::vect
     assert(xyb1[i].size() == num_pixels_);
   }
   std::vector<float> edge_detector_map(3 * res_xsize_ * res_ysize_);
-  EdgeDetectorMapOpt(xyb0, xyb1, &edge_detector_map);
+  edgeDetectorMapOpt(xyb0, xyb1, &edge_detector_map);
   std::vector<float> block_diff_dc(3 * res_xsize_ * res_ysize_);
   std::vector<float> block_diff_ac(3 * res_xsize_ * res_ysize_);
-  BlockDiffMapOpt(xyb0, xyb1, &block_diff_dc, &block_diff_ac);
-  EdgeDetectorLowFreqOpt(xyb0, xyb1, &block_diff_ac);
+  blockDiffMapOpt(xyb0, xyb1, &block_diff_dc, &block_diff_ac);
+  edgeDetectorLowFreqOpt(xyb0, xyb1, &block_diff_ac);
   {
     std::vector<std::vector<float>> mask_xyb(3);
     std::vector<std::vector<float>> mask_xyb_dc(3);
-    MaskOpt(xyb0, xyb1, xsize_, ysize_, &mask_xyb, &mask_xyb_dc);
-    CombineChannelsOpt(mask_xyb, mask_xyb_dc, block_diff_dc, block_diff_ac, edge_detector_map, &result);
+    maskOpt(xyb0, xyb1, xsize_, ysize_, &mask_xyb, &mask_xyb_dc);
+    combineChannelsOpt(mask_xyb, mask_xyb_dc, block_diff_dc, block_diff_ac, edge_detector_map, &result);
   }
-  CalculateDiffmapOpt(xsize_, ysize_, step_, &result);
+  calculateDiffmapOpt(xsize_, ysize_, step_, &result);
 }
 
-void clButteraugliComparator::BlockDiffMapOpt(const std::vector<std::vector<float>>& xyb0,
-                                              const std::vector<std::vector<float>>& xyb1,
-                                              std::vector<float>* block_diff_dc, std::vector<float>* block_diff_ac) {
+void OptimizedButteraugliComparator::blockDiffMapOpt(const std::vector<std::vector<float>>& xyb0,
+                                                     const std::vector<std::vector<float>>& xyb1,
+                                                     std::vector<float>* block_diff_dc,
+                                                     std::vector<float>* block_diff_ac) {
   for (size_t res_y = 0; res_y + (kBlockEdge - step_ - 1) < ysize_; res_y += step_) {
     for (size_t res_x = 0; res_x + (kBlockEdge - step_ - 1) < xsize_; res_x += step_) {
       size_t res_ix = (res_y * res_xsize_ + res_x) / step_;
@@ -1137,7 +1138,7 @@ void clButteraugliComparator::BlockDiffMapOpt(const std::vector<std::vector<floa
       float diff_xyb_dc[3] = {0.0};
       float diff_xyb_ac[3] = {0.0};
       float diff_xyb_edge_dc[3] = {0.0};
-      ButteraugliBlockDiffOpt(block0, block1, diff_xyb_dc, diff_xyb_ac, diff_xyb_edge_dc);
+      butteraugliBlockDiffOpt(block0, block1, diff_xyb_dc, diff_xyb_ac, diff_xyb_edge_dc);
       for (int i = 0; i < 3; ++i) {
         (*block_diff_dc)[3 * res_ix + i] = static_cast<float>(diff_xyb_dc[i]);
         (*block_diff_ac)[3 * res_ix + i] = static_cast<float>(diff_xyb_ac[i]);
@@ -1146,9 +1147,9 @@ void clButteraugliComparator::BlockDiffMapOpt(const std::vector<std::vector<floa
   }
 }
 
-void clButteraugliComparator::EdgeDetectorMapOpt(const std::vector<std::vector<float>>& xyb0,
-                                                 const std::vector<std::vector<float>>& xyb1,
-                                                 std::vector<float>* edge_detector_map) {
+void OptimizedButteraugliComparator::edgeDetectorMapOpt(const std::vector<std::vector<float>>& xyb0,
+                                                        const std::vector<std::vector<float>>& xyb1,
+                                                        std::vector<float>* edge_detector_map) {
   static const float kSigma[3] = {
       1.5,
       0.586,
@@ -1157,14 +1158,14 @@ void clButteraugliComparator::EdgeDetectorMapOpt(const std::vector<std::vector<f
   std::vector<std::vector<float>> blurred0(xyb0);
   std::vector<std::vector<float>> blurred1(xyb1);
   for (int i = 0; i < 3; i++) {
-    BlurOpt(xsize_, ysize_, blurred0[i].data(), kSigma[i], 0.0);
-    BlurOpt(xsize_, ysize_, blurred1[i].data(), kSigma[i], 0.0);
+    blurOpt(xsize_, ysize_, blurred0[i].data(), kSigma[i], 0.0);
+    blurOpt(xsize_, ysize_, blurred1[i].data(), kSigma[i], 0.0);
   }
   for (size_t res_y = 0; res_y + (8 - step_) < ysize_; res_y += step_) {
     for (size_t res_x = 0; res_x + (8 - step_) < xsize_; res_x += step_) {
       size_t res_ix = (res_y * res_xsize_ + res_x) / step_;
       float diff_xyb[3] = {0.0};
-      Butteraugli8x8CornerEdgeDetectorDiffOpt(std::min(res_x, xsize_ - 8), std::min(res_y, ysize_ - 8), xsize_, ysize_,
+      butteraugli8x8CornerEdgeDetectorDiffOpt(std::min(res_x, xsize_ - 8), std::min(res_y, ysize_ - 8), xsize_, ysize_,
                                               blurred0, blurred1, diff_xyb);
       for (int i = 0; i < 3; ++i) {
         (*edge_detector_map)[3 * res_ix + i] = static_cast<float>(diff_xyb[i]);
@@ -1173,16 +1174,16 @@ void clButteraugliComparator::EdgeDetectorMapOpt(const std::vector<std::vector<f
   }
 }
 
-void clButteraugliComparator::EdgeDetectorLowFreqOpt(const std::vector<std::vector<float>>& xyb0,
-                                                     const std::vector<std::vector<float>>& xyb1,
-                                                     std::vector<float>* block_diff_ac) {
+void OptimizedButteraugliComparator::edgeDetectorLowFreqOpt(const std::vector<std::vector<float>>& xyb0,
+                                                            const std::vector<std::vector<float>>& xyb1,
+                                                            std::vector<float>* block_diff_ac) {
   static const float kSigma = 14;
   static const float kMul = 10;
   std::vector<std::vector<float>> blurred0(xyb0);
   std::vector<std::vector<float>> blurred1(xyb1);
   for (int i = 0; i < 3; i++) {
-    BlurOpt(xsize_, ysize_, blurred0[i].data(), kSigma, 0.0);
-    BlurOpt(xsize_, ysize_, blurred1[i].data(), kSigma, 0.0);
+    blurOpt(xsize_, ysize_, blurred0[i].data(), kSigma, 0.0);
+    blurOpt(xsize_, ysize_, blurred1[i].data(), kSigma, 0.0);
   }
   const int step = 8;
   for (size_t y = 0; y + step < ysize_; y += step_) {
@@ -1205,7 +1206,7 @@ void clButteraugliComparator::EdgeDetectorLowFreqOpt(const std::vector<std::vect
       float max_diff_xyb[3] = {0};
       for (int k = 0; k < 4; ++k) {
         float diff_xyb[3] = {0};
-        XybDiffLowFreqSquaredAccumulateOpt(diff[k][0], diff[k][1], diff[k][2], 0, 0, 0, 1.0, diff_xyb);
+        xybDiffLowFreqSquaredAccumulateOpt(diff[k][0], diff[k][1], diff[k][2], 0, 0, 0, 1.0, diff_xyb);
         for (int i = 0; i < 3; ++i) {
           max_diff_xyb[i] = std::max<float>(max_diff_xyb[i], diff_xyb[i]);
         }
@@ -1217,12 +1218,12 @@ void clButteraugliComparator::EdgeDetectorLowFreqOpt(const std::vector<std::vect
   }
 }
 
-void clButteraugliComparator::CombineChannelsOpt(const std::vector<std::vector<float>>& mask_xyb,
-                                                 const std::vector<std::vector<float>>& mask_xyb_dc,
-                                                 const std::vector<float>& block_diff_dc,
-                                                 const std::vector<float>& block_diff_ac,
-                                                 const std::vector<float>& edge_detector_map,
-                                                 std::vector<float>* result) {
+void OptimizedButteraugliComparator::combineChannelsOpt(const std::vector<std::vector<float>>& mask_xyb,
+                                                        const std::vector<std::vector<float>>& mask_xyb_dc,
+                                                        const std::vector<float>& block_diff_dc,
+                                                        const std::vector<float>& block_diff_ac,
+                                                        const std::vector<float>& edge_detector_map,
+                                                        std::vector<float>* result) {
   result->resize(res_xsize_ * res_ysize_);
   for (size_t res_y = 0; res_y + (8 - step_) < ysize_; res_y += step_) {
     for (size_t res_x = 0; res_x + (8 - step_) < xsize_; res_x += step_) {
@@ -1233,9 +1234,9 @@ void clButteraugliComparator::CombineChannelsOpt(const std::vector<std::vector<f
         mask[i] = mask_xyb[i][(res_y + 3) * xsize_ + (res_x + 3)];
         dc_mask[i] = mask_xyb_dc[i][(res_y + 3) * xsize_ + (res_x + 3)];
       }
-      (*result)[res_ix] = static_cast<float>(DotProductOpt(&block_diff_dc[3 * res_ix], dc_mask) +
-                                             DotProductOpt(&block_diff_ac[3 * res_ix], mask) +
-                                             DotProductOpt(&edge_detector_map[3 * res_ix], mask));
+      (*result)[res_ix] = static_cast<float>(dotProductOpt(&block_diff_dc[3 * res_ix], dc_mask) +
+                                             dotProductOpt(&block_diff_ac[3 * res_ix], mask) +
+                                             dotProductOpt(&edge_detector_map[3 * res_ix], mask));
     }
   }
 }

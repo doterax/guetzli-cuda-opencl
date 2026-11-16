@@ -47,7 +47,7 @@ const double kScoreForQuality[] = {
 
 }  // namespace
 
-double ButteraugliScoreForQuality(double quality) {
+double butteraugliScoreForQuality(double quality) {
   if (quality < kLowestQuality) quality = kLowestQuality;
   if (quality > kHighestQuality) quality = kHighestQuality;
   int index = static_cast<int>(quality);

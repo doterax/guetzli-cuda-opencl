@@ -24,7 +24,7 @@ namespace guetzli {
 
 // Returns non-zero if and only if x has a zero byte, i.e. one of
 // x & 0xff, x & 0xff00, ..., x & 0xff00000000000000 is zero.
-inline uint64_t HasZeroByte(uint64_t x) {
+inline uint64_t hasZeroByte(uint64_t x) {
   return (x - 0x0101010101010101ULL) & ~x & 0x8080808080808080ULL;
 }
 
@@ -33,7 +33,7 @@ struct BitWriter {
   explicit BitWriter(size_t length)
       : len(length), data(new uint8_t[len]), pos(0), put_buffer(0), put_bits(64), overflow(false) {}
 
-  void WriteBits(int nbits, uint64_t bits) {
+  void writeBits(int nbits, uint64_t bits) {
     put_bits -= nbits;
     put_buffer |= (bits << put_bits);
     if (put_bits <= 16) {
@@ -42,15 +42,15 @@ struct BitWriter {
       // The JPEG format requires that after every 0xff byte in the entropy
       // coded section, there is a zero byte, therefore we first check if any of
       // the 6 most significant bytes of put_buffer_ is 0xff.
-      if (HasZeroByte(~put_buffer | 0xffff)) {
+      if (hasZeroByte(~put_buffer | 0xffff)) {
         // We have a 0xff byte somewhere, examine each byte and append a zero
         // byte if necessary.
-        EmitByte((put_buffer >> 56) & 0xff);
-        EmitByte((put_buffer >> 48) & 0xff);
-        EmitByte((put_buffer >> 40) & 0xff);
-        EmitByte((put_buffer >> 32) & 0xff);
-        EmitByte((put_buffer >> 24) & 0xff);
-        EmitByte((put_buffer >> 16) & 0xff);
+        emitByte((put_buffer >> 56) & 0xff);
+        emitByte((put_buffer >> 48) & 0xff);
+        emitByte((put_buffer >> 40) & 0xff);
+        emitByte((put_buffer >> 32) & 0xff);
+        emitByte((put_buffer >> 24) & 0xff);
+        emitByte((put_buffer >> 16) & 0xff);
       } else if (pos + 6 < len) {
         // We don't have any 0xff bytes, output all 6 bytes without checking.
         data[pos] = (put_buffer >> 56) & 0xff;
@@ -69,28 +69,28 @@ struct BitWriter {
   }
 
   // Writes the given byte to the output, writes an extra zero if byte is 0xff.
-  void EmitByte(int byte) {
+  void emitByte(int byte) {
     if (pos < len) {
       data[pos++] = byte;
     } else {
       overflow = true;
     }
     if (byte == 0xff) {
-      EmitByte(0);
+      emitByte(0);
     }
   }
 
-  void JumpToByteBoundary() {
+  void jumpToByteBoundary() {
     while (put_bits <= 56) {
       int c = (put_buffer >> 56) & 0xff;
-      EmitByte(c);
+      emitByte(c);
       put_buffer <<= 8;
       put_bits += 8;
     }
     if (put_bits < 64) {
       int padmask = 0xff >> (64 - put_bits);
       int c = ((put_buffer >> 56) & ~padmask) | padmask;
-      EmitByte(c);
+      emitByte(c);
     }
     put_buffer = 0;
     put_bits = 64;

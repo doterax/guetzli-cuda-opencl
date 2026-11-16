@@ -21,7 +21,7 @@
 
 namespace guetzli {
 
-double ScoreJPEG(double butteraugli_distance, int size, double butteraugli_target);
+double scoreJpeg(double butteraugli_distance, int size, double butteraugli_target);
 
 }  // namespace guetzli
 #endif  // GUETZLI_SCORE_H_

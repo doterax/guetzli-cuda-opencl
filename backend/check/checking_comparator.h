@@ -18,25 +18,25 @@ class CheckingComparator final : public Comparator {
   CheckingComparator(std::unique_ptr<Comparator> tested, std::unique_ptr<Comparator> reference, ILogger& logger)
       : tested_(std::move(tested)), reference_(std::move(reference)), logger_(logger) {}
 
-  void Compare(const OutputImage& img) override;
-  void StartBlockComparisons() override;
-  void FinishBlockComparisons() override;
-  void SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) override {
-    reference_->SwitchBlock(block_x, block_y, factor_x, factor_y);
+  void compare(const OutputImage& img) override;
+  void startBlockComparisons() override;
+  void finishBlockComparisons() override;
+  void switchBlock(int block_x, int block_y, int factor_x, int factor_y) override {
+    reference_->switchBlock(block_x, block_y, factor_x, factor_y);
   }
-  double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+  double compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
                       const int comp_mask) const override {
-    return reference_->CompareBlock(img, off_x, off_y, candidate_block, comp_mask);
+    return reference_->compareBlock(img, off_x, off_y, candidate_block, comp_mask);
   }
-  double ScoreOutputSize(int size) const override { return reference_->ScoreOutputSize(size); }
-  bool DistanceOK(double target_mul) const override { return reference_->DistanceOK(target_mul); }
+  double scoreOutputSize(int size) const override { return reference_->scoreOutputSize(size); }
+  bool distanceOk(double target_mul) const override { return reference_->distanceOk(target_mul); }
   const std::vector<float> distmap() const override { return reference_->distmap(); }
-  float distmap_aggregate() const override { return reference_->distmap_aggregate(); }
-  float BlockErrorLimit() const override { return reference_->BlockErrorLimit(); }
-  void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
+  float distmapAggregate() const override { return reference_->distmapAggregate(); }
+  float blockErrorLimit() const override { return reference_->blockErrorLimit(); }
+  void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
                                           int factor_y, const std::vector<float>& distmap,
                                           std::vector<float>* block_weight) override {
-    reference_->ComputeBlockErrorAdjustmentWeights(direction, max_block_dist, target_mul, factor_x, factor_y, distmap,
+    reference_->computeBlockErrorAdjustmentWeights(direction, max_block_dist, target_mul, factor_x, factor_y, distmap,
                                                    block_weight);
   }
   // The tested backend's data: a checked block-zeroing search runs the tested search with it.

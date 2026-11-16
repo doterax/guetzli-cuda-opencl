@@ -20,7 +20,7 @@
 
 namespace guetzli {
 
-const double* NewSrgb8ToLinearTable() {
+const double* newSrgb8ToLinearTable() {
   double* table = new double[256];
   int i = 0;
   for (; i < 11; ++i) {
@@ -32,8 +32,8 @@ const double* NewSrgb8ToLinearTable() {
   return table;
 }
 
-const double* Srgb8ToLinearTable() {
-  static const double* const kSrgb8ToLinearTable = NewSrgb8ToLinearTable();
+const double* srgb8ToLinearTable() {
+  static const double* const kSrgb8ToLinearTable = newSrgb8ToLinearTable();
   return kSrgb8ToLinearTable;
 }
 

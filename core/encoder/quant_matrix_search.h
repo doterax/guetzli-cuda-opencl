@@ -15,23 +15,23 @@ namespace guetzli {
 
 // A tried quantization matrix and its result.
 struct QuantData {
-  int q[3][kDCTBlockSize];
+  int q[3][kDctBlockSize];
   size_t jpg_size;
   bool dist_ok;
 };
 
 // True if a is a better result than b: within the distance target first, then smaller.
-[[nodiscard]] bool CompareQuantData(const QuantData& a, const QuantData& b);
+[[nodiscard]] bool compareQuantData(const QuantData& a, const QuantData& b);
 
 // Compares a[0..3*kDCTBlockSize) and b[0..3*kDCTBlockSize) and returns
 //   0 : if they are equal
 //  -1 : if a is everywhere <= than b and in at least one coordinate <
 //   1 : if a is everywhere >= than b and in at least one coordinate >
 //   2 : if a and b are uncomparable (some coordinate smaller and some greater)
-[[nodiscard]] int CompareQuantMatrices(const int* a, const int* b);
+[[nodiscard]] int compareQuantMatrices(const int* a, const int* b);
 
 // Sum of the quantizers weighted by contrast sensitivity: grows with coarser quantization.
-[[nodiscard]] double QuantMatrixHeuristicScore(const int q[3][kDCTBlockSize]);
+[[nodiscard]] double quantMatrixHeuristicScore(const int q[3][kDctBlockSize]);
 
 // Proposes quantization matrices for a binary search on the heuristic score: the lower bound is the
 // coarsest matrix within the distance target, the upper bound the finest one outside it.
@@ -40,12 +40,12 @@ class QuantMatrixGenerator {
   explicit QuantMatrixGenerator(bool downsample);
 
   // Fills q with the next matrix to try; false when the search is done.
-  bool GetNext(int q[3][kDCTBlockSize]);
+  bool getNext(int q[3][kDctBlockSize]);
   // Records the result of a tried matrix.
-  void Add(const QuantData& data);
+  void add(const QuantData& data);
 
  private:
-  void GetQuantMatrixWithHeuristicScore(double score, int q[3][kDCTBlockSize]) const;
+  void getQuantMatrixWithHeuristicScore(double score, int q[3][kDctBlockSize]) const;
 
   const bool downsample_;
   // Lower bound for quant matrix heuristic score used in binary search.
@@ -69,10 +69,10 @@ class QuantMatrixSearch {
   // jpg: the image with its quantization removed; img: scratch image of the same size (overwritten).
   // best_q: in, the first matrix to try; out, the selected matrix. Returns whether it meets the
   // (slightly stricter than final) distance target.
-  bool run(const JPEGData& jpg, bool downsample, int best_q[3][kDCTBlockSize], OutputImage& img);
+  bool run(const JpegData& jpg, bool downsample, int best_q[3][kDctBlockSize], OutputImage& img);
 
  private:
-  QuantData tryMatrix(const JPEGData& jpg, float target_mul, int q[3][kDCTBlockSize], OutputImage& img);
+  QuantData tryMatrix(const JpegData& jpg, float target_mul, int q[3][kDctBlockSize], OutputImage& img);
 
   Comparator* comparator_;
   OutputSelector* selector_;

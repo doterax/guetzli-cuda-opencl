@@ -25,7 +25,7 @@ struct ZeroingCandidates {
 };
 
 // Keeps the entries of orders (kBlockZeroingBlockSize per block) with 0 < block_err <= block_error_limit.
-[[nodiscard]] ZeroingCandidates CollectZeroingCandidates(std::span<const CoeffData> orders, int num_blocks,
+[[nodiscard]] ZeroingCandidates collectZeroingCandidates(std::span<const CoeffData> orders, int num_blocks,
                                                          float block_error_limit);
 
 class FrequencyMasking {
@@ -39,10 +39,10 @@ class FrequencyMasking {
   // distance target times target_mul. jpg holds the original coefficients (quantization removed).
   // Every step's result is offered to the selector. stop_early: give up the downward pass once the
   // estimated size exceeds the best output so far by 1%.
-  void run(const JPEGData& jpg, OutputImage& img, uint8_t comp_mask, double target_mul, bool stop_early);
+  void run(const JpegData& jpg, OutputImage& img, uint8_t comp_mask, double target_mul, bool stop_early);
 
  private:
-  void adjust(const JPEGData& jpg, OutputImage& img, uint8_t comp_mask, double target_mul, bool stop_early,
+  void adjust(const JpegData& jpg, OutputImage& img, uint8_t comp_mask, double target_mul, bool stop_early,
               const ZeroingCandidates& candidates);
 
   const EncoderParams* params_;

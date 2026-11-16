@@ -11,7 +11,7 @@ namespace guetzli {
 
 CudaMemoryPool::~CudaMemoryPool() {
   // Busy blocks cannot exist here (every buffer returns its block when destroyed); free everything regardless.
-  for (const Block& block : blocks_) driver_.memFree(block.mem);
+  for (const Block& block : blocks_) driver_.mem_free(block.mem);
 }
 
 CUdeviceptr CudaMemoryPool::allocate(size_t s, const void* init, bool zero) {
@@ -31,23 +31,23 @@ CUdeviceptr CudaMemoryPool::allocate(size_t s, const void* init, bool zero) {
     mem = candidate->mem;
   } else {
     CUdeviceptr new_mem = 0;
-    CUresult err = driver_.memAlloc(&new_mem, s);
+    CUresult err = driver_.mem_alloc(&new_mem, s);
     if (err == CUDA_ERROR_OUT_OF_MEMORY) {
       // Idle pooled blocks are only freed at shutdown; release them and retry once.
       drain();
-      err = driver_.memAlloc(&new_mem, s);
+      err = driver_.mem_alloc(&new_mem, s);
     }
     if (err != CUDA_SUCCESS) {
-      throw GpuError("CUDA allocation of " + std::to_string(s) + " bytes failed: " + TranslateCUDAError(err));
+      throw GpuError("CUDA allocation of " + std::to_string(s) + " bytes failed: " + translateCudaError(err));
     }
     blocks_.push_back(Block{Status::Busy, s, s, new_mem});
     blocks_.sort([](const Block& a, const Block& b) { return a.size < b.size; });
     mem = new_mem;
   }
   if (init) {
-    CU_CHECK(driver_.memcpyHtoDAsync(mem, init, s, stream_));
+    CU_CHECK(driver_.memcpy_htod_async(mem, init, s, stream_));
   } else if (zero) {
-    CU_CHECK(driver_.memsetD8Async(mem, 0, s, stream_));
+    CU_CHECK(driver_.memset_d8_async(mem, 0, s, stream_));
   }
   return mem;
 }
@@ -68,7 +68,7 @@ void CudaMemoryPool::drain() noexcept {
   for (auto it = blocks_.begin(); it != blocks_.end();) {
     if (it->status == Status::Idle) {
       total_mem += it->size;
-      driver_.memFree(it->mem);
+      driver_.mem_free(it->mem);
       it = blocks_.erase(it);
     } else {
       ++it;

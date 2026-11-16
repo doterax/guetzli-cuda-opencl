@@ -21,7 +21,7 @@
 
 namespace guetzli {
 
-enum JPEGReadError {
+enum JpegReadError {
   JPEG_OK = 0,
   JPEG_SOI_NOT_FOUND,
   JPEG_SOF_NOT_FOUND,

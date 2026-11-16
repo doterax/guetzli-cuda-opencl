@@ -158,7 +158,7 @@ const coeff_t kTable35[7] = {26722, 25172, 22654, 19266, 15137, 10426, 5315};
 
 // DCT vertical pass
 
-inline void ColumnDct(coeff_t* in) {
+inline void columnDct(coeff_t* in) {
   for (int i = 0; i < 8; ++i) {
     int m0, m1, m2, m3, m4, m5, m6, m7;
     COLUMN_DCT8(in + i);
@@ -171,7 +171,7 @@ inline void ColumnDct(coeff_t* in) {
 // still have 4 bits of precision left as final scaled output.
 #define DESCALE(a) static_cast<coeff_t>((a) >> 16)
 
-void RowDct(coeff_t* in, const coeff_t* table) {
+void rowDct(coeff_t* in, const coeff_t* table) {
   // The Fourier transform is an unitary operator, so we're basically
   // doing the transpose of RowIdct()
   const int a0 = in[0] + in[7];
@@ -184,28 +184,28 @@ void RowDct(coeff_t* in, const coeff_t* table) {
   const int b3 = in[3] - in[4];
 
   // even part
-  const int C2 = table[1];
-  const int C4 = table[3];
-  const int C6 = table[5];
+  const int m2 = table[1];
+  const int m4 = table[3];
+  const int m6 = table[5];
   const int c0 = a0 + a3;
   const int c1 = a0 - a3;
   const int c2 = a1 + a2;
   const int c3 = a1 - a2;
 
-  in[0] = DESCALE(C4 * (c0 + c2));
-  in[4] = DESCALE(C4 * (c0 - c2));
-  in[2] = DESCALE(C2 * c1 + C6 * c3);
-  in[6] = DESCALE(C6 * c1 - C2 * c3);
+  in[0] = DESCALE(m4 * (c0 + c2));
+  in[4] = DESCALE(m4 * (c0 - c2));
+  in[2] = DESCALE(m2 * c1 + m6 * c3);
+  in[6] = DESCALE(m6 * c1 - m2 * c3);
 
   // odd part
-  const int C1 = table[0];
-  const int C3 = table[2];
-  const int C5 = table[4];
-  const int C7 = table[6];
-  in[1] = DESCALE(C1 * b0 + C3 * b1 + C5 * b2 + C7 * b3);
-  in[3] = DESCALE(C3 * b0 - C7 * b1 - C1 * b2 - C5 * b3);
-  in[5] = DESCALE(C5 * b0 - C1 * b1 + C7 * b2 + C3 * b3);
-  in[7] = DESCALE(C7 * b0 - C5 * b1 + C3 * b2 - C1 * b3);
+  const int m1 = table[0];
+  const int m3 = table[2];
+  const int m5 = table[4];
+  const int m7 = table[6];
+  in[1] = DESCALE(m1 * b0 + m3 * b1 + m5 * b2 + m7 * b3);
+  in[3] = DESCALE(m3 * b0 - m7 * b1 - m1 * b2 - m5 * b3);
+  in[5] = DESCALE(m5 * b0 - m1 * b1 + m7 * b2 + m3 * b3);
+  in[7] = DESCALE(m7 * b0 - m5 * b1 + m3 * b2 - m1 * b3);
 }
 #undef DESCALE
 #undef LOAD_CST
@@ -228,16 +228,16 @@ void RowDct(coeff_t* in, const coeff_t* table) {
 ///////////////////////////////////////////////////////////////////////////////
 // visible FDCT callable functions
 
-void ComputeBlockDCT(coeff_t* coeffs) {
-  ColumnDct(coeffs);
-  RowDct(coeffs + 0 * 8, kTable04);
-  RowDct(coeffs + 1 * 8, kTable17);
-  RowDct(coeffs + 2 * 8, kTable26);
-  RowDct(coeffs + 3 * 8, kTable35);
-  RowDct(coeffs + 4 * 8, kTable04);
-  RowDct(coeffs + 5 * 8, kTable35);
-  RowDct(coeffs + 6 * 8, kTable26);
-  RowDct(coeffs + 7 * 8, kTable17);
+void computeBlockDct(coeff_t* coeffs) {
+  columnDct(coeffs);
+  rowDct(coeffs + 0 * 8, kTable04);
+  rowDct(coeffs + 1 * 8, kTable17);
+  rowDct(coeffs + 2 * 8, kTable26);
+  rowDct(coeffs + 3 * 8, kTable35);
+  rowDct(coeffs + 4 * 8, kTable04);
+  rowDct(coeffs + 5 * 8, kTable35);
+  rowDct(coeffs + 6 * 8, kTable26);
+  rowDct(coeffs + 7 * 8, kTable17);
 }
 
 }  // namespace guetzli

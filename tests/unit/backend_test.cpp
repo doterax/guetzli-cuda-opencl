@@ -102,20 +102,20 @@ class FakeComparator final : public guetzli::Comparator {
   FakeComparator(std::vector<float> distmap, float distance, std::vector<std::string>& calls, const char* name)
       : distmap_(std::move(distmap)), distance_(distance), calls_(calls), name_(name) {}
 
-  void Compare(const guetzli::OutputImage&) override { record("Compare"); }
-  void StartBlockComparisons() override { record("Start"); }
-  void FinishBlockComparisons() override { record("Finish"); }
-  void SwitchBlock(int, int, int, int) override { record("SwitchBlock"); }
-  double CompareBlock(const guetzli::OutputImage&, int, int, const coeff_t*, const int) const override {
+  void compare(const guetzli::OutputImage&) override { record("Compare"); }
+  void startBlockComparisons() override { record("Start"); }
+  void finishBlockComparisons() override { record("Finish"); }
+  void switchBlock(int, int, int, int) override { record("SwitchBlock"); }
+  double compareBlock(const guetzli::OutputImage&, int, int, const coeff_t*, const int) const override {
     record("CompareBlock");
     return distance_;
   }
-  double ScoreOutputSize(int size) const override { return size * distance_; }
-  bool DistanceOK(double) const override { return true; }
+  double scoreOutputSize(int size) const override { return size * distance_; }
+  bool distanceOk(double) const override { return true; }
   const std::vector<float> distmap() const override { return distmap_; }
-  float distmap_aggregate() const override { return distance_; }
-  float BlockErrorLimit() const override { return distance_; }
-  void ComputeBlockErrorAdjustmentWeights(int, int, double, int, int, const std::vector<float>&,
+  float distmapAggregate() const override { return distance_; }
+  float blockErrorLimit() const override { return distance_; }
+  void computeBlockErrorAdjustmentWeights(int, int, double, int, int, const std::vector<float>&,
                                           std::vector<float>*) override {}
   std::optional<guetzli::BlockReferenceData> blockReferenceData() const override {
     if (!provides_block_data) return std::nullopt;
@@ -164,17 +164,17 @@ TEST_CASE("CheckingComparator: runs both, keeps the reference result, reports di
     RecordingLogger logger;
     guetzli::CheckingComparator checking(std::move(tested), std::move(reference), logger);
 
-    checking.Compare(img);
+    checking.compare(img);
     CHECK(checking.distmap() == std::vector<float>{1.0f, 2.0f, 3.0f});
     CHECK(countChk(logger) == c.expected_chk);
     CHECK(calls == std::vector<std::string>{"gpu.Compare", "cpu.Compare"});
 
     // Per-block work runs on the reference only; block data comes from the tested comparator.
     calls.clear();
-    checking.StartBlockComparisons();
-    checking.SwitchBlock(0, 0, 1, 1);
-    (void)checking.CompareBlock(img, 0, 0, nullptr, 7);
-    checking.FinishBlockComparisons();
+    checking.startBlockComparisons();
+    checking.switchBlock(0, 0, 1, 1);
+    (void)checking.compareBlock(img, 0, 0, nullptr, 7);
+    checking.finishBlockComparisons();
     CHECK(calls == std::vector<std::string>{"gpu.Start", "cpu.Start", "cpu.SwitchBlock", "cpu.CompareBlock",
                                             "gpu.Finish", "cpu.Finish"});
     CHECK(checking.blockReferenceData().has_value());
@@ -201,7 +201,7 @@ class FakeSearch final : public guetzli::IBlockZeroingSearch {
 TEST_CASE("CheckingBlockZeroingSearch: returns the reference orders and reports differences") {
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(8, 8, dct);
-  guetzli::JPEGData jpg;
+  guetzli::JpegData jpg;
   std::vector<std::string> calls;
   FakeComparator comparator({}, 1.0f, calls, "c");
   const guetzli::BlockZeroingInput input{jpg, img, 7, comparator, 3, true};
@@ -239,17 +239,17 @@ namespace {
 class FakeDctOps final : public guetzli::IDctOps {
  public:
   explicit FakeDctOps(bool corrupt) : corrupt_(corrupt) {}
-  void copyFromJpegComponent(guetzli::OutputImageComponent& c, const guetzli::JPEGComponent& comp, int factor_x,
+  void copyFromJpegComponent(guetzli::OutputImageComponent& c, const guetzli::JpegComponent& comp, int factor_x,
                              int factor_y, const int* quant) override {
     cpu_.copyFromJpegComponent(c, comp, factor_x, factor_y, quant);
     if (corrupt_) {
-      coeff_t block[guetzli::kDCTBlockSize];
-      c.GetCoeffBlock(0, 0, block);
+      coeff_t block[guetzli::kDctBlockSize];
+      c.getCoeffBlock(0, 0, block);
       block[1] += quant[1];
-      c.SetCoeffBlock(0, 0, block);
+      c.setCoeffBlock(0, 0, block);
     }
   }
-  void applyGlobalQuantization(guetzli::OutputImageComponent& c, const int q[guetzli::kDCTBlockSize]) override {
+  void applyGlobalQuantization(guetzli::OutputImageComponent& c, const int q[guetzli::kDctBlockSize]) override {
     cpu_.applyGlobalQuantization(c, q);
   }
   void toSrgb(const guetzli::OutputImage& img, int xmin, int ymin, int xsize, int ysize,
@@ -264,23 +264,23 @@ class FakeDctOps final : public guetzli::IDctOps {
   guetzli::CpuDctOps cpu_;
 };
 
-guetzli::JPEGComponent flatComponent(int blocks_x, int blocks_y) {
-  guetzli::JPEGComponent comp;
+guetzli::JpegComponent flatComponent(int blocks_x, int blocks_y) {
+  guetzli::JpegComponent comp;
   comp.width_in_blocks = blocks_x;
   comp.height_in_blocks = blocks_y;
-  comp.coeffs.assign(static_cast<size_t>(blocks_x) * blocks_y * guetzli::kDCTBlockSize, 0);
-  for (size_t i = 0; i < comp.coeffs.size(); i += guetzli::kDCTBlockSize) comp.coeffs[i] = 3;  // DC only
+  comp.coeffs.assign(static_cast<size_t>(blocks_x) * blocks_y * guetzli::kDctBlockSize, 0);
+  for (size_t i = 0; i < comp.coeffs.size(); i += guetzli::kDctBlockSize) comp.coeffs[i] = 3;  // DC only
   return comp;
 }
 
 }  // namespace
 
 TEST_CASE("CheckingDctOps: keeps the reference result; single blocks are converted by the reference only") {
-  const int quant[guetzli::kDCTBlockSize] = {
+  const int quant[guetzli::kDctBlockSize] = {
       8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
       8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
   };
-  const guetzli::JPEGComponent comp = flatComponent(2, 2);
+  const guetzli::JpegComponent comp = flatComponent(2, 2);
 
   for (bool corrupt : {false, true}) {
     auto tested = std::make_unique<FakeDctOps>(corrupt);
@@ -291,14 +291,14 @@ TEST_CASE("CheckingDctOps: keeps the reference result; single blocks are convert
     guetzli::OutputImage img(16, 16, checking);
     guetzli::OutputImageComponent& c = img.component(0);
     checking.copyFromJpegComponent(c, comp, 1, 1, quant);
-    coeff_t block[guetzli::kDCTBlockSize];
-    c.GetCoeffBlock(0, 0, block);
+    coeff_t block[guetzli::kDctBlockSize];
+    c.getCoeffBlock(0, 0, block);
     CHECK(block[1] == 0);                          // the reference result, not the corrupted one
     CHECK(countChk(logger) == (corrupt ? 2 : 0));  // coefficients and pixels differ
 
-    (void)img.ToSRGB(0, 0, 8, 8);
+    (void)img.toSrgb(0, 0, 8, 8);
     CHECK(tested_ptr->srgb_calls == 0);
-    (void)img.ToSRGB();
+    (void)img.toSrgb();
     CHECK(tested_ptr->srgb_calls == 1);
   }
 }

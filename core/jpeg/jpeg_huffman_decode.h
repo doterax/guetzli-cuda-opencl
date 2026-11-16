@@ -43,7 +43,7 @@ struct HuffmanTableEntry {
 // The symbols are in order of increasing bit lengths. The number of symbols
 // with bit length n is given in counts[n] for each n >= 1.
 // Returns the size of the lookup table.
-int BuildJpegHuffmanTable(const int* counts, const int* symbols, HuffmanTableEntry* lut);
+int buildJpegHuffmanTable(const int* counts, const int* symbols, HuffmanTableEntry* lut);
 
 }  // namespace guetzli
 

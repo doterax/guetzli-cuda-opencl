@@ -33,7 +33,18 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    `core/util/fast_log.h`, `app/version.h`. `clbutter_comparator` became `backend/cpu/optimized_butteraugli`,
    `clguetzli.cl.h` became `backend/gpu/kernel_types.h`. The layering check now covers `config/`, `logging/`,
    `core/`.
-4. Naming sweep (§9: `PascalCase` types, `camelCase` functions, `snake_case_` members), one mechanical commit.
+4. Naming sweep. Done, one mechanical commit. Convention in `.clang-tidy` (`readability-identifier-naming`):
+   `PascalCase` types, `camelCase` functions, `snake_case_` private/protected members, `snake_case` public fields,
+   parameters and locals, `kPascalCase` constants, `PascalCase` `enum class` values, `UPPER_CASE` plain-enum values
+   and macros; acronyms are words (`JpegData`, `toSrgb`, `kDctBlockSize`). Done with clang-tidy's rename fixes (they
+   find every reference), but with our own word splitting (clang-tidy turns `YUV444` into `YuV444`) and two passes
+   (the second also normalizes acronyms in names clang-tidy's `CamelCase` accepts, like `JPEGData`). Pre-edits for
+   names that would collide: `BitReaderState`'s state became private (`readSymbol` is a friend), the fdct table
+   constants `C1`..`C7` became `m1`..`m7`, `PreProcessChannel`'s `blur`/`sharpen` flags became `do_*`, the unused
+   union field `b_` went. **Verified with machine code:** every production object's code sections are
+   byte-identical to the previous commit (compared COFF code sections + relocations, ignoring names), except one
+   intended change, `kRangeLimit` becoming a `const` pointer (integer code in the YCbCr->RGB inline). Builds without
+   GPU backends and without full JPEG (the `#else` branches clang-tidy did not see) compile and pass their tests.
 5. clang-tidy clean, in its own commit(s); then `GUETZLI_WARNINGS_AS_ERRORS` in CI.
 6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7).
 7. OpenCL/CUDA launcher deduplication of the butteraugli pipeline (phase 4 note).

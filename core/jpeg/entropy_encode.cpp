@@ -23,21 +23,21 @@
 
 namespace guetzli {
 
-bool SetDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
+bool setDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
   int stack[17];
   int level = 0;
   int p = p0;
   assert(max_depth <= 16);
   stack[0] = -1;
   while (true) {
-    if (pool[p].index_left_ >= 0) {
+    if (pool[p].index_left >= 0) {
       level++;
       if (level > max_depth) return false;
-      stack[level] = pool[p].index_right_or_value_;
-      p = pool[p].index_left_;
+      stack[level] = pool[p].index_right_or_value;
+      p = pool[p].index_left;
       continue;
     } else {
-      depth[pool[p].index_right_or_value_] = static_cast<uint8_t>(level);
+      depth[pool[p].index_right_or_value] = static_cast<uint8_t>(level);
     }
     while (level >= 0 && stack[level] == -1) level--;
     if (level < 0) return true;
@@ -47,11 +47,11 @@ bool SetDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
 }
 
 // Sort the root nodes, least popular first.
-static inline bool SortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1) {
-  if (v0.total_count_ != v1.total_count_) {
-    return v0.total_count_ < v1.total_count_;
+static inline bool sortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1) {
+  if (v0.total_count != v1.total_count) {
+    return v0.total_count < v1.total_count;
   }
-  return v0.index_right_or_value_ > v1.index_right_or_value_;
+  return v0.index_right_or_value > v1.index_right_or_value;
 }
 
 // This function will create a Huffman tree.
@@ -69,7 +69,7 @@ static inline bool SortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1)
 // we are not planning to use this with extremely long blocks.
 //
 // See http://en.wikipedia.org/wiki/Huffman_coding
-void CreateHuffmanTree(const uint32_t* data, const size_t length, const int tree_limit, HuffmanTree* tree,
+void createHuffmanTree(const uint32_t* data, const size_t length, const int tree_limit, HuffmanTree* tree,
                        uint8_t* depth) {
   // For block sizes below 64 kB, we never need to do a second iteration
   // of this loop. Probably all of our block sizes will be smaller than
@@ -86,11 +86,11 @@ void CreateHuffmanTree(const uint32_t* data, const size_t length, const int tree
     }
 
     if (n == 1) {
-      depth[tree[0].index_right_or_value_] = 1;  // Only one element.
+      depth[tree[0].index_right_or_value] = 1;  // Only one element.
       break;
     }
 
-    std::sort(tree, tree + n, SortHuffmanTree);
+    std::sort(tree, tree + n, sortHuffmanTree);
 
     // The nodes are:
     // [0, n): the sorted leaf nodes that we start with.
@@ -107,14 +107,14 @@ void CreateHuffmanTree(const uint32_t* data, const size_t length, const int tree
     size_t j = n + 1;  // Points to the next non-leaf node.
     for (size_t k = n - 1; k != 0; --k) {
       size_t left, right;
-      if (tree[i].total_count_ <= tree[j].total_count_) {
+      if (tree[i].total_count <= tree[j].total_count) {
         left = i;
         ++i;
       } else {
         left = j;
         ++j;
       }
-      if (tree[i].total_count_ <= tree[j].total_count_) {
+      if (tree[i].total_count <= tree[j].total_count) {
         right = i;
         ++i;
       } else {
@@ -124,14 +124,14 @@ void CreateHuffmanTree(const uint32_t* data, const size_t length, const int tree
 
       // The sentinel node becomes the parent node.
       size_t j_end = 2 * n - k;
-      tree[j_end].total_count_ = tree[left].total_count_ + tree[right].total_count_;
-      tree[j_end].index_left_ = static_cast<int16_t>(left);
-      tree[j_end].index_right_or_value_ = static_cast<int16_t>(right);
+      tree[j_end].total_count = tree[left].total_count + tree[right].total_count;
+      tree[j_end].index_left = static_cast<int16_t>(left);
+      tree[j_end].index_right_or_value = static_cast<int16_t>(right);
 
       // Add back the last sentinel node.
       tree[j_end + 1] = sentinel;
     }
-    if (SetDepth(static_cast<int>(2 * n - 1), &tree[0], depth, tree_limit)) {
+    if (setDepth(static_cast<int>(2 * n - 1), &tree[0], depth, tree_limit)) {
       /* We need to pack the Huffman tree in tree_limit bits. If this was not
          successful, add fake entities to the lowest values and retry. */
       break;

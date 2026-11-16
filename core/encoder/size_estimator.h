@@ -12,15 +12,15 @@
 namespace guetzli {
 
 // Entropy-coded size in bytes of the symbols in histograms[i] coded with depths[i * JpegHistogram::kSize ...].
-[[nodiscard]] size_t EntropyCodedDataSize(const std::vector<JpegHistogram>& histograms,
+[[nodiscard]] size_t entropyCodedDataSize(const std::vector<JpegHistogram>& histograms,
                                           const std::vector<uint8_t>& depths);
 
 // Clusters histograms, stores the code length of each symbol of histogram i in
 // (*depths)[i * JpegHistogram::kSize ...] and returns the size of the Huffman table headers in bytes.
-size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths);
+size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths);
 
 // Estimated size of the DC data of jpg in bytes (including its Huffman tables).
-[[nodiscard]] size_t EstimateDCSize(const JPEGData& jpg);
+[[nodiscard]] size_t estimateDcSize(const JpegData& jpg);
 
 // Header size + DC size + AC Huffman tables + AC entropy-coded data. The headers, DC data and AC code
 // lengths are fixed until refreshEntropyCodes(); the AC data size follows every block change in
@@ -29,7 +29,7 @@ class JpegSizeEstimator {
  public:
   // jpg: the image as it would be written; num_histograms >= jpg.components.size() AC histograms are
   // kept (the extra ones start empty).
-  JpegSizeEstimator(const JPEGData& jpg, size_t num_histograms, bool clear_metadata);
+  JpegSizeEstimator(const JpegData& jpg, size_t num_histograms, bool clear_metadata);
 
   // Component c's block old_block (dequantized coefficients, quantizers quant) becomes new_block.
   void replaceBlock(int c, const coeff_t* old_block, const coeff_t* new_block, const int* quant);

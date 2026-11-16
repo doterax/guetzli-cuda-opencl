@@ -12,10 +12,10 @@ namespace guetzli {
 
 class CpuButteraugliOps final : public ButteraugliOps {
  public:
-  void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) override;
-  void Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
+  void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) override;
+  void mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
             size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc) override;
-  void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+  void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
                                std::vector<std::vector<float>>& xyb1) override;
 };
@@ -25,10 +25,10 @@ class CpuButteraugliComparator final : public ButteraugliComparator {
   CpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
                            ProcessStats* stats, ButteraugliOps& ops);
 
-  void Compare(const OutputImage& img) override;
+  void compare(const OutputImage& img) override;
 
  private:
-  ::butteraugli::clButteraugliComparator comparator_;
+  ::butteraugli::OptimizedButteraugliComparator comparator_;
 };
 
 class CpuComparatorFactory final : public IComparatorFactory {

@@ -10,9 +10,9 @@ namespace {
 constexpr double kDistmapTolerance = 0.005;
 }  // namespace
 
-void CheckingComparator::Compare(const OutputImage& img) {
-  tested_->Compare(img);
-  reference_->Compare(img);
+void CheckingComparator::compare(const OutputImage& img) {
+  tested_->compare(img);
+  reference_->compare(img);
   const std::vector<float> reference = reference_->distmap();
   const std::vector<float> tested = tested_->distmap();
   if (tested.size() != reference.size()) {
@@ -20,18 +20,18 @@ void CheckingComparator::Compare(const OutputImage& img) {
     return;
   }
   reportMismatches(logger_, "Compare", "distmap", reference.data(), tested.data(), reference.size(), kDistmapTolerance);
-  const float distance[2] = {reference_->distmap_aggregate(), tested_->distmap_aggregate()};
+  const float distance[2] = {reference_->distmapAggregate(), tested_->distmapAggregate()};
   reportMismatches(logger_, "Compare", "distance", &distance[0], &distance[1], 1, kDistmapTolerance);
 }
 
-void CheckingComparator::StartBlockComparisons() {
-  tested_->StartBlockComparisons();
-  reference_->StartBlockComparisons();
+void CheckingComparator::startBlockComparisons() {
+  tested_->startBlockComparisons();
+  reference_->startBlockComparisons();
 }
 
-void CheckingComparator::FinishBlockComparisons() {
-  tested_->FinishBlockComparisons();
-  reference_->FinishBlockComparisons();
+void CheckingComparator::finishBlockComparisons() {
+  tested_->finishBlockComparisons();
+  reference_->finishBlockComparisons();
 }
 
 std::unique_ptr<Comparator> CheckingComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,

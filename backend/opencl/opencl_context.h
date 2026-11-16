@@ -25,7 +25,7 @@ class Device;  // third_party/OpenCL-Wrapper
 
 namespace guetzli {
 
-const char* TranslateOpenCLError(cl_int errorCode);
+const char* translateOpenClError(cl_int error_code);
 
 // Throws GpuError("OpenCL call failed in <where>: <error>").
 [[noreturn]] void throwOpenClError(cl_int err, const char* where);
@@ -66,8 +66,8 @@ class ClBuffer {
 // Three planes from the pool; view() gives the handles to pass to the launchers.
 struct ClChannels {
   ClBuffer ch[3];
-  [[nodiscard]] ocl_channels view() const {
-    ocl_channels v;
+  [[nodiscard]] OclChannels view() const {
+    OclChannels v;
     for (int i = 0; i < 3; i++) v.ch[i] = ch[i].get();
     return v;
   }

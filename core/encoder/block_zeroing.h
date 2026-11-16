@@ -12,7 +12,7 @@
 namespace guetzli {
 
 // Number of coefficients of a block across the three components.
-constexpr int kBlockZeroingBlockSize = 3 * kDCTBlockSize;
+constexpr int kBlockZeroingBlockSize = 3 * kDctBlockSize;
 
 struct CoeffData {
   int idx;
@@ -20,7 +20,7 @@ struct CoeffData {
 };
 
 struct BlockZeroingInput {
-  const JPEGData& jpg;     // the original coefficients (quantization removed)
+  const JpegData& jpg;     // the original coefficients (quantization removed)
   OutputImage& img;        // the current image; unchanged when run() returns
   uint8_t comp_mask;       // components to search; all have the subsampling of the last one
   Comparator& comparator;  // StartBlockComparisons() has been called

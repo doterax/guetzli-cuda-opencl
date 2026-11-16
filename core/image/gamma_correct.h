@@ -19,7 +19,7 @@
 
 namespace guetzli {
 
-const double* Srgb8ToLinearTable();
+const double* srgb8ToLinearTable();
 
 }  // namespace guetzli
 

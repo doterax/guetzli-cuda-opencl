@@ -18,7 +18,7 @@
 namespace guetzli {
 
 void throwOpenClError(cl_int err, const char* where) {
-  throw GpuError(std::string("OpenCL call failed in ") + where + ": " + TranslateOpenCLError(err));
+  throw GpuError(std::string("OpenCL call failed in ") + where + ": " + translateOpenClError(err));
 }
 
 ClBuffer::ClBuffer(ClBuffer&& other) noexcept : owner_(other.owner_), mem_(other.mem_) {
@@ -44,7 +44,7 @@ ClMemory::~ClMemory() {
 }
 
 OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logger_(logger) {
-  MaybeInjectGpuFailure("OpenCL");
+  maybeInjectGpuFailure("OpenCL");
 
   std::vector<Device_Info> devices = get_devices(true);
   if (devices.empty()) {
@@ -190,95 +190,97 @@ ClMemory OpenClContext::uploadMemory(size_t bytes, const void* data) {
 }
 
 void OpenClContext::printDeviceCapabilities() const {
-  const Device_Info& deviceInfo = device_->info;
+  const Device_Info& device_info = device_->info;
   // Get platform information from the device's context
   cl_platform_id platform = nullptr;
-  cl_int err = clGetContextInfo(deviceInfo.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
+  cl_int err = clGetContextInfo(device_info.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
 
-  std::string platformName = "Unknown";
-  std::string platformVersion = "Unknown";
-  std::string platformVendor = "Unknown";
+  std::string platform_name = "Unknown";
+  std::string platform_version = "Unknown";
+  std::string platform_vendor = "Unknown";
 
   if (err == CL_SUCCESS && platform) {
-    size_t nameLen = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &nameLen);
-    std::vector<char> platformNameVec(nameLen + 1);
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, nameLen, &platformNameVec[0], NULL);
-    platformName = std::string(platformNameVec.data());
+    size_t name_len = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &name_len);
+    std::vector<char> platform_name_vec(name_len + 1);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, name_len, &platform_name_vec[0], NULL);
+    platform_name = std::string(platform_name_vec.data());
 
-    size_t versionLen = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionLen);
-    std::vector<char> platformVersionVec(versionLen);
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionLen, &platformVersionVec[0], NULL);
-    platformVersion = std::string(platformVersionVec.data());
+    size_t version_len = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &version_len);
+    std::vector<char> platform_version_vec(version_len);
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, version_len, &platform_version_vec[0], NULL);
+    platform_version = std::string(platform_version_vec.data());
 
-    size_t vendorLen = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendorLen);
-    std::vector<char> platformVendorVec(vendorLen);
-    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendorLen, &platformVendorVec[0], NULL);
-    platformVendor = std::string(platformVendorVec.data());
+    size_t vendor_len = 0;
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendor_len);
+    std::vector<char> platform_vendor_vec(vendor_len);
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendor_len, &platform_vendor_vec[0], NULL);
+    platform_vendor = std::string(platform_vendor_vec.data());
   }
 
   // Get additional device information not available in Device_Info
-  cl_device_id device = deviceInfo.cl_device();
+  cl_device_id device = device_info.cl_device();
 
-  size_t maxWorkGroupSize = 0;  // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
-  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(maxWorkGroupSize), &maxWorkGroupSize, NULL);
+  size_t max_work_group_size = 0;  // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_work_group_size), &max_work_group_size, NULL);
 
-  size_t maxWorkItemSizes[3] = {0};
-  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(maxWorkItemSizes), &maxWorkItemSizes, NULL);
+  size_t max_work_item_sizes[3] = {0};
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_work_item_sizes), &max_work_item_sizes, NULL);
 
-  cl_bool compilerAvailable = CL_FALSE;
-  clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compilerAvailable), &compilerAvailable, NULL);
+  cl_bool compiler_available = CL_FALSE;
+  clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compiler_available), &compiler_available, NULL);
 
-  cl_bool linkerAvailable = CL_FALSE;
-  clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linkerAvailable), &linkerAvailable, NULL);
+  cl_bool linker_available = CL_FALSE;
+  clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linker_available), &linker_available, NULL);
 
-  cl_device_fp_config fpConfig = 0;
-  clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fpConfig), &fpConfig, NULL);
+  cl_device_fp_config fp_config = 0;
+  clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
 
-  char deviceVersion[256] = {0};
-  clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(deviceVersion) - 1, deviceVersion, NULL);
+  char device_version[256] = {0};
+  clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_version) - 1, device_version, NULL);
 
-  cl_device_exec_capabilities execCapabilities = 0;
-  clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(execCapabilities), &execCapabilities, NULL);
+  cl_device_exec_capabilities exec_capabilities = 0;
+  clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(exec_capabilities), &exec_capabilities, NULL);
 
   // Print comprehensive device report
   logger_.log(LogLevel::Debug, "=== OpenCL Device Capabilities Report ===\n");
-  logger_.log(LogLevel::Debug, "Platform: %s\n", platformName.c_str());
-  logger_.log(LogLevel::Debug, "Platform Version: %s\n", platformVersion.c_str());
-  logger_.log(LogLevel::Debug, "Platform Vendor: %s\n", platformVendor.c_str());
-  logger_.log(LogLevel::Debug, "Device: %s\n", deviceInfo.name.c_str());
-  logger_.log(LogLevel::Debug, "Device Vendor: %s\n", deviceInfo.vendor.c_str());
-  logger_.log(LogLevel::Debug, "Device Version: %s\n", deviceVersion);
-  logger_.log(LogLevel::Debug, "OpenCL C Version: %s\n", deviceInfo.opencl_c_version.c_str());
-  logger_.log(LogLevel::Debug, "Driver Version: %s\n", deviceInfo.driver_version.c_str());
+  logger_.log(LogLevel::Debug, "Platform: %s\n", platform_name.c_str());
+  logger_.log(LogLevel::Debug, "Platform Version: %s\n", platform_version.c_str());
+  logger_.log(LogLevel::Debug, "Platform Vendor: %s\n", platform_vendor.c_str());
+  logger_.log(LogLevel::Debug, "Device: %s\n", device_info.name.c_str());
+  logger_.log(LogLevel::Debug, "Device Vendor: %s\n", device_info.vendor.c_str());
+  logger_.log(LogLevel::Debug, "Device Version: %s\n", device_version);
+  logger_.log(LogLevel::Debug, "OpenCL C Version: %s\n", device_info.opencl_c_version.c_str());
+  logger_.log(LogLevel::Debug, "Driver Version: %s\n", device_info.driver_version.c_str());
   logger_.log(LogLevel::Debug, "\n=== Memory Information ===\n");
-  logger_.log(LogLevel::Debug, "Global Memory Size: %u MB\n", deviceInfo.memory);
-  logger_.log(LogLevel::Debug, "Local Memory Size: %u KB\n", deviceInfo.local_cache);
-  logger_.log(LogLevel::Debug, "Max Memory Allocation: %u MB\n", deviceInfo.max_global_buffer);
+  logger_.log(LogLevel::Debug, "Global Memory Size: %u MB\n", device_info.memory);
+  logger_.log(LogLevel::Debug, "Local Memory Size: %u KB\n", device_info.local_cache);
+  logger_.log(LogLevel::Debug, "Max Memory Allocation: %u MB\n", device_info.max_global_buffer);
   logger_.log(LogLevel::Debug, "\n=== Compute Capabilities ===\n");
-  logger_.log(LogLevel::Debug, "Max Compute Units: %u\n", deviceInfo.compute_units);
-  logger_.log(LogLevel::Debug, "Max Work Group Size: %zu\n", maxWorkGroupSize);
-  logger_.log(LogLevel::Debug, "Max Work Item Sizes: [%zu, %zu, %zu]\n", maxWorkItemSizes[0], maxWorkItemSizes[1],
-              maxWorkItemSizes[2]);
-  logger_.log(LogLevel::Debug, "Clock Frequency: %u MHz\n", deviceInfo.clock_frequency);
-  logger_.log(LogLevel::Debug, "Compiler Available: %s\n", compilerAvailable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "Linker Available: %s\n", linkerAvailable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Max Compute Units: %u\n", device_info.compute_units);
+  logger_.log(LogLevel::Debug, "Max Work Group Size: %zu\n", max_work_group_size);
+  logger_.log(LogLevel::Debug, "Max Work Item Sizes: [%zu, %zu, %zu]\n", max_work_item_sizes[0], max_work_item_sizes[1],
+              max_work_item_sizes[2]);
+  logger_.log(LogLevel::Debug, "Clock Frequency: %u MHz\n", device_info.clock_frequency);
+  logger_.log(LogLevel::Debug, "Compiler Available: %s\n", compiler_available ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Linker Available: %s\n", linker_available ? "Yes" : "No");
   logger_.log(LogLevel::Debug, "Double Precision Support: %s\n",
-              fpConfig != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
-  logger_.log(LogLevel::Debug, "FP64 Capable: %s\n", deviceInfo.is_fp64_capable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "FP32 Capable: %s\n", deviceInfo.is_fp32_capable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "FP16 Capable: %s\n", deviceInfo.is_fp16_capable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "Device Type: %s%s\n", deviceInfo.is_cpu ? "CPU " : "", deviceInfo.is_gpu ? "GPU" : "");
-  logger_.log(LogLevel::Debug, "Estimated Performance: %.2f TFLOPs\n", deviceInfo.tflops);
-  logger_.log(LogLevel::Debug, "Execution Capabilities: %s%s%s\n", (execCapabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
-              (execCapabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
+              fp_config != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
+  logger_.log(LogLevel::Debug, "FP64 Capable: %s\n", device_info.is_fp64_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP32 Capable: %s\n", device_info.is_fp32_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP16 Capable: %s\n", device_info.is_fp16_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Device Type: %s%s\n", device_info.is_cpu ? "CPU " : "",
+              device_info.is_gpu ? "GPU" : "");
+  logger_.log(LogLevel::Debug, "Estimated Performance: %.2f TFLOPs\n", device_info.tflops);
+  logger_.log(LogLevel::Debug, "Execution Capabilities: %s%s%s\n",
+              (exec_capabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
+              (exec_capabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
   logger_.log(LogLevel::Debug, "==========================================\n\n");
 }
 
-const char* TranslateOpenCLError(cl_int errorCode) {
-  switch (errorCode) {
+const char* translateOpenClError(cl_int error_code) {
+  switch (error_code) {
     case CL_SUCCESS:
       return "CL_SUCCESS";
     case CL_DEVICE_NOT_FOUND:

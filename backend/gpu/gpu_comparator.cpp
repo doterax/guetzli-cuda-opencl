@@ -12,15 +12,15 @@ namespace {
 constexpr size_t kMinDeviceSize = 100;  // both dimensions must be larger
 }
 
-void GpuButteraugliOps::OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
+void GpuButteraugliOps::opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
   if (xsize > kMinDeviceSize && ysize > kMinDeviceSize) {
     kernels_->opsinDynamicsImage(rgb[0].data(), rgb[1].data(), rgb[2].data(), xsize, ysize);
   } else {
-    ::butteraugli::OpsinDynamicsImage(xsize, ysize, rgb);
+    ::butteraugli::opsinDynamicsImage(xsize, ysize, rgb);
   }
 }
 
-void GpuButteraugliOps::Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
+void GpuButteraugliOps::mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                              size_t xsize, size_t ysize, std::vector<std::vector<float>>* mask,
                              std::vector<std::vector<float>>* mask_dc) {
   if (xsize > kMinDeviceSize && ysize > kMinDeviceSize) {
@@ -34,15 +34,15 @@ void GpuButteraugliOps::Mask(const std::vector<std::vector<float>>& xyb0, const 
                    (*mask_dc)[2].data(), xsize, ysize, xyb0[0].data(), xyb0[1].data(), xyb0[2].data(), xyb1[0].data(),
                    xyb1[1].data(), xyb1[2].data());
   } else {
-    ::butteraugli::Mask(xyb0, xyb1, xsize, ysize, mask, mask_dc);
+    ::butteraugli::mask(xyb0, xyb1, xsize, ysize, mask, mask_dc);
   }
 }
 
-void GpuButteraugliOps::MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+void GpuButteraugliOps::maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                                 const std::vector<std::vector<float>>& c1,
                                                 std::vector<std::vector<float>>& xyb0,
                                                 std::vector<std::vector<float>>& xyb1) {
-  ::butteraugli::MaskHighIntensityChange(xsize, ysize, c0, c1, xyb0, xyb1);
+  ::butteraugli::maskHighIntensityChange(xsize, ysize, c0, c1, xyb0, xyb1);
 }
 
 GpuButteraugliComparator::GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb,
@@ -52,33 +52,33 @@ GpuButteraugliComparator::GpuButteraugliComparator(int width, int height, const 
 
 GpuButteraugliComparator::~GpuButteraugliComparator() = default;
 
-void GpuButteraugliComparator::Compare(const OutputImage& img) {
+void GpuButteraugliComparator::compare(const OutputImage& img) {
   if (!session_) {
     session_ = kernels_->startCompare(rgb_orig_opsin_[0].data(), rgb_orig_opsin_[1].data(), rgb_orig_opsin_[2].data(),
                                       width_, height_);
   }
   distmap_.resize(static_cast<size_t>(width_) * height_);
   session_->compare(img, kButteraugliStep, distmap_.data());
-  distance_ = ::butteraugli::ButteraugliScoreFromDiffmap(distmap_);
+  distance_ = ::butteraugli::butteraugliScoreFromDiffmap(distmap_);
 }
 
-void GpuButteraugliComparator::StartBlockComparisons() {
-  ButteraugliComparator::StartBlockComparisons();
+void GpuButteraugliComparator::startBlockComparisons() {
+  ButteraugliComparator::startBlockComparisons();
   if (block_lists_ready_) return;
 
   const int block_width = (width_ + 7) / 8;
   const int block_height = (height_ + 7) / 8;
   const int num_blocks = block_width * block_height;
 
-  const float* lut = Srgb8ToLinearTableF();
+  const float* lut = srgb8ToLinearTableF();
 
-  opsin_blocks_.resize(num_blocks * 3 * kDCTBlockSize);
+  opsin_blocks_.resize(num_blocks * 3 * kDctBlockSize);
   mask_scale_blocks_.resize(num_blocks * 3);
   for (int block_y = 0, block_ix = 0; block_y < block_height; ++block_y) {
     for (int block_x = 0; block_x < block_width; ++block_x, ++block_ix) {
-      float* cur_r = &opsin_blocks_[block_ix * 3 * kDCTBlockSize];
-      float* cur_g = cur_r + kDCTBlockSize;
-      float* cur_b = cur_g + kDCTBlockSize;
+      float* cur_r = &opsin_blocks_[block_ix * 3 * kDctBlockSize];
+      float* cur_g = cur_r + kDctBlockSize;
+      float* cur_b = cur_g + kDctBlockSize;
 
       for (int iy = 0, i = 0; iy < 8; ++iy) {
         for (int ix = 0; ix < 8; ++ix, ++i) {
@@ -92,7 +92,7 @@ void GpuButteraugliComparator::StartBlockComparisons() {
         }
       }
 
-      OpsinDynamicsBlock8x8((float (*)[kOpsinBlockSize])cur_r);
+      opsinDynamicsBlock8x8((float (*)[kOpsinBlockSize])cur_r);
 
       int xmin = block_x * 8;
       int ymin = block_y * 8;

@@ -39,7 +39,7 @@ ButteraugliComparator::ButteraugliComparator(const int width, const int height, 
   rgb_orig_opsin_[1].resize(width * height);
   rgb_orig_opsin_[2].resize(width * height);
 
-  const float* lut = Srgb8ToLinearTableF();
+  const float* lut = srgb8ToLinearTableF();
 
   for (int c = 0; c < 3; ++c) {
     for (int y = 0, ix = 0; y < height_; ++y) {
@@ -48,33 +48,33 @@ ButteraugliComparator::ButteraugliComparator(const int width, const int height, 
       }
     }
   }
-  ops_.OpsinDynamicsImage(width_, height_, rgb_orig_opsin_);
+  ops_.opsinDynamicsImage(width_, height_, rgb_orig_opsin_);
 }
 
-void ButteraugliComparator::StartBlockComparisons() {
+void ButteraugliComparator::startBlockComparisons() {
   // Mask(orig, orig) depends only on the original image: compute it once and
   // reuse it for every block-comparison round (SelectFrequencyMasking runs 2-3x).
   if (mask_xyz_orig_.empty()) {
     std::vector<std::vector<float>> dummy(3);
-    ops_.Mask(rgb_orig_opsin_, rgb_orig_opsin_, width_, height_, &mask_xyz_orig_, &dummy);
+    ops_.mask(rgb_orig_opsin_, rgb_orig_opsin_, width_, height_, &mask_xyz_orig_, &dummy);
   }
   mask_xyz_ = mask_xyz_orig_;  // FinishBlockComparisons() clears mask_xyz_
 }
 
-void ButteraugliComparator::FinishBlockComparisons() {
+void ButteraugliComparator::finishBlockComparisons() {
   mask_xyz_.clear();
 }
 
-void ButteraugliComparator::SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) {
+void ButteraugliComparator::switchBlock(int block_x, int block_y, int factor_x, int factor_y) {
   block_x_ = block_x;
   block_y_ = block_y;
   factor_x_ = factor_x;
   factor_y_ = factor_y;
   per_block_pregamma_.resize(factor_x_ * factor_y_);
-  const double* lut = Srgb8ToLinearTable();
+  const double* lut = srgb8ToLinearTable();
   for (int off_y = 0, bx = 0; off_y < factor_y_; ++off_y) {
     for (int off_x = 0; off_x < factor_x_; ++off_x, ++bx) {
-      per_block_pregamma_[bx].resize(3, std::vector<float>(kDCTBlockSize));
+      per_block_pregamma_[bx].resize(3, std::vector<float>(kDctBlockSize));
       int block_xx = block_x_ * factor_x_ + off_x;
       int block_yy = block_y_ * factor_y_ + off_y;
       for (int iy = 0, i = 0; iy < 8; ++iy) {
@@ -87,12 +87,12 @@ void ButteraugliComparator::SwitchBlock(int block_x, int block_y, int factor_x, 
           }
         }
       }
-      ops_.OpsinDynamicsImage(8, 8, per_block_pregamma_[bx]);
+      ops_.opsinDynamicsImage(8, 8, per_block_pregamma_[bx]);
     }
   }
 }
 
-double ButteraugliComparator::CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+double ButteraugliComparator::compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
                                            const int comp_mask) const {
   int block_x = block_x_ * factor_x_ + off_x;
   int block_y = block_y_ * factor_y_ + off_y;
@@ -101,27 +101,27 @@ double ButteraugliComparator::CompareBlock(const OutputImage& img, int off_x, in
   int block_ix = off_y * factor_x_ + off_x;
   const std::vector<std::vector<float>>& rgb0_c = per_block_pregamma_[block_ix];
 
-  std::vector<std::vector<float>> rgb1_c(3, std::vector<float>(kDCTBlockSize));
-  img.ToLinearRGB(xmin, ymin, 8, 8, &rgb1_c);
-  ops_.OpsinDynamicsImage(8, 8, rgb1_c);
+  std::vector<std::vector<float>> rgb1_c(3, std::vector<float>(kDctBlockSize));
+  img.toLinearRgb(xmin, ymin, 8, 8, &rgb1_c);
+  ops_.opsinDynamicsImage(8, 8, rgb1_c);
 
   std::vector<std::vector<float>> rgb0 = rgb0_c;
   std::vector<std::vector<float>> rgb1 = rgb1_c;
 
-  ops_.MaskHighIntensityChange(8, 8, rgb0_c, rgb1_c, rgb0, rgb1);
+  ops_.maskHighIntensityChange(8, 8, rgb0_c, rgb1_c, rgb0, rgb1);
 
-  double b0[3 * kDCTBlockSize];
-  double b1[3 * kDCTBlockSize];
+  double b0[3 * kDctBlockSize];
+  double b1[3 * kDctBlockSize];
   for (int c = 0; c < 3; ++c) {
-    for (int ix = 0; ix < kDCTBlockSize; ++ix) {
-      b0[c * kDCTBlockSize + ix] = rgb0[c][ix];
-      b1[c * kDCTBlockSize + ix] = rgb1[c][ix];
+    for (int ix = 0; ix < kDctBlockSize; ++ix) {
+      b0[c * kDctBlockSize + ix] = rgb0[c][ix];
+      b1[c * kDctBlockSize + ix] = rgb1[c][ix];
     }
   }
   double diff_xyz_dc[3] = {0.0};
   double diff_xyz_ac[3] = {0.0};
   double diff_xyz_edge_dc[3] = {0.0};
-  ::butteraugli::ButteraugliBlockDiff(b0, b1, diff_xyz_dc, diff_xyz_ac, diff_xyz_edge_dc);
+  ::butteraugli::butteraugliBlockDiff(b0, b1, diff_xyz_dc, diff_xyz_ac, diff_xyz_edge_dc);
 
   double scale[3];
   for (int c = 0; c < 3; ++c) {
@@ -140,11 +140,11 @@ double ButteraugliComparator::CompareBlock(const OutputImage& img, int off_x, in
   return sqrt((1 - kEdgeWeight) * diff + kEdgeWeight * diff_edge);
 }
 
-float ButteraugliComparator::BlockErrorLimit() const {
+float ButteraugliComparator::blockErrorLimit() const {
   return target_distance_;
 }
 
-void ButteraugliComparator::ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul,
+void ButteraugliComparator::computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul,
                                                                int factor_x, int factor_y,
                                                                const std::vector<float>& distmap,
                                                                std::vector<float>* block_weight) {
@@ -203,8 +203,8 @@ void ButteraugliComparator::ComputeBlockErrorAdjustmentWeights(int direction, in
   }
 }
 
-double ButteraugliComparator::ScoreOutputSize(int size) const {
-  return ScoreJPEG(distance_, size, target_distance_);
+double ButteraugliComparator::scoreOutputSize(int size) const {
+  return scoreJpeg(distance_, size, target_distance_);
 }
 
 }  // namespace guetzli

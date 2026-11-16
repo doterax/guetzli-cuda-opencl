@@ -10,11 +10,11 @@ constexpr int kOpsinBlockSize = 64;
 
 // sRGB 8-bit -> linear table, single precision; same values as the kernels'
 // kSrgb8ToLinearTable (not the double table from gamma_correct.h).
-const float* Srgb8ToLinearTableF();
+const float* srgb8ToLinearTableF();
 
 // In-place opsin dynamics of one 8x8 block given as linear RGB planes;
 // identical to the kernel's CalcOpsinDynamicsImage.
-void OpsinDynamicsBlock8x8(float rgb[3][kOpsinBlockSize]);
+void opsinDynamicsBlock8x8(float rgb[3][kOpsinBlockSize]);
 
 }  // namespace guetzli
 

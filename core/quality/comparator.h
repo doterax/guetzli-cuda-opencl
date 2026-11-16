@@ -45,28 +45,28 @@ class Comparator {
   // Compares img with the baseline image and saves the resulting distance map
   // inside the object. The provided image must have the same dimensions as the
   // baseline image.
-  virtual void Compare(const OutputImage& img) = 0;
+  virtual void compare(const OutputImage& img) = 0;
 
   // Must be called before any CompareBlock() calls can be called.
-  virtual void StartBlockComparisons() = 0;
+  virtual void startBlockComparisons() = 0;
   // No more CompareBlock() calls can be called after this.
-  virtual void FinishBlockComparisons() = 0;
+  virtual void finishBlockComparisons() = 0;
 
   // Sets the coordinates of the current macro-block for the purpose of
   // CompareBlock() calls.
-  virtual void SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) = 0;
+  virtual void switchBlock(int block_x, int block_y, int factor_x, int factor_y) = 0;
 
   // Compares the 8x8 block with offsets (off_x, off_y) within the current
   // macro-block of the baseline image with the same block of img and returns
   // the resulting per-block distance. The interpretation of the returned
   // distance depends on the comparator used.
-  virtual double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+  virtual double compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
                               const int comp_mask) const = 0;
 
   // Returns the combined score of the output image in the last Compare() call
   // (or the baseline image, if Compare() was not called yet), based on output
   // size and the similarity metric.
-  virtual double ScoreOutputSize(int size) const = 0;
+  virtual double scoreOutputSize(int size) const = 0;
 
   // Returns true if the argument of the last Compare() call (or the baseline
   // image, if Compare() was not called yet) meets the image acceptance
@@ -75,7 +75,7 @@ class Comparator {
   //    = 1.0 : the original acceptance criteria is used,
   //    < 1.0 : a more strict acceptance criteria is used,
   //    > 1.0 : a less strict acceptance criteria is used.
-  virtual bool DistanceOK(double target_mul) const = 0;
+  virtual bool distanceOk(double target_mul) const = 0;
 
   // Returns the distance map between the baseline image and the image in the
   // last Compare() call (or the baseline image, if Compare() was not called
@@ -88,18 +88,18 @@ class Comparator {
   // image and the image in the last Compare() call (or the baseline image, if
   // Compare() was not called yet).
   // The interpretation of this aggregate value depends on the comparator used.
-  virtual float distmap_aggregate() const = 0;
+  virtual float distmapAggregate() const = 0;
 
   // Returns a heuristic cutoff on block errors in the sense that we won't
   // consider distortions where a block error is greater than this.
-  virtual float BlockErrorLimit() const = 0;
+  virtual float blockErrorLimit() const = 0;
   // Given the search direction (+1 for upwards and -1 for downwards) and the
   // current distance map, fills in *block_weight image with the relative block
   // error adjustment weights.
   // The target_mul param has the same semantics as in DistanceOK().
   // Note that this is essentially a static function in the sense that it does
   // not depend on the last Compare() call.
-  virtual void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
+  virtual void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
                                                   int factor_y, const std::vector<float>& distmap,
                                                   std::vector<float>* block_weight) = 0;
 

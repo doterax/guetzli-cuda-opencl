@@ -66,27 +66,27 @@ std::optional<CudaDriver> CudaDriver::load(ILogger& logger) {
 
   CudaDriver d;
   const bool ok =
-      resolve(lib, d.init, "cuInit", true, logger) && resolve(lib, d.ctxCreate, "cuCtxCreate", false, logger) &&
-      resolve(lib, d.ctxDestroy, "cuCtxDestroy", false, logger) &&
-      resolve(lib, d.ctxSetCacheConfig, "cuCtxSetCacheConfig", true, logger) &&
-      resolve(lib, d.deviceGetAttribute, "cuDeviceGetAttribute", true, logger) &&
-      resolve(lib, d.deviceGetCount, "cuDeviceGetCount", true, logger) &&
-      resolve(lib, d.deviceGet, "cuDeviceGet", false, logger) &&
-      resolve(lib, d.deviceGetName, "cuDeviceGetName", true, logger) &&
-      resolve(lib, d.memAlloc, "cuMemAlloc", false, logger) && resolve(lib, d.memFree, "cuMemFree", false, logger) &&
-      resolve(lib, d.memcpyDtoH, "cuMemcpyDtoH", false, logger) &&
-      resolve(lib, d.memcpyDtoHAsync, "cuMemcpyDtoHAsync", false, logger) &&
-      resolve(lib, d.memcpyHtoDAsync, "cuMemcpyHtoDAsync", false, logger) &&
-      resolve(lib, d.memcpyDtoD, "cuMemcpyDtoD", false, logger) &&
-      resolve(lib, d.memcpyDtoDAsync, "cuMemcpyDtoDAsync", false, logger) &&
-      resolve(lib, d.memsetD8Async, "cuMemsetD8Async", true, logger) &&
-      resolve(lib, d.moduleLoadDataEx, "cuModuleLoadDataEx", true, logger) &&
-      resolve(lib, d.moduleUnload, "cuModuleUnload", true, logger) &&
-      resolve(lib, d.moduleGetFunction, "cuModuleGetFunction", true, logger) &&
-      resolve(lib, d.streamCreate, "cuStreamCreate", false, logger) &&
-      resolve(lib, d.streamSynchronize, "cuStreamSynchronize", true, logger) &&
-      resolve(lib, d.streamDestroy, "cuStreamDestroy", false, logger) &&
-      resolve(lib, d.launchKernel, "cuLaunchKernel", true, logger);
+      resolve(lib, d.init, "cuInit", true, logger) && resolve(lib, d.ctx_create, "cuCtxCreate", false, logger) &&
+      resolve(lib, d.ctx_destroy, "cuCtxDestroy", false, logger) &&
+      resolve(lib, d.ctx_set_cache_config, "cuCtxSetCacheConfig", true, logger) &&
+      resolve(lib, d.device_get_attribute, "cuDeviceGetAttribute", true, logger) &&
+      resolve(lib, d.device_get_count, "cuDeviceGetCount", true, logger) &&
+      resolve(lib, d.device_get, "cuDeviceGet", false, logger) &&
+      resolve(lib, d.device_get_name, "cuDeviceGetName", true, logger) &&
+      resolve(lib, d.mem_alloc, "cuMemAlloc", false, logger) && resolve(lib, d.mem_free, "cuMemFree", false, logger) &&
+      resolve(lib, d.memcpy_dtoh, "cuMemcpyDtoH", false, logger) &&
+      resolve(lib, d.memcpy_dtoh_async, "cuMemcpyDtoHAsync", false, logger) &&
+      resolve(lib, d.memcpy_htod_async, "cuMemcpyHtoDAsync", false, logger) &&
+      resolve(lib, d.memcpy_dtod, "cuMemcpyDtoD", false, logger) &&
+      resolve(lib, d.memcpy_dtod_async, "cuMemcpyDtoDAsync", false, logger) &&
+      resolve(lib, d.memset_d8_async, "cuMemsetD8Async", true, logger) &&
+      resolve(lib, d.module_load_data_ex, "cuModuleLoadDataEx", true, logger) &&
+      resolve(lib, d.module_unload, "cuModuleUnload", true, logger) &&
+      resolve(lib, d.module_get_function, "cuModuleGetFunction", true, logger) &&
+      resolve(lib, d.stream_create, "cuStreamCreate", false, logger) &&
+      resolve(lib, d.stream_synchronize, "cuStreamSynchronize", true, logger) &&
+      resolve(lib, d.stream_destroy, "cuStreamDestroy", false, logger) &&
+      resolve(lib, d.launch_kernel, "cuLaunchKernel", true, logger);
   if (!ok) return std::nullopt;
   return d;
 }

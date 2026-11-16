@@ -37,12 +37,12 @@ size_t symbolBits(const uint8_t* depths, int symbol) {
 
 }  // namespace
 
-size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths) {
+size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths) {
   std::vector<JpegHistogram> clustered = histograms;
   size_t num = histograms.size();
   std::vector<int> indexes(histograms.size());
   std::vector<uint8_t> clustered_depths(histograms.size() * JpegHistogram::kSize);
-  ClusterHistograms(&clustered[0], &num, &indexes[0], &clustered_depths[0]);
+  clusterHistograms(&clustered[0], &num, &indexes[0], &clustered_depths[0]);
   depths->resize(clustered_depths.size());
   for (size_t i = 0; i < histograms.size(); ++i) {
     std::memcpy(&(*depths)[i * JpegHistogram::kSize], &clustered_depths[indexes[i] * JpegHistogram::kSize],
@@ -50,40 +50,40 @@ size_t ComputeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::ve
   }
   size_t histogram_size = 0;
   for (size_t i = 0; i < num; ++i) {
-    histogram_size += HistogramHeaderCost(clustered[i]) / 8;
+    histogram_size += histogramHeaderCost(clustered[i]) / 8;
   }
   return histogram_size;
 }
 
-size_t EntropyCodedDataSize(const std::vector<JpegHistogram>& histograms, const std::vector<uint8_t>& depths) {
+size_t entropyCodedDataSize(const std::vector<JpegHistogram>& histograms, const std::vector<uint8_t>& depths) {
   size_t numbits = 0;
   for (size_t i = 0; i < histograms.size(); ++i) {
-    numbits += HistogramEntropyCost(histograms[i], &depths[i * JpegHistogram::kSize]);
+    numbits += histogramEntropyCost(histograms[i], &depths[i * JpegHistogram::kSize]);
   }
   return (numbits + 7) / 8;
 }
 
-size_t EstimateDCSize(const JPEGData& jpg) {
+size_t estimateDcSize(const JpegData& jpg) {
   std::vector<JpegHistogram> histograms(jpg.components.size());
-  BuildDCHistograms(jpg, &histograms[0]);
+  buildDcHistograms(jpg, &histograms[0]);
   size_t num = histograms.size();
   std::vector<int> indexes(num);
   std::vector<uint8_t> depths(num * JpegHistogram::kSize);
-  return ClusterHistograms(&histograms[0], &num, &indexes[0], &depths[0]);
+  return clusterHistograms(&histograms[0], &num, &indexes[0], &depths[0]);
 }
 
-JpegSizeEstimator::JpegSizeEstimator(const JPEGData& jpg, size_t num_histograms, bool clear_metadata)
+JpegSizeEstimator::JpegSizeEstimator(const JpegData& jpg, size_t num_histograms, bool clear_metadata)
     : histograms_(num_histograms), raw_bits_(num_histograms) {
   // Truncated to int as the original encoder did; the sum is the same for any real header.
-  const int header_size = static_cast<int>(JpegHeaderSize(jpg, clear_metadata));
-  const int dc_size = static_cast<int>(EstimateDCSize(jpg));
+  const int header_size = static_cast<int>(jpegHeaderSize(jpg, clear_metadata));
+  const int dc_size = static_cast<int>(estimateDcSize(jpg));
   fixed_size_ = static_cast<size_t>(header_size) + static_cast<size_t>(dc_size);
-  BuildACHistograms(jpg, &histograms_[0]);
+  buildAcHistograms(jpg, &histograms_[0]);
   refreshEntropyCodes();
 }
 
 void JpegSizeEstimator::refreshEntropyCodes() {
-  ac_histogram_size_ = ComputeEntropyCodes(histograms_, &depths_);
+  ac_histogram_size_ = computeEntropyCodes(histograms_, &depths_);
   recomputeBits();
 }
 
@@ -93,7 +93,7 @@ void JpegSizeEstimator::recomputeBits() {
     const uint8_t* depths = &depths_[h * JpegHistogram::kSize];
     size_t bits = 0;
     for (int i = 0; i + 1 < JpegHistogram::kSize; ++i) {
-      // JpegHistogram::Add() counts every symbol twice.
+      // JpegHistogram::add() counts every symbol twice.
       bits += (histograms_[h].counts[i] / 2) * symbolBits(depths, i);
     }
     raw_bits_[h] = bits;
@@ -111,7 +111,7 @@ void JpegSizeEstimator::replaceBlock(int c, const coeff_t* old_block, const coef
 }
 
 void JpegSizeEstimator::addSymbol(int c, int symbol, int weight) {
-  histograms_[c].Add(symbol, weight);
+  histograms_[c].add(symbol, weight);
   const size_t bits = symbolBits(&depths_[c * JpegHistogram::kSize], symbol);
   const size_t old_raw = raw_bits_[c];
   const size_t new_raw = weight > 0 ? old_raw + weight * bits : old_raw - (-weight) * bits;
@@ -123,7 +123,7 @@ void JpegSizeEstimator::addSymbol(int c, int symbol, int weight) {
 void JpegSizeEstimator::addBlock(int c, const coeff_t* coeffs, const int* quant, int weight) {
   int r = 0;
   for (int k = 1; k < 64; ++k) {
-    const int k_nat = kJPEGNaturalOrder[k];
+    const int k_nat = kJpegNaturalOrder[k];
     coeff_t coeff = coeffs[k_nat];
     if (coeff == 0) {
       r++;
@@ -133,7 +133,7 @@ void JpegSizeEstimator::addBlock(int c, const coeff_t* coeffs, const int* quant,
       addSymbol(c, 0xf0, weight);
       r -= 16;
     }
-    int nbits = Log2FloorNonZero(std::abs(coeff / quant[k_nat])) + 1;
+    int nbits = log2FloorNonZero(std::abs(coeff / quant[k_nat])) + 1;
     int symbol = (r << 4) + nbits;
     addSymbol(c, symbol, weight);
     r = 0;

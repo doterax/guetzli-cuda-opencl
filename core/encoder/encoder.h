@@ -31,12 +31,12 @@ class Encoder {
 
   // The encoder pipeline on jpg; comparator is null for images too small for Butteraugli (the input
   // is then returned unchanged). nullopt if jpg is not 4:4:4 or 4:2:0 YCbCr.
-  [[nodiscard]] std::optional<std::string> encodeJpegData(const JPEGData& jpg, Comparator* comparator);
+  [[nodiscard]] std::optional<std::string> encodeJpegData(const JpegData& jpg, Comparator* comparator);
 
   [[nodiscard]] const ProcessStats& stats() const { return stats_; }
 
  private:
-  [[nodiscard]] std::optional<std::string> encodeWithComparator(const JPEGData& jpg, const std::vector<uint8_t>& rgb);
+  [[nodiscard]] std::optional<std::string> encodeWithComparator(const JpegData& jpg, const std::vector<uint8_t>& rgb);
 
   EncoderParams params_;
   Backend* backend_;

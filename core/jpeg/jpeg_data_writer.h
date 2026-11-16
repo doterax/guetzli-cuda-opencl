@@ -32,16 +32,16 @@ namespace guetzli {
 typedef int (*JPEGOutputHook)(void* data, const uint8_t* buf, size_t len);
 
 // Output callback function with associated data.
-struct JPEGOutput {
-  JPEGOutput(JPEGOutputHook cb, void* data) : cb(cb), data(data) {}
-  bool Write(const uint8_t* buf, size_t len) const { return (len == 0) || (cb(data, buf, len) == len); }
+struct JpegOutput {
+  JpegOutput(JPEGOutputHook cb, void* data) : cb_(cb), data_(data) {}
+  bool write(const uint8_t* buf, size_t len) const { return (len == 0) || (cb_(data_, buf, len) == len); }
 
  private:
-  JPEGOutputHook cb;
-  void* data;
+  JPEGOutputHook cb_;
+  void* data_;
 };
 
-bool WriteJpeg(const JPEGData& jpg, bool strip_metadata, JPEGOutput out);
+bool writeJpeg(const JpegData& jpg, bool strip_metadata, JpegOutput out);
 
 struct HuffmanCodeTable {
   uint8_t depth[256];
@@ -51,20 +51,20 @@ struct HuffmanCodeTable {
 struct JpegHistogram {
   static const int kSize = kJpegHuffmanAlphabetSize + 1;
 
-  JpegHistogram() { Clear(); }
-  void Clear() {
+  JpegHistogram() { clear(); }
+  void clear() {
     memset(counts, 0, sizeof(counts));
     counts[kSize - 1] = 1;
   }
-  void Add(int symbol) { counts[symbol] += 2; }
-  void Add(int symbol, int weight) { counts[symbol] += 2 * weight; }
-  void AddHistogram(const JpegHistogram& other) {
+  void add(int symbol) { counts[symbol] += 2; }
+  void add(int symbol, int weight) { counts[symbol] += 2 * weight; }
+  void addHistogram(const JpegHistogram& other) {
     for (int i = 0; i + 1 < kSize; ++i) {
       counts[i] += other.counts[i];
     }
     counts[kSize - 1] = 1;
   }
-  int NumSymbols() const {
+  int numSymbols() const {
     int n = 0;
     for (int i = 0; i + 1 < kSize; ++i) {
       n += (counts[i] > 0 ? 1 : 0);
@@ -75,16 +75,16 @@ struct JpegHistogram {
   uint32_t counts[kSize];
 };
 
-void BuildDCHistograms(const JPEGData& jpg, JpegHistogram* histo);
-void BuildACHistograms(const JPEGData& jpg, JpegHistogram* histo);
-size_t JpegHeaderSize(const JPEGData& jpg, bool strip_metadata);
+void buildDcHistograms(const JpegData& jpg, JpegHistogram* histo);
+void buildAcHistograms(const JpegData& jpg, JpegHistogram* histo);
+size_t jpegHeaderSize(const JpegData& jpg, bool strip_metadata);
 
-size_t HistogramEntropyCost(const JpegHistogram& histo, const uint8_t depths[256]);
-size_t HistogramHeaderCost(const JpegHistogram& histo);
+size_t histogramEntropyCost(const JpegHistogram& histo, const uint8_t depths[256]);
+size_t histogramHeaderCost(const JpegHistogram& histo);
 
-void UpdateACHistogramForDCTBlock(const coeff_t* coeffs, JpegHistogram* ac_histogram);
+void updateAcHistogramForDctBlock(const coeff_t* coeffs, JpegHistogram* ac_histogram);
 
-size_t ClusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depths);
+size_t clusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depths);
 
 }  // namespace guetzli
 

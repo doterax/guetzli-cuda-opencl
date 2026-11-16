@@ -22,19 +22,19 @@ namespace guetzli {
 
 // Mimic libjpeg's heuristics to guess jpeg color space.
 // Requires that the jpg has 3 components.
-bool HasYCbCrColorSpace(const JPEGData& jpg) {
-  bool has_Adobe_marker = false;
-  uint8_t Adobe_transform = 0;
+bool hasYCbCrColorSpace(const JpegData& jpg) {
+  bool has_adobe_marker = false;
+  uint8_t adobe_transform = 0;
   for (const std::string& app : jpg.app_data) {
     if (static_cast<uint8_t>(app[0]) == 0xe0) {
       return true;
     } else if (static_cast<uint8_t>(app[0]) == 0xee && app.size() >= 15) {
-      has_Adobe_marker = true;
-      Adobe_transform = app[14];
+      has_adobe_marker = true;
+      adobe_transform = app[14];
     }
   }
-  if (has_Adobe_marker) {
-    return (Adobe_transform != 0);
+  if (has_adobe_marker) {
+    return (adobe_transform != 0);
   }
   const int cid0 = jpg.components[0].id;
   const int cid1 = jpg.components[1].id;
@@ -42,11 +42,11 @@ bool HasYCbCrColorSpace(const JPEGData& jpg) {
   return (cid0 != 'R' || cid1 != 'G' || cid2 != 'B');
 }
 
-std::vector<uint8_t> DecodeJpegToRGB(const JPEGData& jpg, IDctOps& dct) {
-  if (jpg.components.size() == 3 && HasYCbCrColorSpace(jpg) && (jpg.Is420() || jpg.Is444())) {
+std::vector<uint8_t> decodeJpegToRgb(const JpegData& jpg, IDctOps& dct) {
+  if (jpg.components.size() == 3 && hasYCbCrColorSpace(jpg) && (jpg.is420() || jpg.is444())) {
     OutputImage img(jpg.width, jpg.height, dct);
-    img.CopyFromJpegData(jpg);
-    return img.ToSRGB();
+    img.copyFromJpegData(jpg);
+    return img.toSrgb();
   }
   return std::vector<uint8_t>();
 }

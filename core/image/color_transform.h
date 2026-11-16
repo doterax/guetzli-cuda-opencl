@@ -154,9 +154,9 @@ static const uint8_t kRangeLimitLut[4 * 256] = {
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 };
 
-static const uint8_t* kRangeLimit = kRangeLimitLut + 384;
+static const uint8_t* const kRangeLimit = kRangeLimitLut + 384;
 
-inline void ColorTransformYCbCrToRGB(uint8_t* pixel) {
+inline void colorTransformYCbCrToRgb(uint8_t* pixel) {
   int y = pixel[0];
   int cb = pixel[1];
   int cr = pixel[2];

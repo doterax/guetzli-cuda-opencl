@@ -87,10 +87,10 @@ inline uint8_t blend(AlphaBackground background, const uint8_t val, const uint8_
 // PNG
 // ---------------------------------------------------------------------------------------------
 bool isPng(std::string_view data) {
-  static const unsigned char kPNGMagicBytes[] = {
+  static const unsigned char kPngMagicBytes[] = {
       0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n',
   };
-  return data.size() >= 8 && std::memcmp(data.data(), kPNGMagicBytes, sizeof(kPNGMagicBytes)) == 0;
+  return data.size() >= 8 && std::memcmp(data.data(), kPngMagicBytes, sizeof(kPngMagicBytes)) == 0;
 }
 
 std::optional<RgbImage> decodePng(const std::string& data, AlphaBackground background) {
@@ -113,10 +113,10 @@ std::optional<RgbImage> decodePng(const std::string& data, AlphaBackground backg
   }
 
   png_set_read_fn(png_ptr, static_cast<void*>(&memstream),
-                  [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+                  [](png_structp png_ptr, png_bytep out_bytes, png_size_t byte_count_to_read) {
                     std::istringstream& memstream = *static_cast<std::istringstream*>(png_get_io_ptr(png_ptr));
 
-                    memstream.read(reinterpret_cast<char*>(outBytes), byteCountToRead);
+                    memstream.read(reinterpret_cast<char*>(out_bytes), byte_count_to_read);
 
                     if (memstream.eof()) png_error(png_ptr, "unexpected end of data");
                     if (memstream.fail()) png_error(png_ptr, "read from memory error");
@@ -256,10 +256,10 @@ bool isJpeg(std::string_view data) {
 }
 
 bool isTiff(std::string_view data) {
-  static const uint16_t kTIFFMagickBE = TIFF_BIGENDIAN;
-  static const uint16_t kTIFFMagickLE = TIFF_LITTLEENDIAN;
-  return data.size() >= 2 && (std::memcmp(data.data(), &kTIFFMagickBE, sizeof(kTIFFMagickBE)) == 0 ||
-                              std::memcmp(data.data(), &kTIFFMagickLE, sizeof(kTIFFMagickLE)) == 0);
+  static const uint16_t kTiffMagickBe = TIFF_BIGENDIAN;
+  static const uint16_t kTiffMagickLe = TIFF_LITTLEENDIAN;
+  return data.size() >= 2 && (std::memcmp(data.data(), &kTiffMagickBe, sizeof(kTiffMagickBe)) == 0 ||
+                              std::memcmp(data.data(), &kTiffMagickLe, sizeof(kTiffMagickLe)) == 0);
 }
 
 std::optional<RgbImage> decodeTiff(const std::string& data, AlphaBackground background, ILogger& logger) {

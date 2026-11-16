@@ -25,13 +25,13 @@
 namespace guetzli {
 
 // Preprocesses the u (1) or v (2) channel of the given YUV image (range 0-255).
-std::vector<std::vector<float>> PreProcessChannel(int w, int h, int channel, float sigma, float amount, bool blur,
+std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, float sigma, float amount, bool blur,
                                                   bool sharpen, const std::vector<std::vector<float>>& image);
 
 // Gamma-compensated chroma subsampling.
 // Returns Y, U, V image planes, each with width x height dimensions, but the
 // U and V planes are composed of 2x2 blocks with the same values.
-std::vector<std::vector<float>> RGBToYUV420(const std::vector<uint8_t>& rgb_in, const int width, const int height);
+std::vector<std::vector<float>> rgbToYuv420(const std::vector<uint8_t>& rgb_in, const int width, const int height);
 
 }  // namespace guetzli
 

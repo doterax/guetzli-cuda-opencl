@@ -14,18 +14,18 @@
 
 namespace {
 
-int AppendToString(void* data, const uint8_t* buf, size_t len) {
+int appendToString(void* data, const uint8_t* buf, size_t len) {
   static_cast<std::string*>(data)->append(reinterpret_cast<const char*>(buf), len);
   return static_cast<int>(len);
 }
 
-std::string Serialize(const guetzli::JPEGData& jpg) {
+std::string serialize(const guetzli::JpegData& jpg) {
   std::string out;
-  REQUIRE(guetzli::WriteJpeg(jpg, false, guetzli::JPEGOutput(AppendToString, &out)));
+  REQUIRE(guetzli::writeJpeg(jpg, false, guetzli::JpegOutput(appendToString, &out)));
   return out;
 }
 
-std::vector<uint8_t> SmoothImage(int w, int h) {
+std::vector<uint8_t> smoothImage(int w, int h) {
   std::vector<uint8_t> rgb(3 * w * h);
   for (int y = 0; y < h; ++y)
     for (int x = 0; x < w; ++x) {
@@ -41,22 +41,22 @@ std::vector<uint8_t> SmoothImage(int w, int h) {
 
 TEST_CASE("encode, write, read and decode an odd-sized image") {
   const int w = 37, h = 21;
-  const std::vector<uint8_t> rgb = SmoothImage(w, h);
-  int quant[3 * guetzli::kDCTBlockSize];
-  for (int i = 0; i < 3 * guetzli::kDCTBlockSize; ++i) quant[i] = 1;
+  const std::vector<uint8_t> rgb = smoothImage(w, h);
+  int quant[3 * guetzli::kDctBlockSize];
+  for (int i = 0; i < 3 * guetzli::kDctBlockSize; ++i) quant[i] = 1;
 
-  guetzli::JPEGData jpg;
-  REQUIRE(guetzli::EncodeRGBToJpeg(rgb, w, h, quant, &jpg));
-  const std::string bytes = Serialize(jpg);
+  guetzli::JpegData jpg;
+  REQUIRE(guetzli::encodeRgbToJpeg(rgb, w, h, quant, &jpg));
+  const std::string bytes = serialize(jpg);
 
-  guetzli::JPEGData read;
-  REQUIRE(guetzli::ReadJpeg(bytes, guetzli::JPEG_READ_ALL, &read));
+  guetzli::JpegData read;
+  REQUIRE(guetzli::readJpeg(bytes, guetzli::JPEG_READ_ALL, &read));
   CHECK(read.width == w);
   CHECK(read.height == h);
   CHECK(read.components.size() == 3);
 
   guetzli::CpuDctOps dct;
-  const std::vector<uint8_t> decoded = guetzli::DecodeJpegToRGB(read, dct);
+  const std::vector<uint8_t> decoded = guetzli::decodeJpegToRgb(read, dct);
   REQUIRE(decoded.size() == rgb.size());
   int max_err = 0;
   for (size_t i = 0; i < rgb.size(); ++i) max_err = std::max(max_err, std::abs(decoded[i] - rgb[i]));
@@ -65,20 +65,20 @@ TEST_CASE("encode, write, read and decode an odd-sized image") {
 
 TEST_CASE("write(read(write(x))) is byte-stable") {
   const int w = 24, h = 16;
-  guetzli::JPEGData jpg;
-  REQUIRE(guetzli::EncodeRGBToJpeg(SmoothImage(w, h), w, h, &jpg));
-  const std::string first = Serialize(jpg);
+  guetzli::JpegData jpg;
+  REQUIRE(guetzli::encodeRgbToJpeg(smoothImage(w, h), w, h, &jpg));
+  const std::string first = serialize(jpg);
 
-  guetzli::JPEGData read;
-  REQUIRE(guetzli::ReadJpeg(first, guetzli::JPEG_READ_ALL, &read));
-  CHECK(Serialize(read) == first);
+  guetzli::JpegData read;
+  REQUIRE(guetzli::readJpeg(first, guetzli::JPEG_READ_ALL, &read));
+  CHECK(serialize(read) == first);
 }
 
 TEST_CASE("truncated input is rejected") {
   const int w = 16, h = 16;
-  guetzli::JPEGData jpg;
-  REQUIRE(guetzli::EncodeRGBToJpeg(SmoothImage(w, h), w, h, &jpg));
-  const std::string bytes = Serialize(jpg);
-  guetzli::JPEGData read;
-  CHECK_FALSE(guetzli::ReadJpeg(bytes.substr(0, bytes.size() / 2), guetzli::JPEG_READ_ALL, &read));
+  guetzli::JpegData jpg;
+  REQUIRE(guetzli::encodeRgbToJpeg(smoothImage(w, h), w, h, &jpg));
+  const std::string bytes = serialize(jpg);
+  guetzli::JpegData read;
+  CHECK_FALSE(guetzli::readJpeg(bytes.substr(0, bytes.size() / 2), guetzli::JPEG_READ_ALL, &read));
 }

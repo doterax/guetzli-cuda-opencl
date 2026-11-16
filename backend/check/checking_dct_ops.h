@@ -15,9 +15,9 @@ class CheckingDctOps final : public IDctOps {
   CheckingDctOps(std::unique_ptr<IDctOps> tested, std::unique_ptr<IDctOps> reference, ILogger& logger)
       : tested_(std::move(tested)), reference_(std::move(reference)), logger_(logger) {}
 
-  void copyFromJpegComponent(OutputImageComponent& c, const JPEGComponent& comp, int factor_x, int factor_y,
+  void copyFromJpegComponent(OutputImageComponent& c, const JpegComponent& comp, int factor_x, int factor_y,
                              const int* quant) override;
-  void applyGlobalQuantization(OutputImageComponent& c, const int q[kDCTBlockSize]) override;
+  void applyGlobalQuantization(OutputImageComponent& c, const int q[kDctBlockSize]) override;
   // Windows of at most one 8x8 block (per-block searches convert one block at a time) use only the
   // reference: checking each of them would cost a device round trip per block.
   void toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize, std::vector<uint8_t>& rgb) override;

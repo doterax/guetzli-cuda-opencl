@@ -35,11 +35,11 @@ class ButteraugliOps {
  public:
   virtual ~ButteraugliOps() = default;
 
-  virtual void OpsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) = 0;
-  virtual void Mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
+  virtual void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) = 0;
+  virtual void mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                     size_t xsize, size_t ysize, std::vector<std::vector<float>>* mask,
                     std::vector<std::vector<float>>* mask_dc) = 0;
-  virtual void MaskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
+  virtual void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                        const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
                                        std::vector<std::vector<float>>& xyb1) = 0;
 };
@@ -51,24 +51,24 @@ class ButteraugliComparator : public Comparator {
   ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb, const float target_distance,
                         ProcessStats* stats, ButteraugliOps& ops);
 
-  void StartBlockComparisons() override;
-  void FinishBlockComparisons() override;
+  void startBlockComparisons() override;
+  void finishBlockComparisons() override;
 
-  void SwitchBlock(int block_x, int block_y, int factor_x, int factor_y) override;
+  void switchBlock(int block_x, int block_y, int factor_x, int factor_y) override;
 
-  double CompareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
+  double compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
                       const int comp_mask) const override;
 
-  double ScoreOutputSize(int size) const override;
+  double scoreOutputSize(int size) const override;
 
-  bool DistanceOK(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
+  bool distanceOk(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
 
   const std::vector<float> distmap() const override { return distmap_; }
-  float distmap_aggregate() const override { return distance_; }
+  float distmapAggregate() const override { return distance_; }
 
-  float BlockErrorLimit() const override;
+  float blockErrorLimit() const override;
 
-  void ComputeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
+  void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
                                           int factor_y, const std::vector<float>& distmap,
                                           std::vector<float>* block_weight) override;
 

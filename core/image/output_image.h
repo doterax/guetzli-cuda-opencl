@@ -31,53 +31,53 @@ class OutputImageComponent {
  public:
   OutputImageComponent(int w, int h);
 
-  void Reset(int factor_x, int factor_y);
+  void reset(int factor_x, int factor_y);
 
   int width() const { return width_; }
   int height() const { return height_; }
-  int factor_x() const { return factor_x_; }
-  int factor_y() const { return factor_y_; }
-  int width_in_blocks() const { return width_in_blocks_; }
-  int height_in_blocks() const { return height_in_blocks_; }
+  int factorX() const { return factor_x_; }
+  int factorY() const { return factor_y_; }
+  int widthInBlocks() const { return width_in_blocks_; }
+  int heightInBlocks() const { return height_in_blocks_; }
   const coeff_t* coeffs() const { return &coeffs_[0]; }
   const uint16_t* pixels() const { return &pixels_[0]; }
-  size_t pixels_size() const { return pixels_.size(); }
+  size_t pixelsSize() const { return pixels_.size(); }
   const int* quant() const { return quant_.data(); }
-  bool IsAllZero() const;
+  bool isAllZero() const;
 
   // Fills in block[] with the 8x8 coefficient block with block coordinates
   // (block_x, block_y).
   // NOTE: If the component is 2x2 subsampled, this corresponds to the 16x16
   // pixel area with upper-left corner (16 * block_x, 16 * block_y).
-  void GetCoeffBlock(int block_x, int block_y, coeff_t block[kDCTBlockSize]) const;
+  void getCoeffBlock(int block_x, int block_y, coeff_t block[kDctBlockSize]) const;
 
   // Fills in out[] array with the 8-bit pixel view of this component cropped
   // to the specified window. The window's upper-left corner, (xmin, ymin) must
   // be within the image, but the window may extend past the image. In that
   // case the edge pixels are duplicated.
-  void ToPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const;
+  void toPixels(int xmin, int ymin, int xsize, int ysize, uint8_t* out, int stride) const;
 
   // Fills in out[] array with the floating-point precision pixel view of the
   // component.
   // REQUIRES: factor_x() == 1 and factor_y() == 1.
-  void ToFloatPixels(float* out, int stride) const;
+  void toFloatPixels(float* out, int stride) const;
 
   // Sets the 8x8 coefficient block with block coordinates (block_x, block_y)
   // to block[].
   // NOTE: If the component is 2x2 subsampled, this corresponds to the 16x16
   // pixel area with upper-left corner (16 * block_x, 16 * block_y).
   // REQUIRES: block[k] % quant()[k] == 0 for each coefficient index k.
-  void SetCoeffBlock(int block_x, int block_y, const coeff_t block[kDCTBlockSize]);
+  void setCoeffBlock(int block_x, int block_y, const coeff_t block[kDctBlockSize]);
 
   // CPU implementations of IDctOps (OutputImage goes through its IDctOps).
   // Requires that comp is not downsampled.
-  void CopyFromJpegComponent(const JPEGComponent& comp, int factor_x, int factor_y, const int* quant);
-  void ApplyGlobalQuantization(const int q[kDCTBlockSize]);
+  void copyFromJpegComponent(const JpegComponent& comp, int factor_x, int factor_y, const int* quant);
+  void applyGlobalQuantization(const int q[kDctBlockSize]);
 
   // Low-level access for the device implementations of IDctOps.
-  coeff_t* mutable_coeffs() { return &coeffs_[0]; }
-  void UpdatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDCTBlockSize]);
-  void SetQuant(const int q[kDCTBlockSize]);
+  coeff_t* mutableCoeffs() { return &coeffs_[0]; }
+  void updatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDctBlockSize]);
+  void setQuant(const int q[kDctBlockSize]);
 
  private:
   const int width_;
@@ -90,7 +90,7 @@ class OutputImageComponent {
   std::vector<coeff_t> coeffs_;
   std::vector<uint16_t> pixels_;
   // Same as last argument of ApplyGlobalQuantization() (default is all 1s).
-  std::array<int, kDCTBlockSize> quant_;
+  std::array<int, kDctBlockSize> quant_;
 };
 
 class OutputImage {
@@ -106,9 +106,9 @@ class OutputImage {
   const std::vector<OutputImageComponent>& components() const { return components_; }
 
   // Requires that jpg is in YUV444 format.
-  void CopyFromJpegData(const JPEGData& jpg);
+  void copyFromJpegData(const JpegData& jpg);
 
-  void ApplyGlobalQuantization(const int q[3][kDCTBlockSize]);
+  void applyGlobalQuantization(const int q[3][kDctBlockSize]);
 
   // If sharpen or blur are enabled, preprocesses image before downsampling U or
   // V to improve butteraugli score and/or reduce file size.
@@ -129,19 +129,19 @@ class OutputImage {
     bool use_silver_screen = false;
   };
 
-  void Downsample(const DownsampleConfig& cfg);
+  void downsample(const DownsampleConfig& cfg);
 
-  void SaveToJpegData(JPEGData* jpg) const;
+  void saveToJpegData(JpegData* jpg) const;
 
-  std::vector<uint8_t> ToSRGB() const;
+  std::vector<uint8_t> toSrgb() const;
 
-  std::vector<uint8_t> ToSRGB(int xmin, int ymin, int xsize, int ysize) const;
+  std::vector<uint8_t> toSrgb(int xmin, int ymin, int xsize, int ysize) const;
 
-  void ToLinearRGB(std::vector<std::vector<float>>* rgb) const;
+  void toLinearRgb(std::vector<std::vector<float>>* rgb) const;
 
-  void ToLinearRGB(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const;
+  void toLinearRgb(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const;
 
-  std::string FrameTypeStr() const;
+  std::string frameTypeStr() const;
 
  private:
   const int width_;

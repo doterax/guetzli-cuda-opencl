@@ -1,7 +1,7 @@
 /*
  * Host-side types shared with the kernels in kernels/guetzli.cl.
  *
- * Host code only: the kernel source carries its own copy of channel_info.
+ * Host code only: the kernel source carries its own copy of ChannelInfo.
  * The two struct layouts must stay identical (it is passed to kernels by value).
  *
  * Author: strongtu@tencent.com
@@ -26,7 +26,7 @@ typedef unsigned short ushort;
 typedef short coeff_t;
 
 #ifdef __USE_OPENCL__
-typedef union ocl_channels_t {
+union OclChannels {
   struct {
     cl_mem r;
     cl_mem g;
@@ -35,16 +35,15 @@ typedef union ocl_channels_t {
   struct {
     cl_mem x;
     cl_mem y;
-    cl_mem b_;
   };
   union {
     cl_mem ch[3];
   };
-} ocl_channels;
+};
 #endif
 
 #ifdef __USE_CUDA__
-typedef union ocu_channels_t {
+union OcuChannels {
   struct {
     cu_mem r;
     cu_mem g;
@@ -53,22 +52,21 @@ typedef union ocu_channels_t {
   struct {
     cu_mem x;
     cu_mem y;
-    cu_mem b_;
   };
   union {
     cu_mem ch[3];
   };
-} ocu_channels;
+};
 #endif
 
 #pragma pack(push, 1)
-typedef struct __channel_info_t {
+struct ChannelInfo {
   int factor;
   int block_width;
   int block_height;
   const coeff_t* coeff;
   const ushort* pixel;
-} channel_info;
+};
 #pragma pack(pop)
 
 #endif /*__CLGUETZLI_CL_H__*/

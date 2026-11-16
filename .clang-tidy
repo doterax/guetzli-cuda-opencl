@@ -1,4 +1,8 @@
 # Static analysis profile for host C++ (see docs/design/modernization.md §9).
+# Naming (readability-identifier-naming below): PascalCase types, camelCase functions,
+# snake_case_ private/protected members, snake_case public fields/parameters/locals,
+# kPascalCase constants, PascalCase enum class values, UPPER_CASE plain-enum values and macros.
+# Acronyms are words: JpegData, toSrgb, kDctBlockSize.
 # Not enforced yet: the tree is cleaned up phase by phase and must be
 # clang-tidy clean at the end of phase 6, when CI starts failing on findings.
 Checks: >
@@ -27,13 +31,55 @@ WarningsAsErrors: ''
 HeaderFilterRegex: '^(.*[/\\])?(tests[/\\]unit|app|config|core|backend|kernels|logging)[/\\].*'
 FormatStyle: file
 CheckOptions:
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
   - key: readability-identifier-naming.StructCase
     value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
   - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '^narrow_cast$'
+  - key: readability-identifier-naming.MethodCase
     value: camelBack
   - key: readability-identifier-naming.PrivateMemberCase
     value: lower_case
   - key: readability-identifier-naming.PrivateMemberSuffix
     value: _
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: _
+  - key: readability-identifier-naming.PublicMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.LocalVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.StaticConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.StaticConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  - key: readability-identifier-naming.ClassConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ScopedEnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE

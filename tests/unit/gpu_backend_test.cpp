@@ -65,8 +65,8 @@ class FakeKernels final : public guetzli::GpuKernels {
                              int) override {}
   void applyGlobalQuantization(guetzli::coeff_t*, uint8_t*, uint8_t*, const int*, int, int) override {}
   void componentsToPixels(uint8_t*, int, int, int, int, const std::vector<guetzli::OutputImageComponent>&) override {}
-  void computeBlockZeroingOrder(guetzli::CoeffData*, const channel_info[3], const float*, const float*, int, int,
-                                const channel_info[3], int, int, float) override {}
+  void computeBlockZeroingOrder(guetzli::CoeffData*, const ChannelInfo[3], const float*, const float*, int, int,
+                                const ChannelInfo[3], int, int, float) override {}
 };
 
 }  // namespace
@@ -114,13 +114,13 @@ TEST_CASE("GPU backend: one device behind every part; the comparator keeps one c
 
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(w, h, dct);
-  comparator->Compare(img);
-  comparator->Compare(img);
+  comparator->compare(img);
+  comparator->compare(img);
   CHECK(device->calls.start_compare == 1);
   CHECK(device->calls.compare == 2);
   CHECK(comparator->distmap().size() == static_cast<size_t>(w) * h);
   CHECK(comparator->distmap()[5] == 0.75f);
-  CHECK(comparator->distmap_aggregate() > 0.0f);
+  CHECK(comparator->distmapAggregate() > 0.0f);
 
   // The parts keep the device alive.
   comparator.reset();

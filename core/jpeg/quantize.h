@@ -21,13 +21,13 @@
 
 namespace guetzli {
 
-inline coeff_t Quantize(coeff_t raw_coeff, int quant) {
+inline coeff_t quantize(coeff_t raw_coeff, int quant) {
   const int r = raw_coeff % quant;
   const coeff_t delta = 2 * r > quant ? quant - r : (-2) * r > quant ? -quant - r : -r;
   return raw_coeff + delta;
 }
 
-bool QuantizeBlock(coeff_t block[kDCTBlockSize], const int q[kDCTBlockSize]);
+bool quantizeBlock(coeff_t block[kDctBlockSize], const int q[kDctBlockSize]);
 
 }  // namespace guetzli
 
