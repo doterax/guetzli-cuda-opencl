@@ -132,13 +132,20 @@ class GpuKernelsBase : public GpuKernels {
     CompareSession(GpuKernelsBase& kernels, Channels ref, int xsize, int ysize)
         : kernels_(kernels), ref_(std::move(ref)), xsize_(xsize), ysize_(ysize) {}
 
-    void compare(const OutputImage& img, int step, float* distmap) override {
-      kernels_.compare(ref_.view(), xsize_, ysize_, img, step, distmap);
+    void compare(const OutputImage& img, int step, float* block_max8) override {
+      kernels_.compare(ref_.view(), xsize_, ysize_, img, step, result_, block_max8);
+    }
+
+    void readDistmap(float* distmap) override {
+      auto& c = kernels_.ctx();
+      c.readAsync(distmap, result_.get(), static_cast<size_t>(xsize_) * ysize_ * sizeof(float));
+      c.finish();
     }
 
    private:
     GpuKernelsBase& kernels_;
-    Channels ref_;  // never modified
+    Channels ref_;   // never modified
+    Buffer result_;  // the last compare()'s distance map
     int xsize_;
     int ysize_;
   };
@@ -146,8 +153,10 @@ class GpuKernelsBase : public GpuKernels {
   Derived& self() { return static_cast<Derived&>(*this); }
   auto& ctx() { return self().context(); }
 
-  // Distance map of img against the resident reference (xsize * ysize values, out).
-  void compare(const View& ref, int xsize, int ysize, const OutputImage& img, int step, float* distmap) {
+  // Distance map of img against the resident reference into result (kept on the device); its 8x8 block maxima
+  // into block_max8.
+  void compare(const View& ref, int xsize, int ysize, const OutputImage& img, int step, Buffer& result,
+               float* block_max8) {
     auto& c = ctx();
     const int size = xsize * ysize;
     const size_t channel_size = static_cast<size_t>(size) * sizeof(float);
@@ -189,10 +198,15 @@ class GpuKernelsBase : public GpuKernels {
     }
 
     // Zero-filled: combineChannels / upsampleSquareRoot leave the borders untouched.
-    Buffer result = c.zeroed(channel_size);
+    result = c.zeroed(channel_size);
     opsinDynamicsOnDevice(xyb1, xsize, ysize);
     diffmapOpsinDynamicsImage(result.get(), xyb0, xyb1, xsize, ysize, step);
-    c.readAsync(distmap, result.get(), channel_size);
+    const int width8 = (xsize + 7) / 8;
+    const int height8 = (ysize + 7) / 8;
+    const size_t block_max_size = static_cast<size_t>(width8) * height8 * sizeof(float);
+    Buffer block_max = c.uninitialized(block_max_size);  // one value per block, all written
+    self().blockMax8x8Kernel(result.get(), xsize, ysize, block_max.get(), width8, height8);
+    c.readAsync(block_max8, block_max.get(), block_max_size);
     c.finish();
   }
 

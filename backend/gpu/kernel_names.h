@@ -31,6 +31,7 @@ enum KernelName {
   KERNEL_COLORTRANSFORMYCBCRTORGB,
   KERNEL_SRGBTOLINEAR,
   KERNEL_CONVOLUTIONSCALE,
+  KERNEL_BLOCKMAX8X8,
   KERNEL_COUNT,
 };
 
@@ -62,6 +63,7 @@ inline constexpr const char* kKernelEntryPoints[KERNEL_COUNT] = {
     "clColorTransformYCbCrToRGB",
     "clSrgbToLinearEx",
     "clConvolutionScaleEx",
+    "clBlockMax8x8Ex",
 };
 
 }  // namespace guetzli

@@ -18,8 +18,11 @@ namespace guetzli {
 class GpuCompareSession {
  public:
   virtual ~GpuCompareSession() = default;
-  // Distance map of img against the original, xsize * ysize values (out).
-  virtual void compare(const OutputImage& img, int step, float* distmap) = 0;
+  // Compares img against the original. The distance map stays on the device; block_max8 receives its 8x8 block
+  // maxima (ceil(xsize / 8) * ceil(ysize / 8) values).
+  virtual void compare(const OutputImage& img, int step, float* block_max8) = 0;
+  // The last compare()'s distance map, xsize * ysize values (out).
+  virtual void readDistmap(float* distmap) = 0;
 };
 
 class GpuButteraugliKernels {

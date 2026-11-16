@@ -140,23 +140,26 @@ float ButteraugliComparator::blockErrorLimit() const {
 
 void ButteraugliComparator::computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul,
                                                                int factor_x, int factor_y,
-                                                               const std::vector<float>& distmap,
+                                                               const std::vector<float>& block_max8,
                                                                std::vector<float>* block_weight) {
   const double target_distance = target_distance_ * target_mul;
   const int sizex = 8 * factor_x;
   const int sizey = 8 * factor_y;
   const int block_width = (width_ + sizex - 1) / sizex;
   const int block_height = (height_ + sizey - 1) / sizey;
+  // A factor_x x factor_y group of 8x8 blocks covers the same pixels as the sizex x sizey block.
+  const int width8 = (width_ + 7) / 8;
+  const int height8 = (height_ + 7) / 8;
   std::vector<float> max_dist_per_block(block_width * block_height);
   for (int block_y = 0; block_y < block_height; ++block_y) {
     for (int block_x = 0; block_x < block_width; ++block_x) {
       int block_ix = block_y * block_width + block_x;
-      int x_max = std::min(width_, sizex * (block_x + 1));
-      int y_max = std::min(height_, sizey * (block_y + 1));
+      int x_max = std::min(width8, factor_x * (block_x + 1));
+      int y_max = std::min(height8, factor_y * (block_y + 1));
       float max_dist = 0.0;
-      for (int y = sizey * block_y; y < y_max; ++y) {
-        for (int x = sizex * block_x; x < x_max; ++x) {
-          max_dist = std::max(max_dist, distmap[y * width_ + x]);
+      for (int y = factor_y * block_y; y < y_max; ++y) {
+        for (int x = factor_x * block_x; x < x_max; ++x) {
+          max_dist = std::max(max_dist, block_max8[y * width8 + x]);
         }
       }
       max_dist_per_block[block_ix] = max_dist;
@@ -195,6 +198,19 @@ void ButteraugliComparator::computeBlockErrorAdjustmentWeights(int direction, in
       }
     }
   }
+}
+
+void ButteraugliComparator::setDistanceFromDistmap() {
+  const int width8 = (width_ + 7) / 8;
+  const int height8 = (height_ + 7) / 8;
+  block_max8_.assign(static_cast<size_t>(width8) * height8, 0.0f);
+  for (int y = 0; y < height_; ++y) {
+    for (int x = 0; x < width_; ++x) {
+      float& m = block_max8_[((y / 8) * width8) + (x / 8)];
+      m = std::max(m, distmap_[(y * width_) + x]);
+    }
+  }
+  distance_ = ::butteraugli::butteraugliScoreFromDiffmap(distmap_);
 }
 
 double ButteraugliComparator::scoreOutputSize(int size) const {

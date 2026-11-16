@@ -31,13 +31,14 @@ class CheckingComparator final : public Comparator {
   [[nodiscard]] double scoreOutputSize(int size) const override { return reference_->scoreOutputSize(size); }
   [[nodiscard]] bool distanceOk(double target_mul) const override { return reference_->distanceOk(target_mul); }
   [[nodiscard]] std::vector<float> distmap() const override { return reference_->distmap(); }
+  [[nodiscard]] std::vector<float> blockMaxDistances() const override { return reference_->blockMaxDistances(); }
   [[nodiscard]] float distmapAggregate() const override { return reference_->distmapAggregate(); }
   [[nodiscard]] float blockErrorLimit() const override { return reference_->blockErrorLimit(); }
   void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
-                                          int factor_y, const std::vector<float>& distmap,
+                                          int factor_y, const std::vector<float>& block_max8,
                                           std::vector<float>* block_weight) override {
-    reference_->computeBlockErrorAdjustmentWeights(direction, max_block_dist, target_mul, factor_x, factor_y, distmap,
-                                                   block_weight);
+    reference_->computeBlockErrorAdjustmentWeights(direction, max_block_dist, target_mul, factor_x, factor_y,
+                                                   block_max8, block_weight);
   }
   // The tested backend's data: a checked block-zeroing search runs the tested search with it.
   [[nodiscard]] std::optional<BlockReferenceData> blockReferenceData() const override {

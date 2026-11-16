@@ -102,6 +102,7 @@ class CudaKernels final : public GpuKernelsBase<CudaKernels, CudaTypes> {
   void componentsToPixelsEx2Kernel(cu_mem out, int xmin, int ymin, int xsize, int ysize, int c, int width, int height,
                                    int range_y);
   void colorTransformKernel(cu_mem out, int pixel_count);
+  void blockMax8x8Kernel(cu_mem distmap, int xsize, int ysize, cu_mem block_max, int width8, int height8);
 
   GpuOptions options_;
   ILogger& logger_;

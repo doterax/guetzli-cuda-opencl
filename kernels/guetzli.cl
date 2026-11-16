@@ -733,6 +733,30 @@ __kernel void clScaleImageEx(__global float *img, const int size, float scale)
 	img[i] *= scale;
 }
 
+// Maximum of each 8x8 block of distmap (partial blocks at the right/bottom edge included), as the host computes it:
+// starting from 0, m = (m < v) ? v : m (std::max).
+__kernel void clBlockMax8x8Ex(__global const float *distmap, const int xsize, const int ysize,
+	__global float *block_max, const int block_width, const int block_height)
+{
+	const int bx = get_global_id(0);
+	const int by = get_global_id(1);
+	if (bx >= block_width || by >= block_height)
+		return;
+
+	const int x_end = _min_i(xsize, 8 * (bx + 1));
+	const int y_end = _min_i(ysize, 8 * (by + 1));
+	float m = 0.0f;
+	for (int y = 8 * by; y < y_end; y++)
+	{
+		for (int x = 8 * bx; x < x_end; x++)
+		{
+			const float v = distmap[y * xsize + x];
+			m = (m < v) ? v : m;
+		}
+	}
+	block_max[by * block_width + bx] = m;
+}
+
 #define Average5x5_w 0.679144890667f
 __constant float Average5x5_scale = 1.0f / (5.0f + 4 * Average5x5_w);
 __kernel void clAverage5x5Ex(__global float *img, const int xsize, const int ysize, __global const float *img_org)

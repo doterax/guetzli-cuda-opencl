@@ -135,13 +135,13 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
       std::vector<std::pair<int, float>> global_order;
       int blocks_to_change = 0;
       std::vector<float> block_weight;
+      // The first upward iteration works from an all-zero distance map.
+      const std::vector<float> block_max8 =
+          first_up_iter ? std::vector<float>(static_cast<size_t>((width + 7) / 8) * ((height + 7) / 8))
+                        : comparator_->blockMaxDistances();
       for (int rblock = 1; rblock <= 4; ++rblock) {
         block_weight = std::vector<float>(num_blocks);
-        std::vector<float> distmap(width * height);
-        if (!first_up_iter) {
-          distmap = comparator_->distmap();
-        }
-        comparator_->computeBlockErrorAdjustmentWeights(direction, rblock, target_mul, factor_x, factor_y, distmap,
+        comparator_->computeBlockErrorAdjustmentWeights(direction, rblock, target_mul, factor_x, factor_y, block_max8,
                                                         &block_weight);
         global_order.clear();
         blocks_to_change = 0;

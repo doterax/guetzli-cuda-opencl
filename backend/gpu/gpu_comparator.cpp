@@ -57,9 +57,23 @@ void GpuButteraugliComparator::compare(const OutputImage& img) {
     session_ = kernels_->startCompare(rgb_orig_opsin_[0].data(), rgb_orig_opsin_[1].data(), rgb_orig_opsin_[2].data(),
                                       width_, height_);
   }
-  distmap_.resize(static_cast<size_t>(width_) * height_);
-  session_->compare(img, kButteraugliStep, distmap_.data());
-  distance_ = ::butteraugli::butteraugliScoreFromDiffmap(distmap_);
+  block_max8_.resize(static_cast<size_t>((width_ + 7) / 8) * ((height_ + 7) / 8));
+  session_->compare(img, kButteraugliStep, block_max8_.data());
+  // The maximum of the block maxima is the maximum of the map (as butteraugliScoreFromDiffmap computes it).
+  float distance = 0.0f;
+  for (const float m : block_max8_) {
+    distance = std::max(distance, m);
+  }
+  distance_ = distance;
+}
+
+std::vector<float> GpuButteraugliComparator::distmap() const {
+  if (!session_) {
+    return distmap_;  // no compare() yet
+  }
+  std::vector<float> map(static_cast<size_t>(width_) * height_);
+  session_->readDistmap(map.data());
+  return map;
 }
 
 void GpuButteraugliComparator::startBlockComparisons() {

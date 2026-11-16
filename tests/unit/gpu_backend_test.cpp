@@ -36,9 +36,18 @@ struct Calls {
 class FakeSession final : public guetzli::GpuCompareSession {
  public:
   explicit FakeSession(Calls& calls) : calls_(calls) {}
-  void compare(const guetzli::OutputImage& img, int /*step*/, float* distmap) override {
+  // The map is 0.25 everywhere except pixel 5 (in 8x8 block 0), which is 0.75.
+  void compare(const guetzli::OutputImage& img, int /*step*/, float* block_max8) override {
     ++calls_.compare;
-    const size_t n = static_cast<size_t>(img.width()) * img.height();
+    width_ = img.width();
+    height_ = img.height();
+    const size_t n8 = static_cast<size_t>((width_ + 7) / 8) * ((height_ + 7) / 8);
+    for (size_t i = 0; i < n8; ++i) {
+      block_max8[i] = (i == 0) ? 0.75f : 0.25f;
+    }
+  }
+  void readDistmap(float* distmap) override {
+    const size_t n = static_cast<size_t>(width_) * height_;
     for (size_t i = 0; i < n; ++i) {
       distmap[i] = (i == 5) ? 0.75f : 0.25f;
     }
@@ -46,6 +55,8 @@ class FakeSession final : public guetzli::GpuCompareSession {
 
  private:
   Calls& calls_;
+  int width_ = 0;
+  int height_ = 0;
 };
 
 class FakeKernels final : public guetzli::GpuKernels {

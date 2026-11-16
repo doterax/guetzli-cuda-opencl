@@ -252,6 +252,12 @@ void OpenClKernels::colorTransformKernel(cl_mem out, int pixel_count) {
   enqueueRange1D(kernel, pixel_count);
 }
 
+void OpenClKernels::blockMax8x8Kernel(cl_mem distmap, int xsize, int ysize, cl_mem block_max, int width8, int height8) {
+  cl_kernel kernel = context().kernel(KERNEL_BLOCKMAX8X8);
+  setKernelArgs(kernel, &distmap, &xsize, &ysize, &block_max, &width8, &height8);
+  enqueueRange2D(kernel, width8, height8);
+}
+
 // --- DCT and block-zeroing round trips ----------------------------------------------------------------------------
 
 void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],

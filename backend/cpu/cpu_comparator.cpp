@@ -33,7 +33,7 @@ void CpuButteraugliComparator::compare(const OutputImage& img) {
   ops_.opsinDynamicsImage(width_, height_, rgb);
   std::vector<float>().swap(distmap_);
   comparator_.diffmapOpsinDynamicsImageOpt(rgb0, rgb, distmap_);
-  distance_ = ::butteraugli::butteraugliScoreFromDiffmap(distmap_);
+  setDistanceFromDistmap();
 }
 
 std::unique_ptr<Comparator> CpuComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,

@@ -83,6 +83,10 @@ class Comparator {
   // The interpretation of the distance values depend on the comparator used.
   [[nodiscard]] virtual std::vector<float> distmap() const = 0;
 
+  // The maximum of every 8x8 block of the last Compare()'s distance map (partial blocks at the right and bottom
+  // edge included), row by row: ceil(width / 8) * ceil(height / 8) values. Cheaper than distmap() on a GPU.
+  [[nodiscard]] virtual std::vector<float> blockMaxDistances() const = 0;
+
   // Returns an aggregate distance or similarity value between the baseline
   // image and the image in the last Compare() call (or the baseline image, if
   // Compare() was not called yet).
@@ -93,13 +97,13 @@ class Comparator {
   // consider distortions where a block error is greater than this.
   [[nodiscard]] virtual float blockErrorLimit() const = 0;
   // Given the search direction (+1 for upwards and -1 for downwards) and the
-  // current distance map, fills in *block_weight image with the relative block
-  // error adjustment weights.
+  // current distance map's 8x8 block maxima (blockMaxDistances(), or all zero), fills in *block_weight image with
+  // the relative block error adjustment weights.
   // The target_mul param has the same semantics as in DistanceOK().
   // Note that this is essentially a static function in the sense that it does
   // not depend on the last Compare() call.
   virtual void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
-                                                  int factor_y, const std::vector<float>& distmap,
+                                                  int factor_y, const std::vector<float>& block_max8,
                                                   std::vector<float>* block_weight) = 0;
 
   // Data for a device block-zeroing search, available after StartBlockComparisons(); empty if this

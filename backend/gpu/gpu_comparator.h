@@ -41,6 +41,8 @@ class GpuButteraugliComparator final : public ButteraugliComparator {
 
   // The original image stays on the device; the output image is converted to linear RGB there.
   void compare(const OutputImage& img) override;
+  // Downloaded from the device on each call (check mode); compare() only fetches the block maxima.
+  [[nodiscard]] std::vector<float> distmap() const override;
   // Also builds the per-block lists for the device block-zeroing search (once per image).
   void startBlockComparisons() override;
   [[nodiscard]] std::optional<BlockReferenceData> blockReferenceData() const override;

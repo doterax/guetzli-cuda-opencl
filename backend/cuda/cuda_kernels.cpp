@@ -244,6 +244,12 @@ void CudaKernels::colorTransformKernel(cu_mem out, int pixel_count) {
   ocu.launch(ocu.kernel(KERNEL_COLORTRANSFORMYCBCRTORGB), blockCount(pixel_count, kBlockSize), 1, kBlockSize, 1, args);
 }
 
+void CudaKernels::blockMax8x8Kernel(cu_mem distmap, int xsize, int ysize, cu_mem block_max, int width8, int height8) {
+  CudaContext& ocu = context();
+  const void* args[] = {&distmap, &xsize, &ysize, &block_max, &width8, &height8};
+  launch2D(ocu, ocu.kernel(KERNEL_BLOCKMAX8X8), width8, height8, args);
+}
+
 // --- DCT and block-zeroing round trips ----------------------------------------------------------------------------
 
 void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const ChannelInfo orig_channel[3],

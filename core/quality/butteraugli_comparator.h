@@ -63,12 +63,13 @@ class ButteraugliComparator : public Comparator {
   [[nodiscard]] bool distanceOk(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
 
   [[nodiscard]] std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] std::vector<float> blockMaxDistances() const override { return block_max8_; }
   [[nodiscard]] float distmapAggregate() const override { return distance_; }
 
   [[nodiscard]] float blockErrorLimit() const override;
 
   void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
-                                          int factor_y, const std::vector<float>& distmap,
+                                          int factor_y, const std::vector<float>& block_max8,
                                           std::vector<float>* block_weight) override;
 
  protected:
@@ -89,6 +90,10 @@ class ButteraugliComparator : public Comparator {
   std::vector<std::vector<std::vector<float>>> per_block_pregamma_;
   float distance_{0.0};
   std::vector<float> distmap_;
+  std::vector<float> block_max8_;  // 8x8 block maxima of distmap_
+
+  // Sets block_max8_ and distance_ (the maximum) from distmap_.
+  void setDistanceFromDistmap();
 };
 
 }  // namespace guetzli

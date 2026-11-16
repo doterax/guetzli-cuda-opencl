@@ -128,10 +128,11 @@ class FakeComparator final : public guetzli::Comparator {
   [[nodiscard]] double scoreOutputSize(int size) const override { return size * distance_; }
   [[nodiscard]] bool distanceOk(double /*target_mul*/) const override { return true; }
   [[nodiscard]] std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] std::vector<float> blockMaxDistances() const override { return {}; }
   [[nodiscard]] float distmapAggregate() const override { return distance_; }
   [[nodiscard]] float blockErrorLimit() const override { return distance_; }
   void computeBlockErrorAdjustmentWeights(int /*direction*/, int /*max_block_dist*/, double /*target_mul*/,
-                                          int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*distmap*/,
+                                          int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*block_max8*/,
                                           std::vector<float>* /*block_weight*/) override {}
   [[nodiscard]] std::optional<guetzli::BlockReferenceData> blockReferenceData() const override {
     if (!provides_block_data) {

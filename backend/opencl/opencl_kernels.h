@@ -105,6 +105,7 @@ class OpenClKernels final : public GpuKernelsBase<OpenClKernels, OpenClTypes> {
   void componentsToPixelsEx2Kernel(cl_mem out, int xmin, int ymin, int xsize, int ysize, int c, int width, int height,
                                    int range_y);
   void colorTransformKernel(cl_mem out, int pixel_count);
+  void blockMax8x8Kernel(cl_mem distmap, int xsize, int ysize, cl_mem block_max, int width8, int height8);
 
   GpuOptions options_;
   ILogger& logger_;
