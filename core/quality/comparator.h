@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "core/image/output_image.h"
-#include "core/encoder/stats.h"
 
 namespace guetzli {
 
@@ -113,9 +112,9 @@ class IComparatorFactory {
  public:
   virtual ~IComparatorFactory() = default;
 
-  // rgb (3 bytes per pixel, width * height pixels) and stats must outlive the comparator.
+  // rgb (3 bytes per pixel, width * height pixels) must outlive the comparator.
   virtual std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb,
-                                             float target_distance, ProcessStats* stats) = 0;
+                                             float target_distance) = 0;
 };
 
 }  // namespace guetzli

@@ -20,11 +20,22 @@
 #include <cstring>
 #include <string>
 
-#include "core/encoder/debug_print.h"
-
 namespace guetzli {
 
 namespace {
+
+// --verbose trace of a quantization matrix: 8 rows, the three components side by side.
+void logQuantMatrix(ILogger& logger, const int q[3][kDctBlockSize]) {
+  for (int y = 0; y < 8; ++y) {
+    for (int c = 0; c < 3; ++c) {
+      for (int x = 0; x < 8; ++x) {
+        logger.log(LogLevel::Debug, " %2d", q[c][(8 * y) + x]);
+      }
+      logger.log(LogLevel::Debug, "   ");
+    }
+    logger.log(LogLevel::Debug, "\n");
+  }
+}
 
 constexpr int kQuantMatrixSize = 3 * kDctBlockSize;
 
@@ -173,12 +184,12 @@ QuantData QuantMatrixSearch::tryMatrix(const JpegData& jpg, const float target_m
     img.saveToJpegData(&jpg_out);
     encoded_jpg = selector_->serialize(jpg_out);
   }
-  GUETZLI_LOG(stats_, "Iter %2d: %s quantization matrix:\n", stats_->counters[kNumItersCnt] + 1,
-              img.frameTypeStr().c_str());
-  GUETZLI_LOG_QUANT(stats_, q);
-  GUETZLI_LOG(stats_, "Iter %2d: %s GQ[%5.2f] Out[%7zd]", stats_->counters[kNumItersCnt] + 1,
-              img.frameTypeStr().c_str(), quantMatrixHeuristicScore(q), encoded_jpg.size());
-  ++stats_->counters[kNumItersCnt];
+  logger_->log(LogLevel::Debug, "Iter %2d: %s quantization matrix:\n", stats_->iterations + 1,
+               img.frameTypeStr().c_str());
+  logQuantMatrix(*logger_, q);
+  logger_->log(LogLevel::Debug, "Iter %2d: %s GQ[%5.2f] Out[%7zd]", stats_->iterations + 1, img.frameTypeStr().c_str(),
+               quantMatrixHeuristicScore(q), encoded_jpg.size());
+  ++stats_->iterations;
   comparator_->compare(img);
   data.dist_ok = comparator_->distanceOk(target_mul);
   data.jpg_size = encoded_jpg.size();
@@ -213,8 +224,8 @@ bool QuantMatrixSearch::run(const JpegData& jpg, const bool downsample, int best
   }
 
   std::memcpy(&best_q[0][0], &best.q[0][0], kQuantMatrixSize * sizeof(best_q[0][0]));
-  GUETZLI_LOG(stats_, "\n%s selected quantization matrix:\n", downsample ? "YUV420" : "YUV444");
-  GUETZLI_LOG_QUANT(stats_, best_q);
+  logger_->log(LogLevel::Debug, "\n%s selected quantization matrix:\n", downsample ? "YUV420" : "YUV444");
+  logQuantMatrix(*logger_, best_q);
   return best.dist_ok;
 }
 

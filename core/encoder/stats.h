@@ -17,25 +17,13 @@
 #ifndef GUETZLI_STATS_H_
 #define GUETZLI_STATS_H_
 
-#include <map>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "logging/logger.h"
-
 namespace guetzli {
 
-static const char* const kNumItersCnt = "number of iterations";
-static const char* const kNumItersUpCnt = "number of iterations up";
-static const char* const kNumItersDownCnt = "number of iterations down";
-
+// Per-image encoder counters (the --verbose trace goes through the injected ILogger).
 struct ProcessStats {
-  ProcessStats() = default;
-  std::map<std::string, int> counters;
-  ILogger* logger = nullptr;  // receives the --verbose trace (LogLevel::Debug); may be null
-
-  std::string filename;
+  int iterations = 0;       // quantization-matrix and frequency-masking iterations ("Iter" in the trace)
+  int iterations_up = 0;    // frequency-masking iterations that raised the block error limits
+  int iterations_down = 0;  // frequency-masking iterations that lowered them
 };
 
 }  // namespace guetzli

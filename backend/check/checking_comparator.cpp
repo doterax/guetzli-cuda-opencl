@@ -35,9 +35,9 @@ void CheckingComparator::finishBlockComparisons() {
 }
 
 std::unique_ptr<Comparator> CheckingComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,
-                                                              float target_distance, ProcessStats* stats) {
-  return std::make_unique<CheckingComparator>(tested_->create(width, height, rgb, target_distance, stats),
-                                              reference_->create(width, height, rgb, target_distance, stats), logger_);
+                                                              float target_distance) {
+  return std::make_unique<CheckingComparator>(tested_->create(width, height, rgb, target_distance),
+                                              reference_->create(width, height, rgb, target_distance), logger_);
 }
 
 }  // namespace guetzli

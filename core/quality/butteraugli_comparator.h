@@ -23,7 +23,6 @@
 #include "core/quality/comparator.h"
 #include "core/jpeg/jpeg_data.h"
 #include "core/image/output_image.h"
-#include "core/encoder/stats.h"
 
 namespace guetzli {
 
@@ -49,7 +48,7 @@ class ButteraugliOps {
 class ButteraugliComparator : public Comparator {
  public:
   ButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                        ProcessStats* stats, ButteraugliOps& ops);
+                        ButteraugliOps& ops);
 
   void startBlockComparisons() override;
   void finishBlockComparisons() override;
@@ -90,7 +89,6 @@ class ButteraugliComparator : public Comparator {
   std::vector<std::vector<std::vector<float>>> per_block_pregamma_;
   float distance_{0.0};
   std::vector<float> distmap_;
-  ProcessStats* stats_;
 };
 
 }  // namespace guetzli

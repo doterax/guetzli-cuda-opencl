@@ -24,7 +24,6 @@
 #include "core/encoder/output_selector.h"
 #include "core/encoder/quant_matrix_search.h"
 #include "core/io/jpeg_decode.h"
-#include "core/encoder/debug_print.h"
 #include "core/image/jpeg_data_decoder.h"
 #include "core/image/jpeg_data_encoder.h"
 #include "core/jpeg/jpeg_data_reader.h"
@@ -98,12 +97,9 @@ void downsampleImage(OutputImage* img, bool use_silver_screen) {
 }  // namespace
 
 Encoder::Encoder(const EncoderParams& params, Backend& backend, ILogger& logger)
-    : params_(params), backend_(&backend), logger_(&logger) {
-  stats_.logger = &logger;
-}
+    : params_(params), backend_(&backend), logger_(&logger) {}
 
 std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Comparator* comparator) {
-  ProcessStats* stats = &stats_;
   if (jpg_in.components.size() != 3 || !hasYCbCrColorSpace(jpg_in)) {
     logger_->log(LogLevel::Error, "Only YUV color space input jpeg is supported\n");
     return std::nullopt;
@@ -122,14 +118,14 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
     return std::nullopt;
   }
 
-  OutputSelector selector(params_.clear_metadata, stats_);
+  OutputSelector selector(params_.clear_metadata, *logger_);
   int q_in[3][kDctBlockSize];
   // Output the original image, in case we do not manage to create anything
   // with a good enough quality.
   std::string original = selector.serialize(jpg_in);
-  GUETZLI_LOG(stats, "Original Out[%7zd]", original.size());
+  logger_->log(LogLevel::Debug, "Original Out[%7zd]", original.size());
   if (comparator == nullptr) {
-    GUETZLI_LOG(stats, " <image too small for Butteraugli>\n");
+    logger_->log(LogLevel::Debug, " <image too small for Butteraugli>\n");
     // Butteraugli doesn't work with images this small.
     return original;
   }
@@ -142,8 +138,8 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
   }
   selector.offer(original, *comparator);
 
-  QuantMatrixSearch quant_search(*comparator, selector, stats_);
-  FrequencyMasking masking(params_, *backend_->block_zeroing, *comparator, selector, stats_);
+  QuantMatrixSearch quant_search(*comparator, selector, stats_, *logger_);
+  FrequencyMasking masking(params_, *backend_->block_zeroing, *comparator, selector, stats_, *logger_);
   const int try_420 = (input_is_420 || params_.force_420 || (params_.try_420 && !isGrayscale(jpg_in))) ? 1 : 0;
   const int force_420 = (input_is_420 || params_.force_420) ? 1 : 0;
   for (int downsample = force_420; downsample <= try_420; ++downsample) {
@@ -182,7 +178,7 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
 std::optional<std::string> Encoder::encodeWithComparator(const JpegData& jpg, const std::vector<uint8_t>& rgb) {
   std::unique_ptr<Comparator> comparator;
   if (jpg.width >= kMinComparatorSize && jpg.height >= kMinComparatorSize) {
-    comparator = backend_->comparators->create(jpg.width, jpg.height, &rgb, params_.butteraugli_target, &stats_);
+    comparator = backend_->comparators->create(jpg.width, jpg.height, &rgb, params_.butteraugli_target);
   }
   return encodeJpegData(jpg, comparator.get());
 }

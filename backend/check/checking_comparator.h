@@ -56,8 +56,8 @@ class CheckingComparatorFactory final : public IComparatorFactory {
                             ILogger& logger)
       : tested_(std::move(tested)), reference_(std::move(reference)), logger_(logger) {}
 
-  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                                     ProcessStats* stats) override;
+  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb,
+                                     float target_distance) override;
 
  private:
   std::unique_ptr<IComparatorFactory> tested_;

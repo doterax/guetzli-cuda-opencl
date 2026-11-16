@@ -7,14 +7,14 @@
 
 #include "core/quality/comparator.h"
 #include "core/jpeg/jpeg_data.h"
-#include "core/encoder/stats.h"
+#include "logging/logger.h"
 
 namespace guetzli {
 
 class OutputSelector {
  public:
-  // stats must outlive the selector; its logger receives the score trace.
-  OutputSelector(bool clear_metadata, ProcessStats& stats) : clear_metadata_(clear_metadata), stats_(&stats) {}
+  // logger must outlive the selector; it receives the score trace (LogLevel::Debug).
+  OutputSelector(bool clear_metadata, ILogger& logger) : clear_metadata_(clear_metadata), logger_(&logger) {}
 
   // The JPEG file for jpg. Throws std::logic_error if jpg cannot be written.
   [[nodiscard]] std::string serialize(const JpegData& jpg) const;
@@ -30,7 +30,7 @@ class OutputSelector {
 
  private:
   bool clear_metadata_;
-  ProcessStats* stats_;
+  ILogger* logger_;
   std::string best_;
   double score_ = -1;  // < 0: nothing kept yet
 };

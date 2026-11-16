@@ -7,7 +7,6 @@
 #include "backend/gpu/gpu_kernels.h"
 #include "doctest.h"
 #include "core/image/output_image.h"
-#include "core/encoder/stats.h"
 
 namespace {
 
@@ -120,8 +119,7 @@ TEST_CASE("GPU backend: one device behind every part; the comparator keeps one c
   const int w = 16;
   const int h = 16;
   std::vector<uint8_t> rgb(static_cast<size_t>(w) * h * 3, 128);
-  guetzli::ProcessStats stats;
-  std::unique_ptr<guetzli::Comparator> comparator = backend.comparators->create(w, h, &rgb, 1.0f, &stats);
+  std::unique_ptr<guetzli::Comparator> comparator = backend.comparators->create(w, h, &rgb, 1.0f);
   CHECK(device->calls.opsin == 0);
   CHECK(device->calls.mask == 0);
 

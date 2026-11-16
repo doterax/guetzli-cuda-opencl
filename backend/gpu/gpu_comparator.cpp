@@ -46,9 +46,9 @@ void GpuButteraugliOps::maskHighIntensityChange(size_t xsize, size_t ysize, cons
 }
 
 GpuButteraugliComparator::GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb,
-                                                   float target_distance, ProcessStats* stats, ButteraugliOps& ops,
+                                                   float target_distance, ButteraugliOps& ops,
                                                    std::shared_ptr<GpuButteraugliKernels> kernels)
-    : ButteraugliComparator(width, height, rgb, target_distance, stats, ops), kernels_(std::move(kernels)) {}
+    : ButteraugliComparator(width, height, rgb, target_distance, ops), kernels_(std::move(kernels)) {}
 
 GpuButteraugliComparator::~GpuButteraugliComparator() = default;
 
@@ -115,8 +115,8 @@ std::optional<BlockReferenceData> GpuButteraugliComparator::blockReferenceData()
 }
 
 std::unique_ptr<Comparator> GpuComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,
-                                                         float target_distance, ProcessStats* stats) {
-  return std::make_unique<GpuButteraugliComparator>(width, height, rgb, target_distance, stats, ops_, kernels_);
+                                                         float target_distance) {
+  return std::make_unique<GpuButteraugliComparator>(width, height, rgb, target_distance, ops_, kernels_);
 }
 
 }  // namespace guetzli

@@ -23,7 +23,7 @@ class CpuButteraugliOps final : public ButteraugliOps {
 class CpuButteraugliComparator final : public ButteraugliComparator {
  public:
   CpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                           ProcessStats* stats, ButteraugliOps& ops);
+                           ButteraugliOps& ops);
 
   void compare(const OutputImage& img) override;
 
@@ -33,8 +33,8 @@ class CpuButteraugliComparator final : public ButteraugliComparator {
 
 class CpuComparatorFactory final : public IComparatorFactory {
  public:
-  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                                     ProcessStats* stats) override;
+  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb,
+                                     float target_distance) override;
 
  private:
   CpuButteraugliOps ops_;

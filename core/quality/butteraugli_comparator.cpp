@@ -26,14 +26,8 @@
 namespace guetzli {
 
 ButteraugliComparator::ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb,
-                                             const float target_distance, ProcessStats* stats, ButteraugliOps& ops)
-    : width_(width),
-      height_(height),
-      target_distance_(target_distance),
-      rgb_orig_(*rgb),
-      ops_(ops),
-
-      stats_(stats) {
+                                             const float target_distance, ButteraugliOps& ops)
+    : width_(width), height_(height), target_distance_(target_distance), rgb_orig_(*rgb), ops_(ops) {
   rgb_orig_opsin_.resize(3);
   rgb_orig_opsin_[0].resize(width * height);
   rgb_orig_opsin_[1].resize(width * height);

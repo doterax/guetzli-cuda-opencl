@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 
-#include "core/encoder/debug_print.h"
 #include "core/jpeg/jpeg_data_writer.h"
 
 namespace guetzli {
@@ -27,13 +26,13 @@ std::string OutputSelector::serialize(const JpegData& jpg) const {
 
 void OutputSelector::offer(const std::string& encoded, const Comparator& comparator) {
   const double score = comparator.scoreOutputSize(static_cast<int>(encoded.size()));
-  GUETZLI_LOG(stats_, " Score[%.4f]", score);
+  logger_->log(LogLevel::Debug, " Score[%.4f]", score);
   if (score < score_ || score_ < 0) {
     best_ = encoded;
     score_ = score;
-    GUETZLI_LOG(stats_, " (*)");
+    logger_->log(LogLevel::Debug, " (*)");
   }
-  GUETZLI_LOG(stats_, "\n");
+  logger_->log(LogLevel::Debug, "\n");
 }
 
 }  // namespace guetzli

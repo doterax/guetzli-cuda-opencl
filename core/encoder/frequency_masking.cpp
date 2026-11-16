@@ -26,7 +26,6 @@
 
 #include "core/encoder/size_estimator.h"
 #include "core/util/narrow_cast.h"
-#include "core/encoder/debug_print.h"
 #include "core/util/fast_log.h"
 #include "core/jpeg/quantize.h"
 
@@ -252,20 +251,20 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
         max_block_error[i] += block_weight[i] * val_threshold * direction;
       }
 
-      ++stats_->counters[kNumItersCnt];
-      ++stats_->counters[direction > 0 ? kNumItersUpCnt : kNumItersDownCnt];
+      ++stats_->iterations;
+      ++(direction > 0 ? stats_->iterations_up : stats_->iterations_down);
       std::string encoded_jpg;
       {
         JpegData jpg_out = jpg;
         img.saveToJpegData(&jpg_out);
         encoded_jpg = selector_->serialize(jpg_out);
       }
-      GUETZLI_LOG(stats_,
-                  "Iter %2d: %s(%d) %s Coeffs[%d/%zd] "
-                  "Blocks[%zd/%d/%d] ValThres[%.4f] Out[%7zd] EstErr[%.2f%%]",
-                  stats_->counters[kNumItersCnt], img.frameTypeStr().c_str(), comp_mask, direction > 0 ? "up" : "down",
-                  changed_coeffs, global_order_size, changed_blocks.size(), blocks_to_change, num_blocks, val_threshold,
-                  encoded_jpg.size(), 100.0 - (100.0 * est_jpg_size) / encoded_jpg.size());
+      logger_->log(LogLevel::Debug,
+                   "Iter %2d: %s(%d) %s Coeffs[%d/%zd] "
+                   "Blocks[%zd/%d/%d] ValThres[%.4f] Out[%7zd] EstErr[%.2f%%]",
+                   stats_->iterations, img.frameTypeStr().c_str(), comp_mask, direction > 0 ? "up" : "down",
+                   changed_coeffs, global_order_size, changed_blocks.size(), blocks_to_change, num_blocks,
+                   val_threshold, encoded_jpg.size(), 100.0 - (100.0 * est_jpg_size) / encoded_jpg.size());
       comparator_->compare(img);
       selector_->offer(encoded_jpg, *comparator_);
       prev_size = est_jpg_size;

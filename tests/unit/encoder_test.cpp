@@ -281,11 +281,12 @@ TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chr
 
   std::vector<coeff_t> before(cb.coeffs(), cb.coeffs() + 12 * kDctBlockSize);
   guetzli::ProcessStats stats;
-  guetzli::OutputSelector selector(true, stats);
+  guetzli::NullLogger logger;
+  guetzli::OutputSelector selector(true, logger);
   ScoreComparator comparator;
   FixedSearch search(orders);
   const guetzli::EncoderParams params;
-  guetzli::FrequencyMasking masking(params, search, comparator, selector, stats);
+  guetzli::FrequencyMasking masking(params, search, comparator, selector, stats, logger);
   masking.run(jpg, img, 6, 1.0, false);
 
   const std::vector<coeff_t> after(cb.coeffs(), cb.coeffs() + 12 * kDctBlockSize);
@@ -301,8 +302,8 @@ TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chr
 }
 
 TEST_CASE("OutputSelector keeps the output with the lowest score") {
-  guetzli::ProcessStats stats;
-  guetzli::OutputSelector selector(true, stats);
+  guetzli::NullLogger logger;
+  guetzli::OutputSelector selector(true, logger);
   ScoreComparator comparator;
   CHECK_FALSE(selector.hasOutput());
   comparator.score = 5;
@@ -319,8 +320,8 @@ TEST_CASE("OutputSelector keeps the output with the lowest score") {
 }
 
 TEST_CASE("OutputSelector::serialize writes a readable JPEG") {
-  guetzli::ProcessStats stats;
-  const guetzli::OutputSelector selector(true, stats);
+  guetzli::NullLogger logger;
+  const guetzli::OutputSelector selector(true, logger);
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(noisyImage(20, 12, 3), 20, 12, &jpg));
   guetzli::JpegData read;
@@ -346,7 +347,8 @@ TEST_CASE("Encoder: encodes RGB pixels on the CPU backend") {
   REQUIRE(guetzli::readJpeg(*jpeg, guetzli::JPEG_READ_ALL, &read));
   CHECK(read.width == w);
   CHECK(read.height == h);
-  CHECK(encoder.stats().counters.at(guetzli::kNumItersCnt) > 0);
+  CHECK(encoder.stats().iterations > 0);
+  CHECK(encoder.stats().iterations_up + encoder.stats().iterations_down <= encoder.stats().iterations);
   const std::string trace = logger.text(LogLevel::Debug);
   CHECK(trace.find("Original Out[") != std::string::npos);
   CHECK(trace.find("selected quantization matrix") != std::string::npos);

@@ -45,7 +45,7 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    byte-identical to the previous commit (compared COFF code sections + relocations, ignoring names), except one
    intended change, `kRangeLimit` becoming a `const` pointer (integer code in the YCbCr->RGB inline). Builds without
    GPU backends and without full JPEG (the `#else` branches clang-tidy did not see) compile and pass their tests.
-5. clang-tidy clean. Done (commits `807590e`, `2803b28`, `60c2179`, `b195b58` + enforcement). The tree is clean
+5. clang-tidy clean. Done (commits `807590e`, `2803b28`, `990c03f`, `b195b58` + enforcement). The tree is clean
    with the release, no-GPU and no-full-JPEG configurations; CI runs clang-tidy 21.1.6 (PyPI, pinned like
    clang-format) in the `linux-full` job with every finding an error, and the CI presets build with
    `GUETZLI_WARNINGS_AS_ERRORS` (the only warnings were the Khronos C++ header's legacy-API deprecations, now
@@ -58,7 +58,13 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    `NOLINT` comment once commented out the rest of a coefficient table line (regress caught it; use
    `NOLINTNEXTLINE`); `bugprone-reserved-identifier`'s fix renamed `__restrict__` and half a header guard;
    `modernize-use-std-numbers` would replace a tuned coefficient that only resembles 1/sqrt(3).
-6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7).
+6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7). Done. `OutputSelector`, `QuantMatrixSearch` and
+   `FrequencyMasking` take an `ILogger&` and write the trace with `LogLevel::Debug` (same format strings; the
+   quantization-matrix dump is `logQuantMatrix()`); `GUETZLI_LOG`, `GUETZLI_LOG_QUANT` and `debug_print.*` are gone.
+   `ProcessStats` is three counters (`iterations`, `iterations_up`, `iterations_down`) instead of a string-keyed
+   map, a logger pointer and an unused `filename`. The comparators' unused `ProcessStats*` parameter is gone from
+   `IComparatorFactory::create()`. Verified: `--verbose` traces byte-identical (CPU on the larger images, OpenCL /
+   CUDA / check on a regress input), regress unchanged.
 7. OpenCL/CUDA launcher deduplication of the butteraugli pipeline (phase 4 note).
 
 Phase 5 notes:

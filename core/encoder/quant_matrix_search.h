@@ -10,6 +10,7 @@
 #include "core/jpeg/jpeg_data.h"
 #include "core/image/output_image.h"
 #include "core/encoder/stats.h"
+#include "logging/logger.h"
 
 namespace guetzli {
 
@@ -63,8 +64,8 @@ class QuantMatrixGenerator {
 class QuantMatrixSearch {
  public:
   // All arguments must outlive the search.
-  QuantMatrixSearch(Comparator& comparator, OutputSelector& selector, ProcessStats& stats)
-      : comparator_(&comparator), selector_(&selector), stats_(&stats) {}
+  QuantMatrixSearch(Comparator& comparator, OutputSelector& selector, ProcessStats& stats, ILogger& logger)
+      : comparator_(&comparator), selector_(&selector), stats_(&stats), logger_(&logger) {}
 
   // jpg: the image with its quantization removed; img: scratch image of the same size (overwritten).
   // best_q: in, the first matrix to try; out, the selected matrix. Returns whether it meets the
@@ -77,6 +78,7 @@ class QuantMatrixSearch {
   Comparator* comparator_;
   OutputSelector* selector_;
   ProcessStats* stats_;
+  ILogger* logger_;
 };
 
 }  // namespace guetzli

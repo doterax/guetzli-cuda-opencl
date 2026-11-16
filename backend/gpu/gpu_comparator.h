@@ -32,7 +32,7 @@ class GpuButteraugliOps final : public ButteraugliOps {
 class GpuButteraugliComparator final : public ButteraugliComparator {
  public:
   GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                           ProcessStats* stats, ButteraugliOps& ops, std::shared_ptr<GpuButteraugliKernels> kernels);
+                           ButteraugliOps& ops, std::shared_ptr<GpuButteraugliKernels> kernels);
   ~GpuButteraugliComparator() override;
   GpuButteraugliComparator(const GpuButteraugliComparator&) = delete;
   GpuButteraugliComparator& operator=(const GpuButteraugliComparator&) = delete;
@@ -58,8 +58,8 @@ class GpuComparatorFactory final : public IComparatorFactory {
   explicit GpuComparatorFactory(const std::shared_ptr<GpuButteraugliKernels>& kernels)
       : kernels_(kernels), ops_(kernels) {}
 
-  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
-                                     ProcessStats* stats) override;
+  std::unique_ptr<Comparator> create(int width, int height, const std::vector<uint8_t>* rgb,
+                                     float target_distance) override;
 
  private:
   std::shared_ptr<GpuButteraugliKernels> kernels_;

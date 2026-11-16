@@ -14,6 +14,7 @@
 #include "core/jpeg/jpeg_data.h"
 #include "core/image/output_image.h"
 #include "core/encoder/stats.h"
+#include "logging/logger.h"
 
 namespace guetzli {
 
@@ -32,8 +33,13 @@ class FrequencyMasking {
  public:
   // All arguments must outlive this object.
   FrequencyMasking(const EncoderParams& params, IBlockZeroingSearch& search, Comparator& comparator,
-                   OutputSelector& selector, ProcessStats& stats)
-      : params_(&params), search_(&search), comparator_(&comparator), selector_(&selector), stats_(&stats) {}
+                   OutputSelector& selector, ProcessStats& stats, ILogger& logger)
+      : params_(&params),
+        search_(&search),
+        comparator_(&comparator),
+        selector_(&selector),
+        stats_(&stats),
+        logger_(&logger) {}
 
   // Adjusts the components in comp_mask of img (all with the subsampling of the last one) towards the
   // distance target times target_mul. jpg holds the original coefficients (quantization removed).
@@ -50,6 +56,7 @@ class FrequencyMasking {
   Comparator* comparator_;
   OutputSelector* selector_;
   ProcessStats* stats_;
+  ILogger* logger_;
 };
 
 }  // namespace guetzli
