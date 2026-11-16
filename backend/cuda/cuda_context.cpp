@@ -15,37 +15,13 @@
 
 namespace guetzli {
 
-namespace {
-
-// The first line of text starting with prefix (e.g. ".version 7.8"), or "?".
-std::string firstLineStartingWith(const std::string& text, const std::string& prefix) {
-  size_t pos = 0;
-  while (pos < text.size()) {
-    size_t end = text.find('\n', pos);
-    if (end == std::string::npos) {
-      end = text.size();
-    }
-    if (text.compare(pos, prefix.size(), prefix) == 0) {
-      std::string line = text.substr(pos, end - pos);
-      while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
-        line.pop_back();
-      }
-      return line;
-    }
-    pos = end + 1;
-  }
-  return "?";
-}
-
-}  // namespace
-
 void throwCudaError(CUresult err, const char* where) {
   throw GpuError(std::string("CUDA call failed in ") + where + ": " + translateCudaError(err));
 }
 
 void CudaContext::loadModule(int cap_major, int cap_minor) {
-  // c_str() is NUL-terminated, as cuModuleLoadDataEx expects for PTX text.
-  const std::string ptx = kernels::cudaPtx();
+  // A fatbin: the driver loads the native code for this GPU, or JIT-compiles the PTX in it.
+  const std::string fatbin = kernels::cudaFatbin();
 
   char error_log[8192] = {};
   // The driver API passes option values as void*.
@@ -55,18 +31,19 @@ void CudaContext::loadModule(int cap_major, int cap_minor) {
                     reinterpret_cast<void*>(static_cast<uintptr_t>(sizeof(error_log)))};
   // NOLINTEND(performance-no-int-to-ptr)
   const auto start = std::chrono::steady_clock::now();
-  const CUresult err = driver_.module_load_data_ex(&module_, ptx.c_str(), 3, options, values);
+  const CUresult err = driver_.module_load_data_ex(&module_, fatbin.data(), 3, options, values);
   const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
   if (err == CUDA_SUCCESS) {
-    logger_.log(LogLevel::Debug, "CUDA module loaded in %.0f ms (JIT-compiled unless cached by the driver)\n", ms);
+    logger_.log(LogLevel::Debug,
+                "CUDA module loaded in %.0f ms (native code, or PTX JIT-compiled unless cached by the driver)\n", ms);
     return;
   }
   int driver_version = 0;
   driver_.driver_get_version(&driver_version);
   std::string message = std::string("cuModuleLoadDataEx: ") + translateCudaError(err) + "; driver CUDA " +
                         std::to_string(driver_version / 1000) + "." + std::to_string((driver_version % 1000) / 10) +
-                        ", device sm_" + std::to_string(cap_major) + std::to_string(cap_minor) + ", PTX " +
-                        firstLineStartingWith(ptx, ".version") + " " + firstLineStartingWith(ptx, ".target");
+                        ", device sm_" + std::to_string(cap_major) + std::to_string(cap_minor) +
+                        ", kernels: " + kernels::cudaFatbinInfo();
   if (error_log[0] != '\0') {
     error_log[sizeof(error_log) - 1] = '\0';
     std::string log(error_log);

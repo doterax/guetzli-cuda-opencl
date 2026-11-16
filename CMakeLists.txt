@@ -8,7 +8,7 @@
 # then `cmake --build external/build`), installed to external/install. GUETZLI_EXTERNAL_PREFIX
 # points elsewhere if needed; libraries not found there are taken from the system.
 #
-# The embedded kernel headers (kernels/guetzli_cl_src.h, kernels/guetzli_cu_ptx.h) are committed and
+# The embedded kernel headers (kernels/guetzli_cl_src.h, kernels/guetzli_cu_fatbin.h, kernels/guetzli_cu_info.h) are committed and
 # only consumed. Regenerate them explicitly with the `kernel-headers` target (pinned CUDA toolkit, §7);
 # `check-kernel-headers` verifies the OpenCL one (CI).
 cmake_minimum_required(VERSION 3.24)

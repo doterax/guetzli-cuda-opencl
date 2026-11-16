@@ -6,6 +6,7 @@ third_party/minilzo/**
 third_party/doctest/**
 third_party/CLI11/**
 kernels/guetzli_cl_src.h
-kernels/guetzli_cu_ptx.h
+kernels/guetzli_cu_fatbin.h
+kernels/guetzli_cu_info.h
 kernels/guetzli.cl
 kernels/guetzli.cu

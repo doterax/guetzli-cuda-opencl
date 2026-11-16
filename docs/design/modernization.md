@@ -235,6 +235,11 @@ release notes:
 - CUDA backend: the host-side butteraugli constants (blur weights, DoMask LUTs, global scale) are computed like the
   OpenCL backend (in double); CUDA distances can differ in the last digits from v2. No output change on the
   regression inputs. (phase 6)
+- CUDA: the binary embeds a fatbin (native code for sm_61/75/86/89 + compute_52 PTX) instead of compute_75 PTX:
+  Pascal and Maxwell GPUs can use the CUDA backend (before: silent fallback to OpenCL), and Pascal..Ada GPUs no
+  longer JIT-compile on the first run (~7 s on an RTX 3060, ~30 s reported in issue #15). A PTX that does not load
+  is reported with the driver version, device and JIT log. The exe grows by ~1.6 MB. Output unchanged (native
+  and forced-PTX-JIT paths). (D1, D3, D4)
 - Linux CPU path: math calls on floats use the float overloads (std::exp etc.), like Windows; the Linux CPU output may
   differ slightly from v2 and now matches Windows. (phase 6)
 

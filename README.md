@@ -69,6 +69,14 @@ guetzli --auto   input.png output.jpg   # Auto-detect best backend (default)
 | Linux x64 (GCC) | ✅ | ✅ | CI |
 | macOS arm64 (Apple Silicon) | — | ✅ | CI |
 
+### CUDA requirements
+
+An NVIDIA driver with CUDA 11.8 support (R520 or newer) and a Maxwell or newer GPU. Pascal, Turing,
+Ampere and Ada GPUs (GTX 10xx, RTX 20xx/30xx/40xx and their workstation versions) run native code
+embedded in the binary. Other GPUs, including newer ones, compile the embedded PTX on the first run
+(several seconds; the driver caches the result). If CUDA cannot be used, the message names the
+reason and guetzli falls back to OpenCL or the CPU.
+
 ### Windows runtime
 
 The Windows binary is self-contained except for the **Universal C Runtime (UCRT)**, which it links

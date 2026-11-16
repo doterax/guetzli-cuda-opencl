@@ -11,8 +11,11 @@ std::string openClSource();
 #endif
 
 #ifdef __USE_CUDA__
-// The PTX built from kernels/guetzli.cu. Throws GpuError if the embedded data is damaged.
-std::string cudaPtx();
+// The CUDA fatbin built from kernels/guetzli.cu (native code for common GPUs + PTX). Throws GpuError if the
+// embedded data is damaged.
+std::string cudaFatbin();
+// What the fatbin contains (toolkit, architectures).
+const char* cudaFatbinInfo();
 #endif
 
 }  // namespace guetzli::kernels

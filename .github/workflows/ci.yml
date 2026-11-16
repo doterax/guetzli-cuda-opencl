@@ -136,7 +136,7 @@ jobs:
       # ------------------------------------------------------------------
       # 6. Install CUDA Toolkit (conditional)
       #    Only for the cuda.h driver-API header: nvcc is NOT used here. The
-      #    embedded PTX (kernels/guetzli_cu_ptx.h) is generated locally with
+      #    embedded fatbin (kernels/guetzli_cu_fatbin.h) is generated locally with
       #    the pinned toolkit and committed (`kernel-headers` target, see
       #    docs/design/modernization.md section 7 and issue #15).
       # ------------------------------------------------------------------
@@ -240,7 +240,7 @@ jobs:
       - name: Verify the build did not modify committed kernel headers
         shell: bash
         run: |
-          git diff --exit-code -- kernels/guetzli_cu_ptx.h kernels/guetzli_cl_src.h
+          git diff --exit-code -- kernels/guetzli_cu_fatbin.h kernels/guetzli_cu_info.h kernels/guetzli_cl_src.h
 
       # ------------------------------------------------------------------
       # 9. Binary diagnostics

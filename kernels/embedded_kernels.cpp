@@ -11,7 +11,8 @@
 #include "kernels/guetzli_cl_src.h"
 #endif
 #ifdef __USE_CUDA__
-#include "kernels/guetzli_cu_ptx.h"
+#include "kernels/guetzli_cu_fatbin.h"
+#include "kernels/guetzli_cu_info.h"
 #endif
 
 namespace guetzli::kernels {
@@ -38,8 +39,12 @@ std::string openClSource() {
 #endif
 
 #ifdef __USE_CUDA__
-std::string cudaPtx() {
-  return decompress(kCudaPtxLzo, kCudaPtxSize, "CUDA PTX");
+std::string cudaFatbin() {
+  return decompress(kCudaFatbinLzo, kCudaFatbinSize, "CUDA fatbin");
+}
+
+const char* cudaFatbinInfo() {
+  return kCudaFatbinInfo;
 }
 #endif
 

@@ -1,18 +1,22 @@
 # Embedded kernel headers (docs/design/modernization.md §6.2 and §7).
 #
-# kernels/guetzli_cl_src.h and kernels/guetzli_cu_ptx.h are committed and consumed as-is; the normal
+# kernels/guetzli_cl_src.h, kernels/guetzli_cu_fatbin.h and kernels/guetzli_cu_info.h are committed and consumed as-is; the normal
 # build never regenerates them. Explicit targets:
 #   check-kernel-headers  the committed OpenCL header matches kernels/guetzli.cl (run in CI)
-#   kernel-headers        regenerate both headers (PTX needs the pinned CUDA toolkit)
+#   kernel-headers        regenerate all of them (the fatbin needs the pinned CUDA toolkit)
 #
 # Kernel-header options:
 #   GUETZLI_KERNEL_NVCC_VERSION  required nvcc release (default 11.8; issue #15)
-#   GUETZLI_CUDA_ARCH            PTX target (default compute_75)
+#   GUETZLI_CUDA_PTX_ARCH        PTX in the fatbin, JIT-compiled for GPUs without native code (default compute_52:
+#                                Maxwell and newer)
+#   GUETZLI_CUDA_SASS_ARCHS      native code in the fatbin (default 61;75;86;89: Pascal, Turing, Ampere, Ada), so
+#                                those GPUs skip the multi-second first-run JIT
 #   GUETZLI_NVCC_CCBIN           host compiler directory for nvcc (-ccbin), e.g. an MSVC 14.29 bin dir
 #   GUETZLI_NVCC_EXTRA_FLAGS     extra nvcc flags, e.g. -D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
 
 set(GUETZLI_KERNEL_NVCC_VERSION "11.8" CACHE STRING "nvcc release required to build the embedded PTX")
-set(GUETZLI_CUDA_ARCH "compute_75" CACHE STRING "PTX target architecture of the embedded kernels")
+set(GUETZLI_CUDA_PTX_ARCH "compute_52" CACHE STRING "PTX target of the embedded CUDA fatbin")
+set(GUETZLI_CUDA_SASS_ARCHS "61;75;86;89" CACHE STRING "Native (SASS) architectures of the embedded CUDA fatbin")
 set(GUETZLI_NVCC_CCBIN "" CACHE PATH "Host compiler (directory) passed to nvcc -ccbin")
 set(GUETZLI_NVCC_EXTRA_FLAGS "" CACHE STRING "Extra nvcc flags for the PTX build")
 
@@ -40,7 +44,8 @@ add_custom_target(kernel-headers
   COMMAND "${CMAKE_COMMAND}" ${_kh_common} -DMODE=generate
           -DNVCC=${GUETZLI_NVCC}
           -DNVCC_VERSION=${GUETZLI_KERNEL_NVCC_VERSION}
-          -DCUDA_ARCH=${GUETZLI_CUDA_ARCH}
+          -DCUDA_PTX_ARCH=${GUETZLI_CUDA_PTX_ARCH}
+          "-DCUDA_SASS_ARCHS=${GUETZLI_CUDA_SASS_ARCHS}"
           -DNVCC_CCBIN=${GUETZLI_NVCC_CCBIN}
           "-DNVCC_EXTRA_FLAGS=${GUETZLI_NVCC_EXTRA_FLAGS}"
           -P "${_kh_script}"

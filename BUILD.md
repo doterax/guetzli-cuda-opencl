@@ -165,18 +165,21 @@ tests/regress/regress.sh build/release/bin/guetzli.exe cpu opencl cuda checkcl c
 ## Embedded GPU Kernels
 
 The kernels live in `kernels/`: `guetzli.cl` is the single kernel source, compiled as OpenCL C at
-runtime and `#include`d by `guetzli.cu`, which `nvcc` compiles to PTX. Both are embedded in the
-executable, LZO-compressed, as **committed** headers: `kernels/guetzli_cl_src.h` (OpenCL source)
-and `kernels/guetzli_cu_ptx.h` (PTX). Normal builds and CI never regenerate them.
+runtime and `#include`d by `guetzli.cu`, which `nvcc` compiles to a **fatbin**: native code for
+Pascal, Turing, Ampere and Ada GPUs (sm_61, sm_75, sm_86, sm_89) plus compute_52 PTX that the driver
+JIT-compiles for every other GPU from Maxwell on. Both are embedded in the executable, LZO-compressed,
+as **committed** headers: `kernels/guetzli_cl_src.h` (OpenCL source), `kernels/guetzli_cu_fatbin.h`
+(fatbin) and `kernels/guetzli_cu_info.h` (what the fatbin contains). Normal builds and CI never
+regenerate them.
 
 | Target | Description |
 |--------|-------------|
 | `check-kernel-headers` | Fail if the committed OpenCL header does not match `kernels/guetzli.cl` (run in CI) |
-| `kernel-headers` | Regenerate both headers (explicit only; commit the result) |
+| `kernel-headers` | Regenerate the headers (explicit only; commit the result) |
 
 If you change `kernels/guetzli.cl`, `kernels/guetzli.cu` or `backend/gpu/kernel_types.h`, run
-`cmake --build --preset release --target kernel-headers` and commit both headers with your change.
-The PTX must be built with the pinned toolkit (**CUDA 11.8**, `GUETZLI_KERNEL_NVCC_VERSION`): drivers
+`cmake --build --preset release --target kernel-headers` and commit the headers with your change
+(about two minutes: one nvcc pass per architecture). The fatbin must be built with the pinned toolkit (**CUDA 11.8**, `GUETZLI_KERNEL_NVCC_VERSION`): drivers
 only JIT-compile PTX versions they know, and PTX from a newer toolkit is rejected by older drivers
 ([issue #15](https://github.com/doterax/guetzli-cuda-opencl/issues/15)). The target refuses other
 `nvcc` versions.
@@ -184,7 +187,8 @@ only JIT-compile PTX versions they know, and PTX from a newer toolkit is rejecte
 | Option | Default | Description |
 |--------|---------|-------------|
 | `GUETZLI_KERNEL_NVCC_VERSION` | `11.8` | Required `nvcc` release |
-| `GUETZLI_CUDA_ARCH` | `compute_75` | PTX target architecture |
+| `GUETZLI_CUDA_PTX_ARCH` | `compute_52` | PTX in the fatbin, JIT-compiled for GPUs without native code |
+| `GUETZLI_CUDA_SASS_ARCHS` | `61;75;86;89` | Native code in the fatbin (no first-run JIT on these GPUs) |
 | `GUETZLI_NVCC_CCBIN` | (empty) | Host compiler directory for `nvcc -ccbin` (e.g. an MSVC 14.29 `bin/Hostx64/x64` on Windows) |
 | `GUETZLI_NVCC_EXTRA_FLAGS` | (empty) | Extra `nvcc` flags for local toolchain quirks (e.g. `-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`) |
 
