@@ -132,6 +132,9 @@ class CudaContext {
 
  private:
   void destroy() noexcept;
+  // JIT-compiles the embedded PTX for the device (compute capability major.minor). On failure the GpuError names
+  // the driver version, the PTX ISA and target, and the JIT log (e.g. a PTX too new for the driver, issue #15).
+  void loadModule(int cap_major, int cap_minor);
 
   CudaDriver driver_;
   ILogger& logger_;

@@ -75,6 +75,7 @@ std::optional<CudaDriver> CudaDriver::load(ILogger& logger) {
   CudaDriver d;
   const bool ok =
       resolve(lib, d.init, "cuInit", true, logger) && resolve(lib, d.ctx_create, "cuCtxCreate", false, logger) &&
+      resolve(lib, d.driver_get_version, "cuDriverGetVersion", true, logger) &&
       resolve(lib, d.ctx_destroy, "cuCtxDestroy", false, logger) &&
       resolve(lib, d.ctx_set_cache_config, "cuCtxSetCacheConfig", true, logger) &&
       resolve(lib, d.device_get_attribute, "cuDeviceGetAttribute", true, logger) &&

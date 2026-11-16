@@ -24,6 +24,7 @@ struct CudaDriver {
   [[nodiscard]] static std::optional<CudaDriver> load(ILogger& logger);
 
   CUresult(CUDAAPI* init)(unsigned int flags) = nullptr;
+  CUresult(CUDAAPI* driver_get_version)(int* version) = nullptr;
   CUresult(CUDAAPI* ctx_create)(CUcontext* pctx, unsigned int flags, CUdevice dev) = nullptr;
   CUresult(CUDAAPI* ctx_destroy)(CUcontext ctx) = nullptr;
   CUresult(CUDAAPI* ctx_set_cache_config)(CUfunc_cache config) = nullptr;
