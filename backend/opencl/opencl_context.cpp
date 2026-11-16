@@ -111,7 +111,7 @@ size_t OpenClContext::maxWorkGroupSize(cl_kernel kernel) {
   }
 
   cl_device_id dev = nullptr;
-  CL_CHECK(clGetCommandQueueInfo(queue_, CL_QUEUE_DEVICE, sizeof(dev), &dev, nullptr));
+  CL_CHECK(clGetCommandQueueInfo(queue_, CL_QUEUE_DEVICE, sizeof(cl_device_id), static_cast<void*>(&dev), nullptr));
   size_t wg = 0;
   CL_CHECK(clGetKernelWorkGroupInfo(kernel, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(wg), &wg, nullptr));
   if (wg == 0) {
@@ -187,7 +187,12 @@ ClChannels OpenClContext::uploadChannels(size_t bytes, const void* c0, const voi
 void OpenClContext::release(cl_mem mem) noexcept {
   auto it = buffer_sizes_.find(mem);
   if (it != buffer_sizes_.end()) {
-    free_buffers_[it->second].push_back(mem);
+    try {
+      free_buffers_[it->second].push_back(mem);
+    } catch (...) {
+      clReleaseMemObject(mem);
+      buffer_sizes_.erase(it);
+    }
   }
 }
 
@@ -215,7 +220,8 @@ void OpenClContext::printDeviceCapabilities() const {
   const Device_Info& device_info = device_->info;
   // Get platform information from the device's context
   cl_platform_id platform = nullptr;
-  cl_int err = clGetContextInfo(device_info.cl_context(), CL_CONTEXT_PLATFORM, sizeof(platform), &platform, nullptr);
+  cl_int err = clGetContextInfo(device_info.cl_context(), CL_CONTEXT_PLATFORM, sizeof(cl_platform_id),
+                                static_cast<void*>(&platform), nullptr);
 
   std::string platform_name = "Unknown";
   std::string platform_version = "Unknown";

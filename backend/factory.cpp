@@ -46,6 +46,8 @@ GpuDevices::GpuDevices(const BackendOptions& options, ILogger& logger) : devices
 
 GpuDevices::~GpuDevices() = default;
 
+// Uses devices_ when a GPU backend is built.
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 BackendProbes GpuDevices::probes() {
   BackendProbes probes;
 #ifdef __USE_CUDA__
@@ -57,6 +59,7 @@ BackendProbes GpuDevices::probes() {
   return probes;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 Backend GpuDevices::makeBackend(BackendKind kind) {
   switch (kind) {
     case BackendKind::OpenCl:

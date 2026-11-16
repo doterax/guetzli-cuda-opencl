@@ -24,7 +24,7 @@ namespace guetzli {
 // Fills in 'result' with the inverse DCT of 'block'.
 // The arguments 'block' and 'result' point to 8x8 arrays that are arranged in
 // a row-by-row memory layout.
-void computeBlockIdct(const coeff_t* block, uint8_t* result);
+void computeBlockIdct(const coeff_t* block, uint8_t* out);
 
 }  // namespace guetzli
 

@@ -82,7 +82,7 @@ class Comparator {
   // yet).
   // The dimensions of the distance map are the same as the baseline image.
   // The interpretation of the distance values depend on the comparator used.
-  [[nodiscard]] virtual const std::vector<float> distmap() const = 0;
+  [[nodiscard]] virtual std::vector<float> distmap() const = 0;
 
   // Returns an aggregate distance or similarity value between the baseline
   // image and the image in the last Compare() call (or the baseline image, if

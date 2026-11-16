@@ -20,17 +20,17 @@ class OptimizedButteraugliComparator : public ButteraugliComparator {
   virtual void diffmapOpsinDynamicsImageOpt(std::vector<std::vector<float>>& xyb0,
                                             std::vector<std::vector<float>>& xyb1, std::vector<float>& result);
 
-  virtual void blockDiffMapOpt(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
+  virtual void blockDiffMapOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                                std::vector<float>* block_diff_dc, std::vector<float>* block_diff_ac);
 
-  virtual void edgeDetectorMapOpt(const std::vector<std::vector<float>>& rgb0,
-                                  const std::vector<std::vector<float>>& rgb1, std::vector<float>* edge_detector_map);
+  virtual void edgeDetectorMapOpt(const std::vector<std::vector<float>>& xyb0,
+                                  const std::vector<std::vector<float>>& xyb1, std::vector<float>* edge_detector_map);
 
-  virtual void edgeDetectorLowFreqOpt(const std::vector<std::vector<float>>& rgb0,
-                                      const std::vector<std::vector<float>>& rgb1, std::vector<float>* block_diff_ac);
+  virtual void edgeDetectorLowFreqOpt(const std::vector<std::vector<float>>& xyb0,
+                                      const std::vector<std::vector<float>>& xyb1, std::vector<float>* block_diff_ac);
 
-  virtual void combineChannelsOpt(const std::vector<std::vector<float>>& scale_xyb,
-                                  const std::vector<std::vector<float>>& scale_xyb_dc,
+  virtual void combineChannelsOpt(const std::vector<std::vector<float>>& mask_xyb,
+                                  const std::vector<std::vector<float>>& mask_xyb_dc,
                                   const std::vector<float>& block_diff_dc, const std::vector<float>& block_diff_ac,
                                   const std::vector<float>& edge_detector_map, std::vector<float>* result);
 };

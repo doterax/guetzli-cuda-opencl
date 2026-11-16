@@ -16,12 +16,13 @@
 
 #include "core/image/gamma_correct.h"
 
+#include <array>
 #include <cmath>
 
 namespace guetzli {
 
-const double* newSrgb8ToLinearTable() {
-  auto* table = new double[256];
+std::array<double, 256> makeSrgb8ToLinearTable() {
+  std::array<double, 256> table{};
   int i = 0;
   for (; i < 11; ++i) {
     table[i] = i / 12.92;
@@ -33,8 +34,8 @@ const double* newSrgb8ToLinearTable() {
 }
 
 const double* srgb8ToLinearTable() {
-  static const double* const kSrgb8ToLinearTable = newSrgb8ToLinearTable();
-  return kSrgb8ToLinearTable;
+  static const std::array<double, 256> kSrgb8ToLinearTable = makeSrgb8ToLinearTable();
+  return kSrgb8ToLinearTable.data();
 }
 
 }  // namespace guetzli

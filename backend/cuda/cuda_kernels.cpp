@@ -26,8 +26,8 @@ constexpr int kBlockSize = 128;  // 1D launches
 constexpr int kBlockSizeX = 16;
 constexpr int kBlockSizeY = 16;
 
-constexpr unsigned int blockCount(unsigned int size, unsigned int block) {
-  return (size + block - 1) / block;
+constexpr unsigned int blockCount(unsigned int items, unsigned int per_block) {
+  return (items + per_block - 1) / per_block;
 }
 
 // Block shape for a width x height 2D launch (grid = ceil; every kernel bounds-checks).

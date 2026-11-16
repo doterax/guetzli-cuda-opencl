@@ -933,10 +933,8 @@ bool readJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JpegData
       case 0xd5:
       case 0xd6:
       case 0xd7:
-        // RST markers do not have any data.
-        break;
       case 0xd9:
-        // Found end marker.
+        // RST markers do not have any data; 0xd9 is the end marker.
         break;
       case 0xda:
         if (mode == JPEG_READ_ALL) {

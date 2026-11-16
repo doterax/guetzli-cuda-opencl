@@ -92,8 +92,9 @@ double normal(double x, double sigma) {
 std::vector<float> sharpen(const std::vector<float>& image, int w, int h, float sigma, float amount) {
   // This is only made for small sigma, e.g. 1.3.
   std::vector<double> kernel(5);
+  const size_t center = kernel.size() / 2;
   for (size_t i = 0; i < kernel.size(); i++) {
-    kernel[i] = normal(1.0 * i - kernel.size() / 2, sigma);
+    kernel[i] = normal(1.0 * i - static_cast<double>(center), sigma);
   }
 
   double sum = 0;
@@ -115,7 +116,7 @@ void erode(int w, int h, std::vector<bool>* image) {
     for (int x = 1; x + 1 < w; x++) {
       size_t index = y * w + x;
       if (!(temp[index] && temp[index - 1] && temp[index + 1] && temp[index - w] && temp[index + w])) {
-        (*image)[index] = 0;
+        (*image)[index] = false;
       }
     }
   }
@@ -127,7 +128,7 @@ void dilate(int w, int h, std::vector<bool>* image) {
     for (int x = 1; x + 1 < w; x++) {
       size_t index = y * w + x;
       if (temp[index] || temp[index - 1] || temp[index + 1] || temp[index - w] || temp[index + w]) {
-        (*image)[index] = 1;
+        (*image)[index] = true;
       }
     }
   }
@@ -137,8 +138,9 @@ std::vector<float> blur(const std::vector<float>& image, int w, int h) {
   // This is only made for small sigma, e.g. 1.3.
   static const double kSigma = 1.3;
   std::vector<double> kernel(5);
+  const size_t center = kernel.size() / 2;
   for (size_t i = 0; i < kernel.size(); i++) {
-    kernel[i] = normal(1.0 * i - kernel.size() / 2, kSigma);
+    kernel[i] = normal(1.0 * i - static_cast<double>(center), kSigma);
   }
 
   double sum = 0;
@@ -221,7 +223,7 @@ std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, flo
   dilate(w, h, &redmap);
 
   // Map of areas where to allow sharpening by combining red and dark areas
-  std::vector<bool> sharpenmap(image[0].size(), 0);
+  std::vector<bool> sharpenmap(image[0].size(), false);
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
       size_t index = y * w + x;

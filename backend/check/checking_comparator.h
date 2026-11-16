@@ -30,7 +30,7 @@ class CheckingComparator final : public Comparator {
   }
   [[nodiscard]] double scoreOutputSize(int size) const override { return reference_->scoreOutputSize(size); }
   [[nodiscard]] bool distanceOk(double target_mul) const override { return reference_->distanceOk(target_mul); }
-  [[nodiscard]] const std::vector<float> distmap() const override { return reference_->distmap(); }
+  [[nodiscard]] std::vector<float> distmap() const override { return reference_->distmap(); }
   [[nodiscard]] float distmapAggregate() const override { return reference_->distmapAggregate(); }
   [[nodiscard]] float blockErrorLimit() const override { return reference_->blockErrorLimit(); }
   void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,

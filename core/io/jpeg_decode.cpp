@@ -130,7 +130,7 @@ std::optional<RgbImage> decodeJpegPixels(const std::string& data, ILogger& logge
 
 #else
 
-std::optional<RgbImage> decodeJpegPixels(const std::string&, ILogger& logger) {
+std::optional<RgbImage> decodeJpegPixels(const std::string& /*data*/, ILogger& logger) {
   logger.log(LogLevel::Error,
              "Unsupported input JPEG file (e.g. unsupported "
              "downsampling mode).\nPlease provide the input image as "

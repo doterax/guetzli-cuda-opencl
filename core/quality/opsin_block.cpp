@@ -14,6 +14,7 @@
 namespace guetzli {
 namespace {
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 // Not const, like the tables below (the kernel's __constant expanded to nothing in the old C++ build).
 float g_srgb8_to_linear_table_f[256] = {
     0.000000f,   0.077399f,   0.154799f,   0.232198f,   0.309598f,   0.386997f,   0.464396f,   0.541796f,   0.619195f,
@@ -51,6 +52,8 @@ float g_srgb8_to_linear_table_f[256] = {
 // __constant expanded to nothing): with -ffast-math, constant coefficients get
 // folded and reassociated, which changes results in the last bits.
 float g_mix[12] = {
+    // 0.5778...: tuned, not 1/sqrt(3)
+    // NOLINTNEXTLINE(modernize-use-std-numbers)
     0.348036746003f,  0.577814843137f, 0.0544556093735f, 0.774145581713f, 0.26922717275f,  0.767247733938f,
     0.0366922708552f, 0.920130265014f, 0.0882062883536f, 0.158581714673f, 0.712857943858f, 10.6524069248f,
 };
@@ -64,6 +67,7 @@ float g_gamma_q[5 + 1] = {
     12.262350348616792f, 20.557285797683576f, 12.161463238367844f,
     4.711532733641639f,  0.899112889751053f,  0.035662329617191f,
 };
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 int minInt(int a, int b) {
   return a < b ? a : b;
@@ -160,6 +164,8 @@ void blurEx(const float* r, const int xsize, const int ysize, const float border
 
   float tmp[8 * 8];  // fully written by the first pass
   convolution(xsize, ysize, xstep, expn_size, diff, expn, r, border_ratio, tmp);
+  // Transposed second pass: the output of the first pass is ysize wide.
+  // NOLINTNEXTLINE(readability-suspicious-call-argument)
   convolution(ysize, dxsize, ystep, expn_size, diff, expn, tmp, border_ratio, output);
 }
 

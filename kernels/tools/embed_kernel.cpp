@@ -8,6 +8,7 @@
 // (cmake/KernelHeaders.cmake); the output is committed, so it must be deterministic.
 
 #include <cstdio>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -47,7 +48,7 @@ std::string formatHeader(const std::string& source_name, const std::string& name
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
   if (argc != 4) {
     std::fprintf(stderr, "usage: embed_kernel <input> <output.h> <Name>\n");
     return 1;
@@ -84,4 +85,13 @@ int main(int argc, char** argv) {
     return 1;
   }
   return 0;
+}
+
+int main(int argc, char** argv) {
+  try {
+    return run(argc, argv);
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "embed_kernel: %s\n", e.what());
+    return 1;
+  }
 }

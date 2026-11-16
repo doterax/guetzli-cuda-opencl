@@ -65,7 +65,7 @@ void writeFile(const std::filesystem::path& path, std::string_view contents) {
   }
   const bool written = std::fwrite(contents.data(), 1, contents.size(), f) == contents.size();
   const int saved_errno = errno;
-  const bool closed = std::fclose(f) == 0;
+  const bool closed = std::fclose(f) == 0;  // NOLINT(cppcoreguidelines-owning-memory): f may be stdout
   if (!written) {
     errno = saved_errno;
     throw IoError(errnoMessage("fwrite"));
@@ -246,6 +246,8 @@ toff_t tiffSeek(thandle_t fd, toff_t off, int whence) {
       break;
     case SEEK_END:
       data->fp = const_cast<char*>((data->data + data->size) - off);
+      break;
+    default:
       break;
   }
   return data->fp - data->data;

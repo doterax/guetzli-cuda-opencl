@@ -63,7 +63,7 @@ class ButteraugliComparator : public Comparator {
 
   [[nodiscard]] bool distanceOk(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
 
-  [[nodiscard]] const std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] std::vector<float> distmap() const override { return distmap_; }
   [[nodiscard]] float distmapAggregate() const override { return distance_; }
 
   [[nodiscard]] float blockErrorLimit() const override;

@@ -59,7 +59,7 @@ TEST_CASE("an explicit backend is used as is, without probing") {
 TEST_CASE("auto tries CUDA, then OpenCL, then falls back to the CPU") {
   struct Case {
     std::optional<bool> cuda, opencl;
-    BackendKind expected;
+    BackendKind expected{};
     int cuda_calls{}, opencl_calls{};
   };
   const Case cases[] = {
@@ -127,7 +127,7 @@ class FakeComparator final : public guetzli::Comparator {
   }
   [[nodiscard]] double scoreOutputSize(int size) const override { return size * distance_; }
   [[nodiscard]] bool distanceOk(double /*target_mul*/) const override { return true; }
-  [[nodiscard]] const std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] std::vector<float> distmap() const override { return distmap_; }
   [[nodiscard]] float distmapAggregate() const override { return distance_; }
   [[nodiscard]] float blockErrorLimit() const override { return distance_; }
   void computeBlockErrorAdjustmentWeights(int /*direction*/, int /*max_block_dist*/, double /*target_mul*/,

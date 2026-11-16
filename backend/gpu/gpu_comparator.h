@@ -34,6 +34,10 @@ class GpuButteraugliComparator final : public ButteraugliComparator {
   GpuButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
                            ProcessStats* stats, ButteraugliOps& ops, std::shared_ptr<GpuButteraugliKernels> kernels);
   ~GpuButteraugliComparator() override;
+  GpuButteraugliComparator(const GpuButteraugliComparator&) = delete;
+  GpuButteraugliComparator& operator=(const GpuButteraugliComparator&) = delete;
+  GpuButteraugliComparator(GpuButteraugliComparator&&) = delete;
+  GpuButteraugliComparator& operator=(GpuButteraugliComparator&&) = delete;
 
   // The original image stays on the device; the output image is converted to linear RGB there.
   void compare(const OutputImage& img) override;

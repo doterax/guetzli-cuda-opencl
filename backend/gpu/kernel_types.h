@@ -9,8 +9,7 @@
  *         chriskzhou@tencent.com
  *         stephendeng@tencent.com
  */
-#ifndef __CLGUETZLI_CL_H__
-#define __CLGUETZLI_CL_H__
+#pragma once
 
 #ifdef __USE_OPENCL__
 #include "third_party/OpenCL/include/CL/cl.h"
@@ -68,5 +67,3 @@ struct ChannelInfo {
   const ushort* pixel;
 };
 #pragma pack(pop)
-
-#endif /*__CLGUETZLI_CL_H__*/

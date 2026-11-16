@@ -24,6 +24,10 @@ class CudaKernels final : public GpuKernels {
  public:
   CudaKernels(const GpuOptions& options, ILogger& logger);
   ~CudaKernels() override;
+  CudaKernels(const CudaKernels&) = delete;
+  CudaKernels& operator=(const CudaKernels&) = delete;
+  CudaKernels(CudaKernels&&) = delete;
+  CudaKernels& operator=(CudaKernels&&) = delete;
 
   // Loads the driver and creates the context now. Returns false if CUDA is not usable (logged, unless the driver is
   // simply not installed).

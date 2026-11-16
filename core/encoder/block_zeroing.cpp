@@ -64,8 +64,8 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
       }
     }
   }
-  std::sort(input_order.begin(), input_order.end(),
-            [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
+  std::ranges::sort(input_order,
+                    [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
   coeff_t processed_block[kBlockSize];
   memcpy(processed_block, block, sizeof(processed_block));
   comparator->switchBlock(block_x, block_y, factor_x, factor_y);

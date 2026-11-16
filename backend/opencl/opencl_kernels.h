@@ -23,6 +23,10 @@ class OpenClKernels final : public GpuKernels {
  public:
   OpenClKernels(const GpuOptions& options, ILogger& logger);
   ~OpenClKernels() override;
+  OpenClKernels(const OpenClKernels&) = delete;
+  OpenClKernels& operator=(const OpenClKernels&) = delete;
+  OpenClKernels(OpenClKernels&&) = delete;
+  OpenClKernels& operator=(OpenClKernels&&) = delete;
 
   // Creates the context now (device selection, kernel compile). Logs the reason and returns false if OpenCL is not
   // usable.

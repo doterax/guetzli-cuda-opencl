@@ -23,6 +23,8 @@ TEST_CASE("ILogger::log formats and respects the level") {
 }
 
 TEST_CASE("ConsoleLogger: info to out, everything else to err, filtered by threshold") {
+  // C stdio temp files, as ConsoleLogger takes FILE*.
+  // NOLINTBEGIN(cppcoreguidelines-owning-memory)
   std::FILE* out = std::tmpfile();
   std::FILE* err = std::tmpfile();
   REQUIRE(out);
@@ -33,7 +35,7 @@ TEST_CASE("ConsoleLogger: info to out, everything else to err, filtered by thres
   logger.write(guetzli::LogLevel::Warning, "warning;");
   logger.write(guetzli::LogLevel::Debug, "debug;");
   auto contents = [](std::FILE* f) {
-    std::rewind(f);
+    std::fseek(f, 0, SEEK_SET);
     std::string s;
     for (int c = 0; (c = std::fgetc(f)) != EOF;) {
       s.push_back(static_cast<char>(c));
@@ -44,6 +46,7 @@ TEST_CASE("ConsoleLogger: info to out, everything else to err, filtered by thres
   CHECK(contents(err) == "error;warning;");
   std::fclose(out);
   std::fclose(err);
+  // NOLINTEND(cppcoreguidelines-owning-memory)
 }
 
 TEST_CASE("Config::validate") {

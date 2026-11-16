@@ -126,7 +126,7 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
   int q_in[3][kDctBlockSize];
   // Output the original image, in case we do not manage to create anything
   // with a good enough quality.
-  const std::string original = selector.serialize(jpg_in);
+  std::string original = selector.serialize(jpg_in);
   GUETZLI_LOG(stats, "Original Out[%7zd]", original.size());
   if (comparator == nullptr) {
     GUETZLI_LOG(stats, " <image too small for Butteraugli>\n");

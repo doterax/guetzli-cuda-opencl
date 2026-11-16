@@ -13,23 +13,28 @@
 
 namespace {
 
-void terminateHandler() {
-  try {
-    std::exception_ptr e = std::current_exception();
-    if (e) {
-      std::rethrow_exception(e);
-    }
-  } catch (const std::bad_alloc&) {
-    // fall through to the out-of-memory message below
-  } catch (const std::exception& e) {
-    std::fprintf(stderr, "Unhandled exception: %s\n", e.what());
-    std::exit(1);
-  } catch (...) {
-  }
+[[noreturn]] void exitOutOfMemory() {
   std::fprintf(stderr,
                "Unhandled exception. Most likely insufficient memory available.\n"
                "Make sure that there is 300MB/MPix of memory available.\n");
   std::exit(1);
+}
+
+// Reports the exception being handled (or none) and exits with code 1.
+[[noreturn]] void reportUnhandledException() {
+  try {
+    if (std::exception_ptr e = std::current_exception()) {
+      std::rethrow_exception(e);
+    }
+  } catch (const std::bad_alloc&) {
+    exitOutOfMemory();
+  } catch (const std::exception& e) {
+    std::fprintf(stderr, "Unhandled exception: %s\n", e.what());
+    std::exit(1);
+  } catch (...) {
+    exitOutOfMemory();
+  }
+  exitOutOfMemory();
 }
 
 int showVersion() {
@@ -38,11 +43,7 @@ int showVersion() {
   return 0;
 }
 
-}  // namespace
-
-int main(int argc, char** argv) {
-  std::set_terminate(terminateHandler);
-
+int run(int argc, char** argv) {
   const guetzli::CliResult cli = guetzli::parseCommandLine(argc, argv, std::cout, std::cerr);
   std::cout.flush();
   std::cerr.flush();
@@ -61,4 +62,15 @@ int main(int argc, char** argv) {
       break;
   }
   return exit_code;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  std::set_terminate(reportUnhandledException);
+  try {
+    return run(argc, argv);
+  } catch (...) {
+    reportUnhandledException();
+  }
 }

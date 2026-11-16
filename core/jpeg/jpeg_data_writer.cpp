@@ -127,7 +127,7 @@ bool encodeSof(const JpegData& jpg, JpegOutput out) {
 }
 
 // Builds a JPEG-style huffman code from the given bit depths.
-void buildHuffmanCode(uint8_t* depth, int* counts, int* values) {
+void buildHuffmanCode(const uint8_t* depth, int* counts, int* values) {
   for (int i = 0; i < JpegHistogram::kSize; ++i) {
     if (depth[i] > 0) {
       ++counts[depth[i]];
@@ -457,7 +457,8 @@ void encodeDctBlockSequential(const coeff_t* coeffs, const HuffmanCodeTable& dc_
   }
   int r = 0;
   for (int k = 1; k < 64; ++k) {
-    if ((temp = coeffs[kJpegNaturalOrder[k]]) == 0) {
+    temp = coeffs[kJpegNaturalOrder[k]];
+    if (temp == 0) {
       r++;
       continue;
     }

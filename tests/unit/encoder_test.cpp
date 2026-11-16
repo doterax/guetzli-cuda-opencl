@@ -64,13 +64,13 @@ class ScoreComparator final : public guetzli::Comparator {
   }
   [[nodiscard]] double scoreOutputSize(int size) const override { return score >= 0 ? score : size; }
   [[nodiscard]] bool distanceOk(double /*target_mul*/) const override { return true; }
-  [[nodiscard]] const std::vector<float> distmap() const override { return {}; }
+  [[nodiscard]] std::vector<float> distmap() const override { return {}; }
   [[nodiscard]] float distmapAggregate() const override { return 0; }
   [[nodiscard]] float blockErrorLimit() const override { return 1.0f; }
   void computeBlockErrorAdjustmentWeights(int direction, int /*max_block_dist*/, double /*target_mul*/,
                                           int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*distmap*/,
                                           std::vector<float>* block_weight) override {
-    std::fill(block_weight->begin(), block_weight->end(), direction > 0 ? 1.0f : 0.0f);
+    std::ranges::fill(*block_weight, direction > 0 ? 1.0f : 0.0f);
   }
 
   double score = -1;  // < 0: the output size

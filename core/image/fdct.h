@@ -24,7 +24,7 @@ namespace guetzli {
 // Computes the DCT (Discrete Cosine Transform) of the 8x8 array in 'block',
 // scaled up by a factor of 16. The values in 'block' are laid out row-by-row
 // and the result is written to the same memory area.
-void computeBlockDct(coeff_t* block);
+void computeBlockDct(coeff_t* coeffs);
 
 }  // namespace guetzli
 

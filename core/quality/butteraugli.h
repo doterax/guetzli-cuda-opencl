@@ -42,6 +42,11 @@ namespace butteraugli {
 class ButteraugliComparator {
  public:
   ButteraugliComparator(size_t xsize, size_t ysize, int step);
+  virtual ~ButteraugliComparator() = default;
+  ButteraugliComparator(const ButteraugliComparator&) = delete;
+  ButteraugliComparator& operator=(const ButteraugliComparator&) = delete;
+  ButteraugliComparator(ButteraugliComparator&&) = delete;
+  ButteraugliComparator& operator=(ButteraugliComparator&&) = delete;
 
   // Computes the butteraugli map between xyb0 and xyb1 and updates result.
   // Both xyb0 and xyb1 are in opsin-dynamics space.
@@ -51,17 +56,17 @@ class ButteraugliComparator {
   [[nodiscard]] int step() const { return step_; }
 
  protected:
-  virtual void blockDiffMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
+  virtual void blockDiffMap(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                             std::vector<float>* block_diff_dc, std::vector<float>* block_diff_ac);
 
-  virtual void edgeDetectorMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
+  virtual void edgeDetectorMap(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                                std::vector<float>* edge_detector_map);
 
-  virtual void edgeDetectorLowFreq(const std::vector<std::vector<float>>& rgb0,
-                                   const std::vector<std::vector<float>>& rgb1, std::vector<float>* block_diff_ac);
+  virtual void edgeDetectorLowFreq(const std::vector<std::vector<float>>& xyb0,
+                                   const std::vector<std::vector<float>>& xyb1, std::vector<float>* block_diff_ac);
 
-  virtual void combineChannels(const std::vector<std::vector<float>>& scale_xyb,
-                               const std::vector<std::vector<float>>& scale_xyb_dc,
+  virtual void combineChannels(const std::vector<std::vector<float>>& mask_xyb,
+                               const std::vector<std::vector<float>>& mask_xyb_dc,
                                const std::vector<float>& block_diff_dc, const std::vector<float>& block_diff_ac,
                                const std::vector<float>& edge_detector_map, std::vector<float>* result);
 
@@ -73,22 +78,22 @@ class ButteraugliComparator {
   const size_t res_ysize_;
 };
 
-float butteraugliScoreFromDiffmap(const std::vector<float>& distmap);
+float butteraugliScoreFromDiffmap(const std::vector<float>& diffmap);
 
 // Compute values of local frequency and dc masking based on the activity
 // in the two images.
-void mask(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1, size_t xsize,
+void mask(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
           size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc);
 
 // Computes difference metrics for one 8x8 block.
-void butteraugliBlockDiff(double rgb0[192], double rgb1[192], double diff_xyb_dc[3], double diff_xyb_ac[3],
+void butteraugliBlockDiff(double xyb0[192], double xyb1[192], double diff_xyb_dc[3], double diff_xyb_ac[3],
                           double diff_xyb_edge_dc[3]);
 
 void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb);
 
 void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
-                             const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& rgb0,
-                             std::vector<std::vector<float>>& rgb1);
+                             const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
+                             std::vector<std::vector<float>>& xyb1);
 
 void blur(size_t xsize, size_t ysize, float* channel, double sigma, double border_ratio = 0.0);
 

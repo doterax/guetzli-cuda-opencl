@@ -8,6 +8,9 @@
 #include "doctest.h"
 #include "test_support.h"
 
+// The optionals are checked with REQUIRE before use, which clang-tidy does not model.
+// NOLINTBEGIN(bugprone-unchecked-optional-access)
+
 using guetzli_test::sourceFile;
 
 TEST_CASE("format detection") {
@@ -109,3 +112,4 @@ TEST_CASE("readFile / writeFile round trip and errors") {
   CHECK_THROWS_AS((void)guetzli::readFile(path), guetzli::IoError);
   CHECK_THROWS_AS(guetzli::writeFile(sourceFile("no/such/dir/out.jpg"), "x"), guetzli::IoError);
 }
+// NOLINTEND(bugprone-unchecked-optional-access)

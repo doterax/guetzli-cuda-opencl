@@ -184,8 +184,9 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
         break;
       }
 
-      std::sort(global_order.begin(), global_order.end(),
-                [](const std::pair<int, float>& a, const std::pair<int, float>& b) { return a.second < b.second; });
+      std::ranges::sort(global_order, [](const std::pair<int, float>& a, const std::pair<int, float>& b) {
+        return a.second < b.second;
+      });
 
       double rel_size_delta = direction > 0 ? 0.01 : 0.0005;
       if (direction > 0 && comparator_->distanceOk(1.0)) {
@@ -198,8 +199,8 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
 
       if (first_up_iter) {
         const float limit = 0.75f * comparator_->blockErrorLimit();
-        auto it = std::partition_point(global_order.begin(), global_order.end(),
-                                       [=](const std::pair<int, float>& a) { return a.second < limit; });
+        auto it = std::ranges::partition_point(global_order,
+                                               [=](const std::pair<int, float>& a) { return a.second < limit; });
         min_coeffs_to_change = std::max<int>(min_coeffs_to_change, it - global_order.begin());
         first_up_iter = false;
       }

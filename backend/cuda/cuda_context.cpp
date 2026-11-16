@@ -88,7 +88,9 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
       CUjit_option jit_options[1];
       void* jit_optvals[1];
       jit_options[0] = CU_JIT_CACHE_MODE;
-      jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
+      // The driver API passes option values as void*.
+      jit_optvals[0] = reinterpret_cast<void*>(  // NOLINT(performance-no-int-to-ptr)
+          static_cast<uintptr_t>(CU_JIT_CACHE_OPTION_CA));
       CU_CHECK(driver_.module_load_data_ex(&module_, ptx.c_str(), 1, jit_options, jit_optvals));
     }
 
@@ -187,7 +189,7 @@ CuMemory CudaContext::allocateMemory(size_t bytes) {
     err = driver_.mem_alloc(&mem, bytes);
   }
   CU_CHECK(err);
-  return CuMemory(driver_, mem);
+  return {driver_, mem};
 }
 
 CuMemory CudaContext::uploadMemory(size_t bytes, const void* data) {
@@ -352,7 +354,6 @@ const char* translateCudaError(CUresult error_code) {
     case CUDA_ERROR_NOT_SUPPORTED:
       return "CUDA_ERROR_NOT_SUPPORTED";
     case CUDA_ERROR_UNKNOWN:
-      return "CUDA_ERROR_UNKNOWN";
     default:
       return "CUDA_ERROR_UNKNOWN";
   }

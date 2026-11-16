@@ -432,7 +432,7 @@ std::string OutputImage::frameTypeStr() const {
   int len =
       std::snprintf(buf, sizeof(buf), "f%d%d%d%d%d%d", component(0).factorX(), component(0).factorY(),
                     component(1).factorX(), component(1).factorY(), component(2).factorX(), component(2).factorY());
-  return std::string(buf, len);
+  return {buf, static_cast<std::size_t>(len)};
 }
 
 void CpuDctOps::copyFromJpegComponent(OutputImageComponent& c, const JpegComponent& comp, int factor_x, int factor_y,

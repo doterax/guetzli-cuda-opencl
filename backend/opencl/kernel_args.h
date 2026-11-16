@@ -16,7 +16,7 @@ namespace kernel_args {
 
 template <typename T>
 inline cl_int set(cl_kernel k, int idx, const T* t) {
-  return clSetKernelArg(k, idx, sizeof(T), t);
+  return clSetKernelArg(k, idx, sizeof(T), static_cast<const void*>(t));
 }
 
 inline cl_int set(cl_kernel k, int idx, const int* t) {

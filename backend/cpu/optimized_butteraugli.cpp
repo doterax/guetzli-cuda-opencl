@@ -71,6 +71,8 @@ void blurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float bord
     downsampled_output.resize(dxsize * dysize);
     output = downsampled_output.data();
   }
+  // Transposed second pass: the output of the first pass is ysize wide.
+  // NOLINTNEXTLINE(readability-suspicious-call-argument)
   convolutionOpt(ysize, dxsize, ystep, expn_size, diff, expn.data(), tmp.data(), border_ratio, output);
   if (xstep > 1) {
     for (size_t y = 0; y < ysize; y++) {
@@ -551,6 +553,15 @@ void butteraugliFftSquaredOpt(float block[kBlockSize]) {
 // Computes 8x8 FFT of each channel of xyb0 and xyb1 and adds the total squared
 // 3-dimensional xybdiff of the two blocks to diff_xyb_{dc,ac} and the average
 // diff on the edges to diff_xyb_edge_dc.
+// Index of the block edge that row/column `pos` of an 8x8 block lies on: `first` for 0, `last` for 7,
+// -1 for the inner rows/columns.
+inline int edgeIndex(int pos, int first, int last) {
+  if (pos == 0) {
+    return first;
+  }
+  return pos == 7 ? last : -1;
+}
+
 void butteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSize], float diff_xyb_dc[3],
                              float diff_xyb_ac[3], float diff_xyb_edge_dc[3]) {
   const float* csf8x8 = getContrastSensitivityMatrixOpt();
@@ -564,8 +575,8 @@ void butteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
     const int k = i % kBlockSize;
     const int kx = k % kBlockEdge;
     const int ky = k / kBlockEdge;
-    const int h_edge_idx = ky == 0 ? 1 : ky == 7 ? 3 : -1;
-    const int v_edge_idx = kx == 0 ? 0 : kx == 7 ? 2 : -1;
+    const int h_edge_idx = edgeIndex(ky, 1, 3);
+    const int v_edge_idx = edgeIndex(kx, 0, 2);
     if (h_edge_idx >= 0) {
       avgdiff_edge[c][h_edge_idx] += diff_xyb / kBlockEdge;
     }
@@ -666,7 +677,9 @@ void butteraugli8x8CornerEdgeDetectorDiffOpt(const size_t pos_x, const size_t po
 
 // https://en.wikipedia.org/wiki/Photopsin absordance modeling.
 const float* getOpsinAbsorbanceOpt() {
+  // A tuned butteraugli coefficient, not 1/sqrt(3) (differs by 4.65e-4).
   static const float kMix[12] = {
+      // NOLINTNEXTLINE(modernize-use-std-numbers)
       0.348036746003,  0.577814843137, 0.0544556093735, 0.774145581713, 0.26922717275,  0.767247733938,
       0.0366922708552, 0.920130265014, 0.0882062883536, 0.158581714673, 0.712857943858, 10.6524069248,
   };
@@ -740,8 +753,9 @@ static inline void clenshawRecursionOpt(const float x, const float* coefficients
   clenshawRecursionOpt<INDEX - 1>(x, coefficients, b1, b2);
 }
 
-// Base case
+// Base case (same signature as the primary template, which writes *b2).
 template <>
+// NOLINTNEXTLINE(readability-non-const-parameter)
 inline void clenshawRecursionOpt<0>(const float x, const float* coefficients, float* b1, float* b2) {
   const float x_b1 = x * (*b1);
   // The final iteration differs - no 2 * x_b1 here.
