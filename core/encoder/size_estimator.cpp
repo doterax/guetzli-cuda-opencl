@@ -37,12 +37,13 @@ size_t symbolBits(const uint8_t* depths, int symbol) {
 
 }  // namespace
 
-size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths) {
+size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths,
+                           HuffmanSortHint* hints) {
   std::vector<JpegHistogram> clustered = histograms;
   size_t num = histograms.size();
   std::vector<int> indexes(histograms.size());
   std::vector<uint8_t> clustered_depths(histograms.size() * JpegHistogram::kSize);
-  clusterHistograms(clustered.data(), &num, indexes.data(), clustered_depths.data());
+  clusterHistograms(clustered.data(), &num, indexes.data(), clustered_depths.data(), hints);
   depths->resize(clustered_depths.size());
   for (size_t i = 0; i < histograms.size(); ++i) {
     std::memcpy(&(*depths)[i * JpegHistogram::kSize], &clustered_depths[indexes[i] * JpegHistogram::kSize],
@@ -73,7 +74,7 @@ size_t estimateDcSize(const JpegData& jpg) {
 }
 
 JpegSizeEstimator::JpegSizeEstimator(const JpegData& jpg, size_t num_histograms, bool clear_metadata)
-    : histograms_(num_histograms), raw_bits_(num_histograms) {
+    : histograms_(num_histograms), raw_bits_(num_histograms), sort_hints_(2 * num_histograms) {
   // Truncated to int as the original encoder did; the sum is the same for any real header.
   const int header_size = static_cast<int>(jpegHeaderSize(jpg, clear_metadata));
   const int dc_size = static_cast<int>(estimateDcSize(jpg));
@@ -83,7 +84,7 @@ JpegSizeEstimator::JpegSizeEstimator(const JpegData& jpg, size_t num_histograms,
 }
 
 void JpegSizeEstimator::refreshEntropyCodes() {
-  ac_histogram_size_ = computeEntropyCodes(histograms_, &depths_);
+  ac_histogram_size_ = computeEntropyCodes(histograms_, &depths_, sort_hints_.data());
   recomputeBits();
 }
 

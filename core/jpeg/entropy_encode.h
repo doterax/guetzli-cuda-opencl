@@ -22,6 +22,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <vector>
+
 namespace guetzli {
 
 // A node of a Huffman tree.
@@ -36,6 +38,15 @@ struct HuffmanTree {
 
 bool setDepth(int p, HuffmanTree* pool, uint8_t* depth, int max_depth);
 
+// The sorted leaf orders (symbols) of the previous tree built with this hint, one per attempt of the depth-limit
+// loop (each attempt clamps the counts differently; large images need several). A histogram that changed only a
+// little since then sorts in near-linear time from it. Only affects speed: the order is a strict total order, so
+// the tree is the same with or without a hint.
+struct HuffmanSortHint {
+  static constexpr int kMaxAttempts = 32;
+  std::vector<int16_t> order[kMaxAttempts];
+};
+
 // This function will create a Huffman tree.
 //
 // The (data,length) contains the population counts.
@@ -48,7 +59,9 @@ bool setDepth(int p, HuffmanTree* pool, uint8_t* depth, int max_depth);
 // be at least 2 * length + 1 long.
 //
 // See http://en.wikipedia.org/wiki/Huffman_coding
-void createHuffmanTree(const uint32_t* data, size_t length, int tree_limit, HuffmanTree* tree, uint8_t* depth);
+// hint (optional) is read and updated, see HuffmanSortHint.
+void createHuffmanTree(const uint32_t* data, size_t length, int tree_limit, HuffmanTree* tree, uint8_t* depth,
+                       HuffmanSortHint* hint = nullptr);
 
 }  // namespace guetzli
 

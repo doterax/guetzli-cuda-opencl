@@ -291,25 +291,29 @@ size_t jpegHeaderSize(const JpegData& jpg, bool strip_metadata) {
   return num_bytes;
 }
 
-size_t clusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depth) {
+size_t clusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depth,
+                         HuffmanSortHint* hints) {
   memset(depth, 0, *num * JpegHistogram::kSize);
   size_t costs[kMaxComponents];
+  // Scratch for createHuffmanTree (fully initialized there); on the stack, as this runs in the encoder's inner loop.
+  HuffmanTree tree[(2 * JpegHistogram::kSize) + 1];
   for (size_t i = 0; i < *num; ++i) {
     histo_indexes[i] = i;
-    std::vector<HuffmanTree> tree(2 * JpegHistogram::kSize + 1);
-    createHuffmanTree(histo[i].counts, JpegHistogram::kSize, kJpegHuffmanMaxBitLength, tree.data(),
-                      &depth[i * JpegHistogram::kSize]);
+    createHuffmanTree(histo[i].counts, JpegHistogram::kSize, kJpegHuffmanMaxBitLength, tree,
+                      &depth[i * JpegHistogram::kSize], hints != nullptr ? &hints[i] : nullptr);
     costs[i] = (histogramHeaderCost(histo[i]) + histogramEntropyCost(histo[i], &depth[i * JpegHistogram::kSize]));
   }
   const size_t orig_num = *num;
+  size_t merge_step = 0;
   while (*num > 1) {
     size_t last = *num - 1;
     size_t second_last = *num - 2;
     JpegHistogram combined(histo[last]);
     combined.addHistogram(histo[second_last]);
-    std::vector<HuffmanTree> tree(2 * JpegHistogram::kSize + 1);
     uint8_t depth_combined[JpegHistogram::kSize] = {0};
-    createHuffmanTree(combined.counts, JpegHistogram::kSize, kJpegHuffmanMaxBitLength, tree.data(), depth_combined);
+    createHuffmanTree(combined.counts, JpegHistogram::kSize, kJpegHuffmanMaxBitLength, tree, depth_combined,
+                      hints != nullptr ? &hints[orig_num + merge_step] : nullptr);
+    ++merge_step;
     size_t cost_combined = (histogramHeaderCost(combined) + histogramEntropyCost(combined, depth_combined));
     if (cost_combined < costs[last] + costs[second_last]) {
       histo[second_last] = combined;

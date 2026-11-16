@@ -17,7 +17,9 @@ namespace guetzli {
 
 // Clusters histograms, stores the code length of each symbol of histogram i in
 // (*depths)[i * JpegHistogram::kSize ...] and returns the size of the Huffman table headers in bytes.
-size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths);
+// hints: optional, 2 * histograms.size() entries kept between calls (speed only, see HuffmanSortHint).
+size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::vector<uint8_t>* depths,
+                           HuffmanSortHint* hints = nullptr);
 
 // Estimated size of the DC data of jpg in bytes (including its Huffman tables).
 [[nodiscard]] size_t estimateDcSize(const JpegData& jpg);
@@ -53,6 +55,7 @@ class JpegSizeEstimator {
   std::vector<uint8_t> depths_;
   // Per histogram: its code bits before the escape-byte estimate; and the sum of HistogramEntropyCost().
   std::vector<size_t> raw_bits_;
+  std::vector<HuffmanSortHint> sort_hints_;  // the clustering's Huffman trees change little between refreshes
   size_t total_bits_ = 0;
 };
 

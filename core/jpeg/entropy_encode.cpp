@@ -60,6 +60,25 @@ static inline bool sortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1)
   return v0.index_right_or_value > v1.index_right_or_value;
 }
 
+namespace {
+
+constexpr size_t kMaxHintedLength = 512;  // alphabet sizes the hint supports (stack scratch)
+
+// Sorts tree[0, n) by sortHuffmanTree with insertion sort: near-linear when the input is almost sorted.
+void insertionSort(HuffmanTree* tree, size_t n) {
+  for (size_t i = 1; i < n; ++i) {
+    const HuffmanTree v = tree[i];
+    size_t j = i;
+    while (j > 0 && sortHuffmanTree(v, tree[j - 1])) {
+      tree[j] = tree[j - 1];
+      --j;
+    }
+    tree[j] = v;
+  }
+}
+
+}  // namespace
+
 // This function will create a Huffman tree.
 //
 // The catch here is that the tree cannot be arbitrarily deep.
@@ -76,18 +95,38 @@ static inline bool sortHuffmanTree(const HuffmanTree& v0, const HuffmanTree& v1)
 //
 // See http://en.wikipedia.org/wiki/Huffman_coding
 void createHuffmanTree(const uint32_t* data, const size_t length, const int tree_limit, HuffmanTree* tree,
-                       uint8_t* depth) {
+                       uint8_t* depth, HuffmanSortHint* hint) {
   // For block sizes below 64 kB, we never need to do a second iteration
   // of this loop. Probably all of our block sizes will be smaller than
   // that, so this loop is mostly of academic interest. If we actually
   // would need this, we would be better off with the Katajainen algorithm.
-  for (uint32_t count_limit = 1;; count_limit *= 2) {
+  int attempt = 0;
+  for (uint32_t count_limit = 1;; count_limit *= 2, ++attempt) {
     size_t n = 0;
-    for (size_t i = length; i != 0;) {
-      --i;
-      if (data[i] != 0u) {
-        const uint32_t count = std::max<uint32_t>(data[i], count_limit);
-        tree[n++] = HuffmanTree(count, -1, static_cast<int16_t>(i));
+    std::vector<int16_t>* order =
+        (hint != nullptr && attempt < HuffmanSortHint::kMaxAttempts) ? &hint->order[attempt] : nullptr;
+    const bool hinted = order != nullptr && !order->empty() && length <= kMaxHintedLength;
+    if (hinted) {
+      // Leaves in the previous order first, then symbols that were not in it.
+      bool taken[kMaxHintedLength] = {};
+      for (const int16_t s : *order) {
+        if (static_cast<size_t>(s) < length && data[s] != 0u) {
+          tree[n++] = HuffmanTree(std::max<uint32_t>(data[s], count_limit), -1, s);
+          taken[s] = true;
+        }
+      }
+      for (size_t i = 0; i < length; ++i) {
+        if (data[i] != 0u && !taken[i]) {
+          tree[n++] = HuffmanTree(std::max<uint32_t>(data[i], count_limit), -1, static_cast<int16_t>(i));
+        }
+      }
+    } else {
+      for (size_t i = length; i != 0;) {
+        --i;
+        if (data[i] != 0u) {
+          const uint32_t count = std::max<uint32_t>(data[i], count_limit);
+          tree[n++] = HuffmanTree(count, -1, static_cast<int16_t>(i));
+        }
       }
     }
 
@@ -96,7 +135,18 @@ void createHuffmanTree(const uint32_t* data, const size_t length, const int tree
       break;
     }
 
-    std::sort(tree, tree + n, sortHuffmanTree);
+    // A strict total order (indices are unique): any sort gives the same result.
+    if (hinted) {
+      insertionSort(tree, n);
+    } else {
+      std::sort(tree, tree + n, [](const HuffmanTree& a, const HuffmanTree& b) { return sortHuffmanTree(a, b); });
+    }
+    if (order != nullptr) {
+      order->resize(n);
+      for (size_t k = 0; k < n; ++k) {
+        (*order)[k] = tree[k].index_right_or_value;
+      }
+    }
 
     // The nodes are:
     // [0, n): the sorted leaf nodes that we start with.

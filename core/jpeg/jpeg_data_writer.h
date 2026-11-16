@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "core/jpeg/jpeg_data.h"
+#include "core/jpeg/entropy_encode.h"
 
 namespace guetzli {
 
@@ -85,7 +86,10 @@ size_t histogramHeaderCost(const JpegHistogram& histo);
 
 void updateAcHistogramForDctBlock(const coeff_t* coeffs, JpegHistogram* ac_histogram);
 
-size_t clusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depths);
+// hints (optional, 2 * *num entries) speed up repeated clustering of slowly changing histograms (HuffmanSortHint);
+// the result does not depend on them.
+size_t clusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, uint8_t* depths,
+                         HuffmanSortHint* hints = nullptr);
 
 }  // namespace guetzli
 
