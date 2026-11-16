@@ -20,6 +20,7 @@
 
 #include <cassert>
 #include <algorithm>
+#include <utility>
 
 namespace guetzli {
 
@@ -110,7 +111,7 @@ void createHuffmanTree(const uint32_t* data, const size_t length, const int tree
       // Leaves in the previous order first, then symbols that were not in it.
       bool taken[kMaxHintedLength] = {};
       for (const int16_t s : *order) {
-        if (static_cast<size_t>(s) < length && data[s] != 0u) {
+        if (s >= 0 && std::cmp_less(s, length) && data[s] != 0u) {
           tree[n++] = HuffmanTree(std::max<uint32_t>(data[s], count_limit), -1, s);
           taken[s] = true;
         }
