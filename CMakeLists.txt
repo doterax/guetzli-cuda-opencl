@@ -126,6 +126,10 @@ target_link_libraries(guetzli_app PUBLIC guetzli_backend)
 
 add_executable(guetzli app/main.cpp)
 target_link_libraries(guetzli PRIVATE guetzli_app guetzli_backend guetzli_core guetzli_link)
+if(NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  # Release binaries carry no symbol table or debug info (about 3 MB of the Windows exe). The code is unchanged.
+  target_link_options(guetzli PRIVATE $<$<CONFIG:Release>:-s>)
+endif()
 
 enable_testing()
 if(GUETZLI_BUILD_TESTS)
