@@ -23,7 +23,6 @@ inline float DotProductOpt(const float u[3], const float v[3]) {
 void ConvolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t offset,
                     const float* __restrict__ multipliers, const float* __restrict__ inp, float border_ratio,
                     float* __restrict__ result) {
-  PROFILER_FUNC;
   float weight_no_border = 0;
   for (size_t j = 0; j <= 2 * offset; ++j) {
     weight_no_border += multipliers[j];
@@ -49,7 +48,6 @@ void ConvolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t
 }
 
 void BlurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float border_ratio) {
-  PROFILER_FUNC;
   float m = 2.25;  // Accuracy increases when m is increased.
   const float scaler = -1.0f / (2.0f * sigma * sigma);
   // For m = 9.0: exp(-scaler * diff * diff) < 2^ {-52}
@@ -262,7 +260,6 @@ void XybDiffLowFreqSquaredAccumulateOpt(float r0, float g0, float b0, float r1, 
   float valx1, valy1, valz1;
   XybLowFreqToValsOpt(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
-    PROFILER_ZONE("XybDiff r1=g1=b1=0");
     res[0] += factor * valx0 * valx0;
     res[1] += factor * valy0 * valy0;
     res[2] += factor * valz0 * valz0;
@@ -531,7 +528,6 @@ void ButteraugliFFTSquaredOpt(float block[kBlockSize]) {
 // diff on the edges to diff_xyb_edge_dc.
 void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSize], float diff_xyb_dc[3],
                              float diff_xyb_ac[3], float diff_xyb_edge_dc[3]) {
-  PROFILER_FUNC;
   const float* csf8x8 = GetContrastSensitivityMatrixOpt();
 
   float avgdiff_xyb[3] = {0.0};
@@ -609,7 +605,6 @@ void ButteraugliBlockDiffOpt(float xyb0[3 * kBlockSize], float xyb1[3 * kBlockSi
 void Butteraugli8x8CornerEdgeDetectorDiffOpt(const size_t pos_x, const size_t pos_y, const size_t xsize,
                                              const size_t ysize, const std::vector<std::vector<float>>& blurred0,
                                              const std::vector<std::vector<float>>& blurred1, float diff_xyb[3]) {
-  PROFILER_FUNC;
   int local_count = 0;
   float local_xyb[3] = {0};
   static const float w = 0.711100840192;
@@ -660,24 +655,9 @@ void OpsinAbsorbanceOpt(const float in[3], float out[3]) {
   out[2] = mix[8] * in[0] + mix[9] * in[1] + mix[10] * in[2] + mix[11];
 }
 
-float GammaMinArgOpt() {
-  float in[3] = {0.0, 0.0, 0.0};
-  float out[3];
-  OpsinAbsorbanceOpt(in, out);
-  return std::min(out[0], std::min(out[1], out[2]));
-}
-
-float GammaMaxArgOpt() {
-  float in[3] = {255.0, 255.0, 255.0};
-  float out[3];
-  OpsinAbsorbanceOpt(in, out);
-  return std::max(out[0], std::max(out[1], out[2]));
-}
-
 void MaskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<std::vector<float>>& c0,
                                 const std::vector<std::vector<float>>& c1, std::vector<std::vector<float>>& xyb0,
                                 std::vector<std::vector<float>>& xyb1) {
-  PROFILER_FUNC;
   for (size_t y = 0; y < ysize; ++y) {
     for (size_t x = 0; x < xsize; ++x) {
       size_t ix = y * xsize + x;
@@ -721,26 +701,6 @@ void MaskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<st
       }
     }
   }
-}
-
-float SimpleGammaOpt(float v) {
-  static const float kGamma = 0.387494322593;
-  static const float limit = 43.01745241042018;
-  float bright = v - limit;
-  if (bright >= 0) {
-    static const float mul = 0.0383723643799;
-    v -= bright * mul;
-  }
-  static const float limit2 = 94.68634353321337;
-  float bright2 = v - limit2;
-  if (bright2 >= 0) {
-    static const float mul = 0.22885405968;
-    v -= bright2 * mul;
-  }
-  static const float offset = 0.156775786057;
-  static const float scale = 8.898059160493739;
-  float retval = scale * (offset + pow(v, kGamma));
-  return retval;
 }
 
 // Polynomial evaluation via Clenshaw's scheme (similar to Horner's).
@@ -827,7 +787,6 @@ static inline float GammaOpt(float v) {
 }
 
 void OpsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
-  PROFILER_FUNC;
   std::vector<std::vector<float>> blurred = rgb;
   static const float kSigma = 1.1;
   for (int i = 0; i < 3; ++i) {
@@ -859,7 +818,6 @@ void OpsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<f
 }
 
 void ScaleImageOpt(float scale, std::vector<float>* result) {
-  PROFILER_FUNC;
   for (size_t i = 0; i < result->size(); ++i) {
     (*result)[i] *= static_cast<float>(scale);
   }
@@ -868,7 +826,6 @@ void ScaleImageOpt(float scale, std::vector<float>* result) {
 // Making a cluster of local errors to be more impactful than
 // just a single error.
 void CalculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t step, std::vector<float>* diffmap) {
-  PROFILER_FUNC;
   // Shift the diffmap more correctly above the pixels, from 2.5 pixels to 0.5
   // pixels distance over the original image. The border of 2 pixels on top and
   // left side and 3 pixels on right and bottom side are zeroed, but these
@@ -930,7 +887,6 @@ static std::array<float, 512> MakeMaskOpt(float extmul, float extoff, float mul,
 }
 
 float MaskXOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 0.975741017749f;
   static const float extoff = -4.25328244168f;
   static const float offset = 0.454909521427f;
@@ -941,7 +897,6 @@ float MaskXOpt(float delta) {
 }
 
 float MaskYOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 0.373995618954f;
   static const float extoff = 1.5307267433f;
   static const float offset = 0.911952641929f;
@@ -952,7 +907,6 @@ float MaskYOpt(float delta) {
 }
 
 float MaskBOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 0.61582234137f;
   static const float extoff = -4.25376118646f;
   static const float offset = 1.05105070921f;
@@ -963,7 +917,6 @@ float MaskBOpt(float delta) {
 }
 
 float MaskDcXOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 1.79116943438f;
   static const float extoff = -3.86797479189f;
   static const float offset = 0.670960225853f;
@@ -974,7 +927,6 @@ float MaskDcXOpt(float delta) {
 }
 
 float MaskDcYOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 0.212223514236f;
   static const float extoff = -3.65647120524f;
   static const float offset = 1.73396799447f;
@@ -985,7 +937,6 @@ float MaskDcYOpt(float delta) {
 }
 
 float MaskDcBOpt(float delta) {
-  PROFILER_FUNC;
   static const float extmul = 0.349376011816f;
   static const float extoff = -0.894711072781f;
   static const float offset = 0.901647926679f;
@@ -1000,7 +951,6 @@ float MaskDcBOpt(float delta) {
 //   x - offset .. x + square_size - offset - 1,
 //   y - offset .. y + square_size - offset - 1.
 void MinSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysize, float* values) {
-  PROFILER_FUNC;
   // offset is not negative and smaller than square_size.
   assert(offset < square_size);
   std::vector<float> tmp(xsize * ysize);
@@ -1030,62 +980,8 @@ void MinSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
   }
 }
 
-void Average5x5Opt(int xsize, int ysize, std::vector<float>* diffs) {
-  PROFILER_FUNC;
-  if (xsize < 4 || ysize < 4) {
-    // TODO: Make this work for small dimensions as well.
-    return;
-  }
-  static const float w = 0.679144890667f;
-  static const float scale = 1.0f / (5.0f + 4 * w);
-  std::vector<float> result = *diffs;
-  std::vector<float> tmp0 = *diffs;
-  std::vector<float> tmp1 = *diffs;
-  ScaleImage(w, &tmp1);
-  for (int y = 0; y < ysize; y++) {
-    const int row0 = y * xsize;
-    result[row0 + 1] += tmp0[row0];
-    result[row0 + 0] += tmp0[row0 + 1];
-    result[row0 + 2] += tmp0[row0 + 1];
-    for (int x = 2; x < xsize - 2; ++x) {
-      result[row0 + x - 1] += tmp0[row0 + x];
-      result[row0 + x + 1] += tmp0[row0 + x];
-    }
-    result[row0 + xsize - 3] += tmp0[row0 + xsize - 2];
-    result[row0 + xsize - 1] += tmp0[row0 + xsize - 2];
-    result[row0 + xsize - 2] += tmp0[row0 + xsize - 1];
-    if (y > 0) {
-      const int rowd1 = row0 - xsize;
-      result[rowd1 + 1] += tmp1[row0];
-      result[rowd1 + 0] += tmp0[row0];
-      for (int x = 1; x < xsize - 1; ++x) {
-        result[rowd1 + x + 1] += tmp1[row0 + x];
-        result[rowd1 + x + 0] += tmp0[row0 + x];
-        result[rowd1 + x - 1] += tmp1[row0 + x];
-      }
-      result[rowd1 + xsize - 1] += tmp0[row0 + xsize - 1];
-      result[rowd1 + xsize - 2] += tmp1[row0 + xsize - 1];
-    }
-    if (y + 1 < ysize) {
-      const int rowu1 = row0 + xsize;
-      result[rowu1 + 1] += tmp1[row0];
-      result[rowu1 + 0] += tmp0[row0];
-      for (int x = 1; x < xsize - 1; ++x) {
-        result[rowu1 + x + 1] += tmp1[row0 + x];
-        result[rowu1 + x + 0] += tmp0[row0 + x];
-        result[rowu1 + x - 1] += tmp1[row0 + x];
-      }
-      result[rowu1 + xsize - 1] += tmp0[row0 + xsize - 1];
-      result[rowu1 + xsize - 2] += tmp1[row0 + xsize - 1];
-    }
-  }
-  *diffs = result;
-  ScaleImageOpt(scale, diffs);
-}
-
 void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1,
                        size_t xsize, size_t ysize, std::vector<std::vector<float>>* mask) {
-  PROFILER_FUNC;
   mask->resize(3, std::vector<float>(xyb0[0].size()));
   float valsh0[3] = {0.0};
   float valsv0[3] = {0.0};
@@ -1137,7 +1033,6 @@ void DiffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
 
 void MaskOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std::vector<float>>& xyb1, size_t xsize,
              size_t ysize, std::vector<std::vector<float>>* mask, std::vector<std::vector<float>>* mask_dc) {
-  PROFILER_FUNC;
   mask->resize(3);
   for (int i = 0; i < 3; ++i) {
     (*mask)[i].resize(xsize * ysize);

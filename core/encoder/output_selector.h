@@ -23,9 +23,6 @@ class OutputSelector {
   // it beats the best so far. Logs " Score[...]", " (*)" if kept, and the end of the line.
   void offer(const std::string& encoded, const Comparator& comparator);
 
-  // Sets the result without scoring it (for images too small for Butteraugli).
-  void accept(std::string encoded, double score);
-
   [[nodiscard]] bool hasOutput() const { return score_ >= 0; }
   [[nodiscard]] const std::string& best() const { return best_; }
   [[nodiscard]] double bestScore() const { return score_; }

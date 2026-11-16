@@ -329,17 +329,6 @@ size_t ClusterHistograms(JpegHistogram* histo, size_t* num, int* histo_indexes, 
   return (total_cost + 7) / 8;
 }
 
-size_t EstimateJpegDataSize(const int num_components, const std::vector<JpegHistogram>& histograms) {
-  assert(histograms.size() == 2 * num_components);
-  std::vector<JpegHistogram> clustered = histograms;
-  size_t num_dc = num_components;
-  size_t num_ac = num_components;
-  int indexes[kMaxComponents];
-  uint8_t depth[kMaxComponents * JpegHistogram::kSize];
-  return (ClusterHistograms(&clustered[0], &num_dc, indexes, depth) +
-          ClusterHistograms(&clustered[num_components], &num_ac, indexes, depth));
-}
-
 namespace {
 
 // Writes DHT and SOS marker segments to out and fills in DC/AC Huffman tables
@@ -523,16 +512,6 @@ bool WriteJpeg(const JPEGData& jpg, bool strip_metadata, JPEGOutput out) {
           EncodeDQT(jpg.quant, out) && EncodeSOF(jpg, out) &&
           BuildAndEncodeHuffmanCodes(jpg, out, &dc_codes, &ac_codes) && EncodeScan(jpg, dc_codes, ac_codes, out) &&
           JPEGWrite(out, kEOIMarker, sizeof(kEOIMarker)) && (strip_metadata || JPEGWrite(out, jpg.tail_data)));
-}
-
-int NullOut(void* data, const uint8_t* buf, size_t count) {
-  return count;
-}
-
-void BuildSequentialHuffmanCodes(const JPEGData& jpg, std::vector<HuffmanCodeTable>* dc_huffman_code_tables,
-                                 std::vector<HuffmanCodeTable>* ac_huffman_code_tables) {
-  JPEGOutput out(NullOut, nullptr);
-  BuildAndEncodeHuffmanCodes(jpg, out, dc_huffman_code_tables, ac_huffman_code_tables);
 }
 
 }  // namespace guetzli

@@ -36,9 +36,4 @@ void OutputSelector::offer(const std::string& encoded, const Comparator& compara
   GUETZLI_LOG(stats_, "\n");
 }
 
-void OutputSelector::accept(std::string encoded, double score) {
-  best_ = std::move(encoded);
-  score_ = score;
-}
-
 }  // namespace guetzli

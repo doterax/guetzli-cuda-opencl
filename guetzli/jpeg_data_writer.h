@@ -48,9 +48,6 @@ struct HuffmanCodeTable {
   int code[256];
 };
 
-void BuildSequentialHuffmanCodes(const JPEGData& jpg, std::vector<HuffmanCodeTable>* dc_huffman_code_tables,
-                                 std::vector<HuffmanCodeTable>* ac_huffman_code_tables);
-
 struct JpegHistogram {
   static const int kSize = kJpegHuffmanAlphabetSize + 1;
 
@@ -81,7 +78,6 @@ struct JpegHistogram {
 void BuildDCHistograms(const JPEGData& jpg, JpegHistogram* histo);
 void BuildACHistograms(const JPEGData& jpg, JpegHistogram* histo);
 size_t JpegHeaderSize(const JPEGData& jpg, bool strip_metadata);
-size_t EstimateJpegDataSize(const int num_components, const std::vector<JpegHistogram>& histograms);
 
 size_t HistogramEntropyCost(const JpegHistogram& histo, const uint8_t depths[256]);
 size_t HistogramHeaderCost(const JpegHistogram& histo);

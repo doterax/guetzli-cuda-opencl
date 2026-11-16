@@ -10,9 +10,6 @@
 #include "backend/factory.h"
 #include "guetzli/version.h"
 #include "logging/logger.h"
-#ifdef __USE_GPERFTOOLS__
-#include <google/profiler.h>
-#endif
 
 namespace {
 
@@ -42,9 +39,6 @@ int showVersion() {
 }  // namespace
 
 int main(int argc, char** argv) {
-#ifdef __USE_GPERFTOOLS__
-  ProfilerStart("guetzli.prof");
-#endif
   std::set_terminate(terminateHandler);
 
   const guetzli::CliResult cli = guetzli::parseCommandLine(argc, argv, std::cout, std::cerr);
@@ -64,9 +58,5 @@ int main(int argc, char** argv) {
     case guetzli::CliResult::Action::Exit:
       break;
   }
-
-#ifdef __USE_GPERFTOOLS__
-  ProfilerStop();
-#endif
   return exit_code;
 }
