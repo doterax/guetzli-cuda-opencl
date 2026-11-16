@@ -25,7 +25,8 @@ TEST_CASE("opsin dynamics of a flat block is flat") {
   }
   guetzli::opsinDynamicsBlock8x8(rgb);
   for (auto& c : rgb) {
-    CHECK(std::isfinite(c[0]));
+    // Not std::isfinite: -ffast-math lets the compiler assume it is true. NaN/inf fail this bound.
+    CHECK(std::fabs(c[0]) < 1e6f);
     for (int i = 1; i < guetzli::kOpsinBlockSize; ++i) {
       // Border handling of the 8x8 blur is exact only in real arithmetic;
       // float rounding leaves ~2e-4 relative ripple.

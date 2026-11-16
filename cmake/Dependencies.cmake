@@ -70,8 +70,9 @@ if(GUETZLI_WITH_CUDA)
   list(APPEND GUETZLI_DEP_LIBRARIES ${CMAKE_DL_LIBS})  # dlopen on Linux
 endif()
 
-# OpenCL: Apple framework; a static ICD loader from the superbuild; otherwise the system loader.
-# On Windows OpenCL.dll is a system DLL: link it dynamically even in a -static build.
+# OpenCL: Apple framework; else the static Khronos ICD loader from the superbuild (preferred: the binary
+# then needs no OpenCL.dll and finds the vendor drivers through the registry / ICD files at runtime);
+# else the bundled import library for OpenCL.dll (Windows) or the system loader.
 if(GUETZLI_WITH_OPENCL)
   if(APPLE)
     list(APPEND GUETZLI_DEP_LIBRARIES "-framework OpenCL")

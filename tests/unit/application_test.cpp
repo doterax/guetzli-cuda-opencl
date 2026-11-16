@@ -12,9 +12,7 @@ using guetzli_test::sourceFile;
 
 namespace {
 
-std::string tempPath(const char* suffix) {
-  return std::string(std::tmpnam(nullptr)) + suffix;
-}
+using guetzli_test::tempPath;
 
 guetzli::Config cpuConfig(const std::string& input, const std::string& output) {
   guetzli::Config c;

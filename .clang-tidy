@@ -37,6 +37,9 @@ Checks: >
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(.*[/\\])?(tests[/\\]unit|app|config|core|backend|kernels|logging)[/\\].*'
 FormatStyle: file
+# The release flags include -ffast-math, so clang warns about every NaN/infinity in headers (doctest, the
+# OpenCL wrapper). Our code must not rely on them (std::isfinite etc. may be folded away).
+ExtraArgs: ['-Wno-nan-infinity-disabled']
 CheckOptions:
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case

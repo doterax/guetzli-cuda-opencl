@@ -266,6 +266,14 @@ jobs:
           BIN="build/${{ matrix.preset }}/bin/guetzli.exe"
           echo "--- DLL dependencies ---"
           objdump -p "$BIN" | grep "DLL Name" || true
+          # The release must start on a clean Windows 10/11: only system DLLs and the UCRT may be imported
+          # (nvcuda.dll is loaded at runtime; the OpenCL ICD loader is linked statically).
+          extra=$(objdump -p "$BIN" | sed -n 's/.*DLL Name: //p' | tr 'A-Z' 'a-z' \
+                  | grep -v -E '^(kernel32|advapi32|cfgmgr32|ole32|user32|shell32|ws2_32|bcrypt|api-ms-win-crt-.*)\.dll$' || true)
+          if [ -n "$extra" ]; then
+            for dll in $extra; do echo "::error::guetzli.exe imports a non-system DLL: $dll"; done
+            exit 1
+          fi
           echo "--- quick smoke ---"
           "$BIN" --version 2>&1 || echo "exit code: $?"
 

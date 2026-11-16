@@ -56,7 +56,7 @@ TEST_CASE("defaults") {
   CHECK_FALSE(c.backend.check_against_cpu);
   CHECK_FALSE(c.backend.device.has_value());
   REQUIRE(c.io.memlimit_mb.has_value());
-  CHECK(*c.io.memlimit_mb == 6000);
+  CHECK(c.io.memlimit_mb == 6000);
   CHECK(c.log.level == guetzli::LogLevel::Info);
 }
 
@@ -66,13 +66,13 @@ TEST_CASE("encoder, io and log options") {
   CHECK(c.encoder.quality == 84);
   CHECK(c.encoder.blend_on_white);
   CHECK(c.log.level == guetzli::LogLevel::Debug);
-  CHECK(*c.io.memlimit_mb == 1234);
+  CHECK(c.io.memlimit_mb == 1234);
 }
 
 TEST_CASE("memory limit: --nomemlimit, -1 and the last one wins") {
   CHECK_FALSE(runConfig(parse({"--nomemlimit", "a", "b"})).io.memlimit_mb.has_value());
   CHECK_FALSE(runConfig(parse({"--memlimit", "-1", "a", "b"})).io.memlimit_mb.has_value());
-  CHECK(*runConfig(parse({"--nomemlimit", "--memlimit", "500", "a", "b"})).io.memlimit_mb == 500);
+  CHECK(runConfig(parse({"--nomemlimit", "--memlimit", "500", "a", "b"})).io.memlimit_mb == 500);
   CHECK_FALSE(runConfig(parse({"--memlimit", "500", "--nomemlimit", "a", "b"})).io.memlimit_mb.has_value());
 
   const Parsed negative = parse({"--memlimit", "-5", "a", "b"});
@@ -127,7 +127,7 @@ TEST_CASE("mode flags: the last one wins") {
 
 TEST_CASE("--device") {
   REQUIRE(runConfig(parse({"--device", "1", "a", "b"})).backend.device.has_value());
-  CHECK(*runConfig(parse({"--device", "1", "a", "b"})).backend.device == 1);
+  CHECK(runConfig(parse({"--device", "1", "a", "b"})).backend.device == 1);
   // A negative index always meant "default selection".
   CHECK_FALSE(runConfig(parse({"--device", "-1", "a", "b"})).backend.device.has_value());
 }

@@ -103,7 +103,7 @@ TEST_CASE("decodePng rejects truncated data") {
 }
 
 TEST_CASE("readFile / writeFile round trip and errors") {
-  const std::string path = std::string(std::tmpnam(nullptr)) + ".guetzli_test";
+  const std::string path = guetzli_test::tempPath(".guetzli_test");
   const std::string contents("binary\0data\r\n", 13);
   guetzli::writeFile(path, contents);
   CHECK(guetzli::readFile(path) == contents);

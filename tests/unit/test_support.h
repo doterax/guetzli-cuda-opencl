@@ -2,6 +2,9 @@
 #ifndef GUETZLI_TESTS_UNIT_TEST_SUPPORT_H_
 #define GUETZLI_TESTS_UNIT_TEST_SUPPORT_H_
 
+#include <atomic>
+#include <filesystem>
+#include <random>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,6 +17,15 @@
 #endif
 
 namespace guetzli_test {
+
+// A fresh path in the temp directory (not created): a random tag per run plus a counter.
+inline std::string tempPath(std::string_view suffix) {
+  static const unsigned int kRun = std::random_device{}();
+  static std::atomic<int> counter{0};
+  const std::string name =
+      "guetzli_test_" + std::to_string(kRun) + "_" + std::to_string(counter++) + std::string(suffix);
+  return (std::filesystem::temp_directory_path() / name).string();
+}
 
 // Absolute path of a file in the source tree, e.g. "tests/unit/data/rgb_16x16.png".
 inline std::string sourceFile(const char* relative) {

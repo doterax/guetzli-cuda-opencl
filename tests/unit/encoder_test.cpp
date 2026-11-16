@@ -344,6 +344,7 @@ TEST_CASE("Encoder: encodes RGB pixels on the CPU backend") {
   const std::optional<std::string> jpeg = encoder.encodeRgb(noisyImage(w, h, 5), w, h);
   REQUIRE(jpeg);
   guetzli::JpegData read;
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): REQUIRE(jpeg) above
   REQUIRE(guetzli::readJpeg(*jpeg, guetzli::JPEG_READ_ALL, &read));
   CHECK(read.width == w);
   CHECK(read.height == h);
@@ -355,6 +356,7 @@ TEST_CASE("Encoder: encodes RGB pixels on the CPU backend") {
   CHECK(logger.text(LogLevel::Error).empty());
 
   SUBCASE("re-encoding its own output works too") {
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): REQUIRE(jpeg) above
     CHECK(encoder.encodeJpeg(*jpeg));
   }
 }

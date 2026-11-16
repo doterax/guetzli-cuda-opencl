@@ -28,12 +28,14 @@ void* symbol(LibraryHandle lib, const char* name) {
 using LibraryHandle = void*;
 
 LibraryHandle openLibrary() {
-#if defined(__APPLE__)
+#ifdef __APPLE__
   // macOS: CUDA driver is rarely available; try anyway
   return dlopen("libcuda.dylib", RTLD_LAZY);
 #else
   LibraryHandle lib = dlopen("libcuda.so.1", RTLD_LAZY);
-  if (!lib) lib = dlopen("libcuda.so", RTLD_LAZY);
+  if (lib == nullptr) {
+    lib = dlopen("libcuda.so", RTLD_LAZY);
+  }
   return lib;
 #endif
 }
