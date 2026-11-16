@@ -78,10 +78,10 @@ class ButteraugliComparator : public Comparator {
   const float target_distance_;
   const std::vector<uint8_t>& rgb_orig_;
   ButteraugliOps& ops_;
-  int block_x_;
-  int block_y_;
-  int factor_x_;
-  int factor_y_;
+  int block_x_{};
+  int block_y_{};
+  int factor_x_{};
+  int factor_y_{};
   // Opsin-dynamics image of the original (single-precision sRGB table): the reference of every Compare().
   std::vector<std::vector<float>> rgb_orig_opsin_;
   // Mask(original, original); computed by the first StartBlockComparisons() and reused.

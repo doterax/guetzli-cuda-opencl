@@ -2,6 +2,7 @@
 #ifndef GUETZLI_BACKEND_CHECK_MISMATCH_H_
 #define GUETZLI_BACKEND_CHECK_MISMATCH_H_
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -20,9 +21,7 @@ size_t reportMismatches(ILogger& logger, const char* what, const char* part, con
     const double diff = std::fabs(static_cast<double>(reference[i]) - static_cast<double>(tested[i]));
     if (diff > tolerance) {
       ++count;
-      if (diff > max_diff) {
-        max_diff = diff;
-      }
+      max_diff = std::max(diff, max_diff);
     }
   }
   if (count > 0) {

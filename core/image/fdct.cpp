@@ -160,14 +160,14 @@ const coeff_t kTable35[7] = {26722, 25172, 22654, 19266, 15137, 10426, 5315};
 
 inline void columnDct(coeff_t* in) {
   for (int i = 0; i < 8; ++i) {
-    int m0;
-    int m1;
-    int m2;
-    int m3;
-    int m4;
-    int m5;
-    int m6;
-    int m7;
+    int m0 = 0;
+    int m1 = 0;
+    int m2 = 0;
+    int m3 = 0;
+    int m4 = 0;
+    int m5 = 0;
+    int m6 = 0;
+    int m7 = 0;
     COLUMN_DCT8(in + i);
   }
 }

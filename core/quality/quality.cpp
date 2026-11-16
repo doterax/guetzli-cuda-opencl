@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+
 #include "core/quality/quality.h"
 
 namespace guetzli {
@@ -48,12 +50,8 @@ const double kScoreForQuality[] = {
 }  // namespace
 
 double butteraugliScoreForQuality(double quality) {
-  if (quality < kLowestQuality) {
-    quality = kLowestQuality;
-  }
-  if (quality > kHighestQuality) {
-    quality = kHighestQuality;
-  }
+  quality = std::max<double>(quality, kLowestQuality);
+  quality = std::min<double>(quality, kHighestQuality);
   int index = static_cast<int>(quality);
   double mix = quality - index;
   return kScoreForQuality[index - kLowestQuality] * (1 - mix) + kScoreForQuality[index - kLowestQuality + 1] * mix;

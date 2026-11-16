@@ -221,7 +221,7 @@ void enumCudaDevices() {
 
   fprintf(stdout, "CUDA:\n");
   for (int i = 0; i < device_count; i++) {
-    CUdevice dev;
+    CUdevice dev = 0;
     err = driver->device_get(&dev, i);
     if (err != CUDA_SUCCESS) {
       continue;

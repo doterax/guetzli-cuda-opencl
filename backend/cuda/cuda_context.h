@@ -62,7 +62,7 @@ class CuBuffer {
 struct CuChannels {
   CuBuffer ch[3];
   [[nodiscard]] OcuChannels view() const {
-    OcuChannels v;
+    OcuChannels v{};
     for (int i = 0; i < 3; i++) {
       v.ch[i] = ch[i].get();
     }

@@ -207,8 +207,8 @@ TEST_CASE("QuantMatrixGenerator: binary search between the coarsest good and fin
     guetzli::QuantMatrixGenerator gen(true);
     REQUIRE(gen.getNext(q));
     for (auto& c : q) {
-      for (int k = 0; k < kDctBlockSize; ++k) {
-        CHECK(c[k] == 1);
+      for (int& k : c) {
+        CHECK(k == 1);
       }
     }
   }

@@ -73,7 +73,7 @@ struct JpegHistogram {
     return n;
   }
 
-  uint32_t counts[kSize];
+  uint32_t counts[kSize]{};
 };
 
 void buildDcHistograms(const JpegData& jpg, JpegHistogram* histo);

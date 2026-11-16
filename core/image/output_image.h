@@ -82,15 +82,15 @@ class OutputImageComponent {
  private:
   const int width_;
   const int height_;
-  int factor_x_;
-  int factor_y_;
-  int width_in_blocks_;
-  int height_in_blocks_;
-  int num_blocks_;
+  int factor_x_{};
+  int factor_y_{};
+  int width_in_blocks_{};
+  int height_in_blocks_{};
+  int num_blocks_{};
   std::vector<coeff_t> coeffs_;
   std::vector<uint16_t> pixels_;
   // Same as last argument of ApplyGlobalQuantization() (default is all 1s).
-  std::array<int, kDctBlockSize> quant_;
+  std::array<int, kDctBlockSize> quant_{};
 };
 
 class OutputImage {

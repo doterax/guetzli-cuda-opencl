@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <utility>
@@ -52,7 +53,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
     for (int k = 1; k < kDctBlockSize; ++k) {
       int idx = c * kDctBlockSize + k;
       if (block[idx] != 0) {
-        float score;
+        float score = 0.0f;
         if (new_zeroing_model) {
           score = std::abs(orig_block[idx]) * kCsf[idx] + kBias[idx];
         } else {

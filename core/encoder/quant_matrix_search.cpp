@@ -88,7 +88,7 @@ bool QuantMatrixGenerator::getNext(int q[3][kDctBlockSize]) {
   // This loop should terminate by return. This 1000 iteration limit is just a
   // precaution.
   for (int iter = 0; iter < 1000; iter++) {
-    double hscore;
+    double hscore = 0.0;
     if (hscore_b_ == -1.0) {
       if (hscore_a_ == -1.0) {
         hscore = downsample_ ? 0.0 : total_csf_;
@@ -163,7 +163,7 @@ void QuantMatrixGenerator::getQuantMatrixWithHeuristicScore(double score, int q[
 
 QuantData QuantMatrixSearch::tryMatrix(const JpegData& jpg, const float target_mul, int q[3][kDctBlockSize],
                                        OutputImage& img) {
-  QuantData data;
+  QuantData data{};
   std::memcpy(data.q, q, sizeof(data.q));
   img.copyFromJpegData(jpg);
   img.applyGlobalQuantization(data.q);

@@ -38,8 +38,8 @@ TEST_CASE("opsin dynamics: neutral gray has a small X channel") {
   const float* lut = guetzli::srgb8ToLinearTableF();
   float rgb[3][guetzli::kOpsinBlockSize];
   for (auto& c : rgb) {
-    for (int i = 0; i < guetzli::kOpsinBlockSize; ++i) {
-      c[i] = lut[128];
+    for (float& i : c) {
+      i = lut[128];
     }
   }
   guetzli::opsinDynamicsBlock8x8(rgb);

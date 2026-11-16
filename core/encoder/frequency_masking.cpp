@@ -44,7 +44,7 @@ struct BlockGrid {
 };
 
 BlockGrid blockGrid(const OutputImage& img, int last_c) {
-  BlockGrid g;
+  BlockGrid g{};
   g.factor_x = img.component(last_c).factorX();
   g.factor_y = img.component(last_c).factorY();
   g.block_width = (img.width() + 8 * g.factor_x - 1) / (8 * g.factor_x);
@@ -136,7 +136,7 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
         }
       }
       std::vector<std::pair<int, float>> global_order;
-      int blocks_to_change;
+      int blocks_to_change = 0;
       std::vector<float> block_weight;
       for (int rblock = 1; rblock <= 4; ++rblock) {
         block_weight = std::vector<float>(num_blocks);

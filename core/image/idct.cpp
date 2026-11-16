@@ -36,11 +36,11 @@ static const int kIdctMatrix[kDctBlockSize] = {
 
 // Computes out[x] = sum{kIDCTMatrix[8*x+u]*in[u*stride]; for u in [0..7]}
 inline void compute1dIdct(const coeff_t* in, const int stride, int out[8]) {
-  int tmp0;
-  int tmp1;
-  int tmp2;
-  int tmp3;
-  int tmp4;
+  int tmp0 = 0;
+  int tmp1 = 0;
+  int tmp2 = 0;
+  int tmp3 = 0;
+  int tmp4 = 0;
 
   tmp1 = kIdctMatrix[0] * in[0];
   out[0] = out[1] = out[2] = out[3] = out[4] = out[5] = out[6] = out[7] = tmp1;

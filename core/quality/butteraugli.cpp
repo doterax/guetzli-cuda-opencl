@@ -31,6 +31,7 @@
 
 #include "core/quality/butteraugli.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -175,7 +176,7 @@ static const double* getContrastSensitivityMatrix() {
 }
 
 std::array<double, 21> makeHighFreqColorDiffDx() {
-  std::array<double, 21> lut;
+  std::array<double, 21> lut{};
   static const double kOff = 11.38708334481672;
   static const double kInc = 14.550189611520716;
   lut[0] = 0.0;
@@ -192,7 +193,7 @@ const double* getHighFreqColorDiffDx() {
 }
 
 std::array<double, 21> makeHighFreqColorDiffDy() {
-  std::array<double, 21> lut;
+  std::array<double, 21> lut{};
   static const double kOff = 1.4103373714040413;
   static const double kInc = 0.7084088867024;
   lut[0] = 0.0;
@@ -209,7 +210,7 @@ const double* getHighFreqColorDiffDy() {
 }
 
 std::array<double, 21> makeLowFreqColorDiffDy() {
-  std::array<double, 21> lut;
+  std::array<double, 21> lut{};
   static const double kInc = 5.2511644570349185;
   lut[0] = 0.0;
   for (int i = 1; i < 21; ++i) {
@@ -227,7 +228,7 @@ inline double interpolate(const double* array, int size, double sx) {
   double ix = fabs(sx);
   assert(ix < 10000);
   int baseix = static_cast<int>(ix);
-  double res;
+  double res = 0.0;
   if (baseix >= size - 1) {
     res = array[size - 1];
   } else {
@@ -242,12 +243,10 @@ inline double interpolate(const double* array, int size, double sx) {
 }
 
 inline double interpolateClampNegative(const double* array, int size, double sx) {
-  if (sx < 0) {
-    sx = 0;
-  }
+  sx = std::max<double>(sx, 0);
   double ix = fabs(sx);
   int baseix = static_cast<int>(ix);
-  double res;
+  double res = 0.0;
   if (baseix >= size - 1) {
     res = array[size - 1];
   } else {
@@ -301,12 +300,12 @@ double removeRangeAroundZero(double v, double range) {
 
 void xybDiffLowFreqSquaredAccumulate(double r0, double g0, double b0, double r1, double g1, double b1, double factor,
                                      double res[3]) {
-  double valx0;
-  double valy0;
-  double valz0;
-  double valx1;
-  double valy1;
-  double valz1;
+  double valx0 = 0.0;
+  double valy0 = 0.0;
+  double valz0 = 0.0;
+  double valx1 = 0.0;
+  double valy1 = 0.0;
+  double valz1 = 0.0;
   xybLowFreqToVals(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
     PROFILER_ZONE("XybDiff r1=g1=b1=0");
@@ -346,14 +345,14 @@ static void transposeBlock(Complex data[kBlockSize]) {
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
 inline void fft4(Complex* a) {
-  double t1;
-  double t2;
-  double t3;
-  double t4;
-  double t5;
-  double t6;
-  double t7;
-  double t8;
+  double t1 = 0.0;
+  double t2 = 0.0;
+  double t3 = 0.0;
+  double t4 = 0.0;
+  double t5 = 0.0;
+  double t6 = 0.0;
+  double t7 = 0.0;
+  double t8 = 0.0;
   t5 = a[2].real;
   t1 = a[0].real - t5;
   t7 = a[3].real;
@@ -385,14 +384,14 @@ static const double kSqrtHalf = 0.70710678118654752440084436210484903;
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
 void fft8(Complex* a) {
-  double t1;
-  double t2;
-  double t3;
-  double t4;
-  double t5;
-  double t6;
-  double t7;
-  double t8;
+  double t1 = 0.0;
+  double t2 = 0.0;
+  double t3 = 0.0;
+  double t4 = 0.0;
+  double t5 = 0.0;
+  double t6 = 0.0;
+  double t7 = 0.0;
+  double t8 = 0.0;
 
   t7 = a[4].imag;
   t4 = a[0].imag - t7;
@@ -488,13 +487,13 @@ void fft8(Complex* a) {
 // TODO: Since this does not need to be in-place, maybe there is a
 // faster FFT than this one, which is derived from DJB's in-place complex FFT.
 void realFft8(const double* in, Complex* out) {
-  double t1;
-  double t2;
-  double t3;
-  double t5;
-  double t6;
-  double t7;
-  double t8;
+  double t1 = 0.0;
+  double t2 = 0.0;
+  double t3 = 0.0;
+  double t5 = 0.0;
+  double t6 = 0.0;
+  double t7 = 0.0;
+  double t8 = 0.0;
   t8 = in[6];
   t5 = in[2] - t8;
   t8 += in[2];
@@ -775,9 +774,7 @@ void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::
           const int ix2 = ix + offset[dir];
           double diff = 0.5 * (c0[1][ix2] + c1[1][ix2]) - ave[1];
           diff *= diff;
-          if (sqr_max_diff < diff) {
-            sqr_max_diff = diff;
-          }
+          sqr_max_diff = std::max(sqr_max_diff, diff);
         }
       }
       static const double kReductionX = 275.19165240059317;
@@ -931,9 +928,9 @@ void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<floa
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    double x;
-    double y;
-    double z;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
     rgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     rgb[0][i] = static_cast<float>(x);
     rgb[1][i] = static_cast<float>(y);
@@ -1171,7 +1168,7 @@ float butteraugliScoreFromDiffmap(const std::vector<float>& diffmap) {
 }
 
 static std::array<double, 512> makeMask(double extmul, double extoff, double mul, double offset, double scaler) {
-  std::array<double, 512> lut;
+  std::array<double, 512> lut{};
   for (size_t i = 0; i < lut.size(); ++i) {
     const double c = mul / ((0.01 * scaler * i) + offset);
     lut[i] = 1.0 + extmul * (c + extoff);
@@ -1356,7 +1353,7 @@ void diffPrecompute(const std::vector<std::vector<float>>& xyb0, const std::vect
   double valsv0[3] = {0.0};
   double valsh1[3] = {0.0};
   double valsv1[3] = {0.0};
-  int ix2;
+  int ix2 = 0;
   for (size_t y = 0; y < ysize; ++y) {
     for (size_t x = 0; x < xsize; ++x) {
       size_t ix = x + xsize * y;

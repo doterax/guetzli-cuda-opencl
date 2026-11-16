@@ -51,8 +51,8 @@ void removeOriginalQuantization(JpegData* jpg, int q_in[3][kDctBlockSize]) {
   }
   int q[3][kDctBlockSize];
   for (auto& i : q) {
-    for (int j = 0; j < kDctBlockSize; ++j) {
-      i[j] = 1;
+    for (int& j : i) {
+      j = 1;
     }
   }
   saveQuantTables(q, jpg);
@@ -108,7 +108,7 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
     logger_->log(LogLevel::Error, "Only YUV color space input jpeg is supported\n");
     return std::nullopt;
   }
-  bool input_is_420;
+  bool input_is_420 = false;
   if (jpg_in.is444()) {
     input_is_420 = false;
   } else if (jpg_in.is420()) {
@@ -159,8 +159,8 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
     std::memcpy(best_q, q_in, sizeof(best_q));
     if (!quant_search.run(jpg, downsample != 0, best_q, img)) {
       for (auto& c : best_q) {
-        for (int i = 0; i < kDctBlockSize; ++i) {
-          c[i] = 1;
+        for (int& i : c) {
+          i = 1;
         }
       }
     }

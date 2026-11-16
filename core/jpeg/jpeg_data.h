@@ -99,10 +99,10 @@ struct JpegScanInfo {
   //   Se : End of spectral band in zig-zag sequence.
   //   Ah : Successive approximation bit position, high.
   //   Al : Successive approximation bit position, low.
-  int ss;
-  int se;
-  int ah;
-  int al;
+  int ss{};
+  int se{};
+  int ah{};
+  int al{};
   std::vector<JpegComponentScanInfo> components;
 };
 
@@ -110,7 +110,7 @@ using coeff_t = int16_t;
 
 // Represents one component of a jpeg file.
 struct JpegComponent {
-  JpegComponent() {}
+  JpegComponent() = default;
 
   // One-byte id of the component.
   int id{0};
@@ -124,7 +124,7 @@ struct JpegComponent {
   // The dimensions of the component measured in 8x8 blocks.
   int width_in_blocks{0};
   int height_in_blocks{0};
-  int num_blocks;
+  int num_blocks{};
   // The DCT coefficients of this component, laid out block-by-block, divided
   // through the quantization matrix values.
   std::vector<coeff_t> coeffs;
@@ -134,7 +134,7 @@ struct JpegComponent {
 struct JpegData {
   JpegData()
 
-  {}
+      = default;
 
   [[nodiscard]] bool is420() const;
   [[nodiscard]] bool is444() const;
@@ -156,7 +156,7 @@ struct JpegData {
   std::vector<uint8_t> marker_order;
   std::vector<std::string> inter_marker_data;
   std::string tail_data;
-  const uint8_t* original_jpg{NULL};
+  const uint8_t* original_jpg{nullptr};
   size_t original_jpg_size{0};
   JpegReadError error{JPEG_OK};
 };

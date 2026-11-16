@@ -87,3 +87,5 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
+  - key: cppcoreguidelines-init-variables.MathHeader
+    value: '<cmath>'

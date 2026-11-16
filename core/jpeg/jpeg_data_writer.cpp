@@ -387,7 +387,7 @@ bool buildAndEncodeHuffmanCodes(const JpegData& jpg, JpegOutput out, std::vector
     int counts[kJpegHuffmanMaxBitLength + 1] = {0};
     int values[JpegHistogram::kSize] = {0};
     buildHuffmanCode(&depths[i * JpegHistogram::kSize], counts, values);
-    HuffmanCodeTable table;
+    HuffmanCodeTable table{};
     for (unsigned char& j : table.depth) {
       j = 255;
     }
@@ -440,8 +440,8 @@ bool buildAndEncodeHuffmanCodes(const JpegData& jpg, JpegOutput out, std::vector
 
 void encodeDctBlockSequential(const coeff_t* coeffs, const HuffmanCodeTable& dc_huff, const HuffmanCodeTable& ac_huff,
                               coeff_t* last_dc_coeff, BitWriter* bw) {
-  coeff_t temp2;
-  coeff_t temp;
+  coeff_t temp2 = 0;
+  coeff_t temp = 0;
   temp2 = coeffs[0];
   temp = temp2 - *last_dc_coeff;
   *last_dc_coeff = temp2;

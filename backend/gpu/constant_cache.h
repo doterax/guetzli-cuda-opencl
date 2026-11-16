@@ -24,7 +24,7 @@ class ConstantCache {
 
   template <class Make>
   Handle blurWeights(float sigma, Make make) {
-    uint32_t key;
+    uint32_t key = 0;
     std::memcpy(&key, &sigma, sizeof(key));
     return lookup(blur_weights_, key, make);
   }

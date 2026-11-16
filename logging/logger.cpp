@@ -9,9 +9,9 @@ void ILogger::log(LogLevel level, const char* format, ...) {
   if (!enabled(level)) {
     return;
   }
-  va_list args;
+  va_list args = nullptr;
   va_start(args, format);
-  va_list copy;
+  va_list copy = nullptr;
   va_copy(copy, args);
   const int n = std::vsnprintf(nullptr, 0, format, copy);
   va_end(copy);

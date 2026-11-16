@@ -33,9 +33,8 @@ double scoreJpeg(double butteraugli_distance, int size, double butteraugli_targe
   double exponent = kScale * diff;
   if (exponent > kMaxExponent) {
     return kLargeSize * std::exp(kMaxExponent) * diff + size;
-  } else {
-    return std::exp(exponent) * size;
   }
+  return std::exp(exponent) * size;
 }
 
 }  // namespace guetzli

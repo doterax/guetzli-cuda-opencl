@@ -266,7 +266,7 @@ cl_mem OpenClKernels::convolutionScale(const cl_mem multipliers, int len, int n,
                                        float border_ratio) {
   OpenClContext& ocl = context();
 
-  unsigned int br_bits;
+  unsigned int br_bits = 0;
   memcpy(&br_bits, &border_ratio, sizeof(br_bits));
   const ConstantCache<ClMemory>::ConvolutionKey key = {(size_t)multipliers, (size_t)n, (size_t)step, (size_t)br_bits};
   return ocl.constants().convolutionScale(key, [&] {
@@ -327,7 +327,7 @@ void OpenClKernels::blur(cl_mem image, const unsigned int xsize, const unsigned 
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = static_cast<float>(exp(scaler * i * i));
+    expn[i + diff] = exp(scaler * i * i);
   }
 
   const int xstep = std::max<int>(1, int(sigma / 3));
@@ -524,8 +524,8 @@ void OpenClKernels::doMask(OclChannels mask /*in, out*/, OclChannels mask_dc /*i
       return ocl.uploadMemory(sizeof(table), table);
     });
   };
-  OclChannels xyb;
-  OclChannels xyb_dc;
+  OclChannels xyb{};
+  OclChannels xyb_dc{};
   xyb.ch[0] = lut(0, 0.975741017749, -4.25328244168, 0.454909521427, 0.0738288224836, 20.8029176447);
   xyb.ch[1] = lut(1, 0.373995618954, 1.5307267433, 0.911952641929, 1.1731667845, 16.2447033988);
   xyb.ch[2] = lut(2, 0.61582234137, -4.25376118646, 1.05105070921, 0.47434643535, 31.1444967089);

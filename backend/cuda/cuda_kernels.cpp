@@ -279,7 +279,7 @@ cu_mem CudaKernels::convolutionScale(const cu_mem multipliers, int len, int n, i
                                      float border_ratio) {
   CudaContext& ocu = context();
 
-  unsigned int br_bits;
+  unsigned int br_bits = 0;
   memcpy(&br_bits, &border_ratio, sizeof(br_bits));
   const ConstantCache<CuMemory>::ConvolutionKey key = {(size_t)multipliers, (size_t)n, (size_t)step, (size_t)br_bits};
   return ocu.constants().convolutionScale(key, [&] {
@@ -542,8 +542,8 @@ void CudaKernels::doMask(OcuChannels mask /*in, out*/, OcuChannels mask_dc /*in,
       return ocu.uploadMemory(sizeof(table), table);
     });
   };
-  OcuChannels xyb;
-  OcuChannels xyb_dc;
+  OcuChannels xyb{};
+  OcuChannels xyb_dc{};
   xyb.ch[0] = lut(0, 0.975741017749f, -4.25328244168f, 0.454909521427f, 0.0738288224836f, 20.8029176447f);
   xyb.ch[1] = lut(1, 0.373995618954f, 1.5307267433f, 0.911952641929f, 1.1731667845f, 16.2447033988f);
   xyb.ch[2] = lut(2, 0.61582234137f, -4.25376118646f, 1.05105070921f, 0.47434643535f, 31.1444967089f);

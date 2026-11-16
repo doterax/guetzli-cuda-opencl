@@ -42,16 +42,16 @@ static inline int nextTableBitSize(const int* count, int len) {
 }
 
 int buildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableEntry* lut) {
-  HuffmanTableEntry code;    // current table entry
-  HuffmanTableEntry* table;  // next available space in table
-  int len;                   // current code length
-  int idx;                   // symbol index
-  int key;                   // prefix code
-  int reps;                  // number of replicate key values in current table
-  int low;                   // low bits for current root entry
-  int table_bits;            // key length of current table
-  int table_size;            // size of current table
-  int total_size;            // sum of root table size and 2nd level table sizes
+  HuffmanTableEntry code;              // current table entry
+  HuffmanTableEntry* table = nullptr;  // next available space in table
+  int len = 0;                         // current code length
+  int idx = 0;                         // symbol index
+  int key = 0;                         // prefix code
+  int reps = 0;                        // number of replicate key values in current table
+  int low = 0;                         // low bits for current root entry
+  int table_bits = 0;                  // key length of current table
+  int table_size = 0;                  // size of current table
+  int total_size = 0;                  // sum of root table size and 2nd level table sizes
 
   // Make a local copy of the input bit length histogram.
   int count[kJpegHuffmanMaxBitLength + 1] = {0};

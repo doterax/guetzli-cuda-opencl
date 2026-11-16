@@ -60,7 +60,7 @@ TEST_CASE("auto tries CUDA, then OpenCL, then falls back to the CPU") {
   struct Case {
     std::optional<bool> cuda, opencl;
     BackendKind expected;
-    int cuda_calls, opencl_calls;
+    int cuda_calls{}, opencl_calls{};
   };
   const Case cases[] = {
       {.cuda = true, .opencl = true, .expected = BackendKind::Cuda, .cuda_calls = 1, .opencl_calls = 0},

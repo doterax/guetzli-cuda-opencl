@@ -42,8 +42,8 @@ void onJpegError(j_common_ptr cinfo) {
 
 // No C++ objects with destructors may live in this function's frame across setjmp.
 bool decompressWithLibjpeg(const std::string& data, RgbImage& image, ILogger& logger) {
-  jpeg_decompress_struct cinfo;
-  JpegErrorManager jerr;
+  jpeg_decompress_struct cinfo{};
+  JpegErrorManager jerr{};
   cinfo.err = jpeg_std_error(&jerr.pub);
   jerr.pub.error_exit = onJpegError;
   jerr.message[0] = '\0';
@@ -81,7 +81,7 @@ bool decompressWithTurbo(const std::string& data, tjhandle handle, int width, in
   image.width = width;
   image.height = height;
   image.rgb.resize(static_cast<size_t>(tjPixelSize[TJPF_RGB]) * width * height);
-  int result;
+  int result = 0;
   if (colorspace == TJCS_CMYK || colorspace == TJCS_YCCK) {
     const int pitch = tjPixelSize[TJPF_CMYK] * width;
     std::vector<uint8_t> cmyk(static_cast<size_t>(pitch) * height);
@@ -110,11 +110,11 @@ std::optional<RgbImage> decodeJpegPixels(const std::string& data, ILogger& logge
     return std::nullopt;
   }
   RgbImage image;
-  int width;
-  int height;
-  int subsampling;
-  int colorspace;
-  bool ok;
+  int width = 0;
+  int height = 0;
+  int subsampling = 0;
+  int colorspace = 0;
+  bool ok = false;
   if (tjDecompressHeader3(handle, reinterpret_cast<unsigned char*>(const_cast<char*>(data.data())),
                           static_cast<unsigned long>(data.size()), &width, &height, &subsampling, &colorspace) != 0) {
     ok = decompressWithLibjpeg(data, image, logger);

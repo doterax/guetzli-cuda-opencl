@@ -112,8 +112,8 @@ void createHuffmanTree(const uint32_t* data, const size_t length, const int tree
     size_t i = 0;      // Points to the next leaf node.
     size_t j = n + 1;  // Points to the next non-leaf node.
     for (size_t k = n - 1; k != 0; --k) {
-      size_t left;
-      size_t right;
+      size_t left = 0;
+      size_t right = 0;
       if (tree[i].total_count <= tree[j].total_count) {
         left = i;
         ++i;

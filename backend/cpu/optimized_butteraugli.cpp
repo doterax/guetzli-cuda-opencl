@@ -8,6 +8,7 @@
 */
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <utility>
 #include "backend/cpu/optimized_butteraugli.h"
 
@@ -132,7 +133,7 @@ static const float* getContrastSensitivityMatrixOpt() {
 }
 
 std::array<float, 21> makeHighFreqColorDiffDxOpt() {
-  std::array<float, 21> lut;
+  std::array<float, 21> lut{};
   static const float kOff = 11.38708334481672;
   static const float kInc = 14.550189611520716;
   lut[0] = 0.0;
@@ -149,7 +150,7 @@ const float* getHighFreqColorDiffDxOpt() {
 }
 
 std::array<float, 21> makeHighFreqColorDiffDyOpt() {
-  std::array<float, 21> lut;
+  std::array<float, 21> lut{};
   static const float kOff = 1.4103373714040413;
   static const float kInc = 0.7084088867024;
   lut[0] = 0.0;
@@ -166,7 +167,7 @@ const float* getHighFreqColorDiffDyOpt() {
 }
 
 std::array<float, 21> makeLowFreqColorDiffDyOpt() {
-  std::array<float, 21> lut;
+  std::array<float, 21> lut{};
   static const float kInc = 5.2511644570349185;
   lut[0] = 0.0;
   for (int i = 1; i < 21; ++i) {
@@ -184,7 +185,7 @@ inline float interpolateOpt(const float* array, int size, float sx) {
   float ix = fabs(sx);
   assert(ix < 10000);
   int baseix = static_cast<int>(ix);
-  float res;
+  float res = 0.0f;
   if (baseix >= size - 1) {
     res = array[size - 1];
   } else {
@@ -199,12 +200,10 @@ inline float interpolateOpt(const float* array, int size, float sx) {
 }
 
 inline float interpolateClampNegativeOpt(const float* array, int size, float sx) {
-  if (sx < 0) {
-    sx = 0;
-  }
+  sx = std::max<float>(sx, 0);
   float ix = fabs(sx);
   int baseix = static_cast<int>(ix);
-  float res;
+  float res = 0.0f;
   if (baseix >= size - 1) {
     res = array[size - 1];
   } else {
@@ -258,12 +257,12 @@ float removeRangeAroundZeroOpt(float v, float range) {
 
 void xybDiffLowFreqSquaredAccumulateOpt(float r0, float g0, float b0, float r1, float g1, float b1, float factor,
                                         float res[3]) {
-  float valx0;
-  float valy0;
-  float valz0;
-  float valx1;
-  float valy1;
-  float valz1;
+  float valx0 = 0.0f;
+  float valy0 = 0.0f;
+  float valz0 = 0.0f;
+  float valx1 = 0.0f;
+  float valy1 = 0.0f;
+  float valz1 = 0.0f;
   xybLowFreqToValsOpt(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
     res[0] += factor * valx0 * valx0;
@@ -302,14 +301,14 @@ static void transposeBlock(ComplexOpt data[kBlockSize]) {
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
 inline void fft4Opt(ComplexOpt* a) {
-  float t1;
-  float t2;
-  float t3;
-  float t4;
-  float t5;
-  float t6;
-  float t7;
-  float t8;
+  float t1 = 0.0f;
+  float t2 = 0.0f;
+  float t3 = 0.0f;
+  float t4 = 0.0f;
+  float t5 = 0.0f;
+  float t6 = 0.0f;
+  float t7 = 0.0f;
+  float t8 = 0.0f;
   t5 = a[2].real;
   t1 = a[0].real - t5;
   t7 = a[3].real;
@@ -341,14 +340,14 @@ static const float kSqrtHalf = 0.70710678118654752440084436210484903;
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
 void fft8OptOpt(ComplexOpt* a) {
-  float t1;
-  float t2;
-  float t3;
-  float t4;
-  float t5;
-  float t6;
-  float t7;
-  float t8;
+  float t1 = 0.0f;
+  float t2 = 0.0f;
+  float t3 = 0.0f;
+  float t4 = 0.0f;
+  float t5 = 0.0f;
+  float t6 = 0.0f;
+  float t7 = 0.0f;
+  float t8 = 0.0f;
 
   t7 = a[4].imag;
   t4 = a[0].imag - t7;
@@ -444,13 +443,13 @@ void fft8OptOpt(ComplexOpt* a) {
 // TODO: Since this does not need to be in-place, maybe there is a
 // faster FFT than this one, which is derived from DJB's in-place complex FFT.
 void realFft8Opt(const float* in, ComplexOpt* out) {
-  float t1;
-  float t2;
-  float t3;
-  float t5;
-  float t6;
-  float t7;
-  float t8;
+  float t1 = 0.0f;
+  float t2 = 0.0f;
+  float t3 = 0.0f;
+  float t5 = 0.0f;
+  float t6 = 0.0f;
+  float t7 = 0.0f;
+  float t8 = 0.0f;
   t8 = in[6];
   t5 = in[2] - t8;
   t8 += in[2];
@@ -704,9 +703,7 @@ void maskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<st
           const int ix2 = ix + offset[dir];
           float diff = 0.5 * (c0[1][ix2] + c1[1][ix2]) - ave[1];
           diff *= diff;
-          if (sqr_max_diff < diff) {
-            sqr_max_diff = diff;
-          }
+          sqr_max_diff = std::max(sqr_max_diff, diff);
         }
       }
       static const float kReductionX = 275.19165240059317;
@@ -839,9 +836,9 @@ void opsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<f
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    float x;
-    float y;
-    float z;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
     rgbToXybOpt(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     rgb[0][i] = x;
     rgb[1][i] = y;
@@ -908,7 +905,7 @@ void calculateDiffmapOpt(const size_t xsize, const size_t ysize, const size_t st
 }
 
 static std::array<float, 512> makeMaskOpt(float extmul, float extoff, float mul, float offset, float scaler) {
-  std::array<float, 512> lut;
+  std::array<float, 512> lut{};
   for (size_t i = 0; i < lut.size(); ++i) {
     const float c = mul / ((0.01 * scaler * i) + offset);
     lut[i] = 1.0 + extmul * (c + extoff);
@@ -993,9 +990,7 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
       float min = values[x + minh * xsize];
       for (size_t j = minh + 1; j < maxh; ++j) {
         float tmpf = values[x + j * xsize];
-        if (tmpf < min) {
-          min = tmpf;
-        }
+        min = std::min(tmpf, min);
       }
       tmp[x + y * xsize] = min;
     }
@@ -1007,9 +1002,7 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
       float min = tmp[minw + y * xsize];
       for (size_t j = minw + 1; j < maxw; ++j) {
         float tmpf = tmp[j + y * xsize];
-        if (tmpf < min) {
-          min = tmpf;
-        }
+        min = std::min(tmpf, min);
       }
       values[x + y * xsize] = min;
     }
@@ -1023,7 +1016,7 @@ void diffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
   float valsv0[3] = {0.0};
   float valsh1[3] = {0.0};
   float valsv1[3] = {0.0};
-  int ix2;
+  int ix2 = 0;
   for (size_t y = 0; y < ysize; ++y) {
     for (size_t x = 0; x < xsize; ++x) {
       size_t ix = x + xsize * y;

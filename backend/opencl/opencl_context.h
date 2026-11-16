@@ -67,7 +67,7 @@ class ClBuffer {
 struct ClChannels {
   ClBuffer ch[3];
   [[nodiscard]] OclChannels view() const {
-    OclChannels v;
+    OclChannels v{};
     for (int i = 0; i < 3; i++) {
       v.ch[i] = ch[i].get();
     }

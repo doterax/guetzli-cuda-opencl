@@ -262,7 +262,7 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
     huff.slot_id = readUint8(data, pos);
     int huffman_index = huff.slot_id;
     int is_ac_table = static_cast<int>((huff.slot_id & 0x10) != 0);
-    HuffmanTableEntry* huff_lut;
+    HuffmanTableEntry* huff_lut = nullptr;
     if (is_ac_table != 0) {
       huffman_index -= 0x10;
       VERIFY_INPUT(huffman_index, 0, 3, HUFFMAN_INDEX);
@@ -483,15 +483,15 @@ struct BitReaderState {
 
   const uint8_t* data_;
   const size_t len_;
-  size_t pos_;
-  uint64_t val_;
-  int bits_left_;
-  size_t next_marker_pos_;
+  size_t pos_{};
+  uint64_t val_{};
+  int bits_left_{};
+  size_t next_marker_pos_{};
 };
 
 // Returns the next Huffman-coded symbol.
 int readSymbol(const HuffmanTableEntry* table, BitReaderState* br) {
-  int nbits;
+  int nbits = 0;
   br->fillBitWindow();
   int val = (br->val_ >> (br->bits_left_ - 8)) & 0xff;
   table += val;
@@ -515,8 +515,8 @@ int huffExtend(int x, int s) {
 // Decodes one 8x8 block of DCT coefficients from the bit stream.
 bool decodeDctBlock(const HuffmanTableEntry* dc_huff, const HuffmanTableEntry* ac_huff, int ss, int se, int al,
                     int* eobrun, BitReaderState* br, JpegData* jpg, coeff_t* last_dc_coeff, coeff_t* coeffs) {
-  int s;
-  int r;
+  int s = 0;
+  int r = 0;
   bool eobrun_allowed = ss > 0;
   if (ss == 0) {
     s = readSymbol(dc_huff, br);
@@ -606,8 +606,8 @@ bool refineDctBlock(const HuffmanTableEntry* ac_huff, int ss, int se, int al, in
   int p1 = 1 << al;
   int m1 = -(1 << al);
   int k = ss;
-  int r;
-  int s;
+  int r = 0;
+  int s = 0;
   bool in_zero_run = false;
   if (*eobrun <= 0) {
     for (; k <= se; k++) {
@@ -728,8 +728,8 @@ bool processScan(const uint8_t* data, const size_t len, const std::vector<Huffma
   }
   JpegScanInfo* scan_info = &jpg->scan_info.back();
   bool is_interleaved = (scan_info->components.size() > 1);
-  int mcus_per_row;
-  int mcu_rows;
+  int mcus_per_row = 0;
+  int mcu_rows = 0;
   if (is_interleaved) {
     mcus_per_row = jpg->mcu_cols;
     mcu_rows = jpg->mcu_rows;

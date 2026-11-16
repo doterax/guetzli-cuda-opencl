@@ -182,9 +182,9 @@ void opsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurre
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    float x;
-    float y;
-    float z;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
     rgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     r[i] = x;
     g[i] = y;

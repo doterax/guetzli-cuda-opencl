@@ -226,9 +226,7 @@ struct TiffIo {
 tsize_t tiffRead(thandle_t fd, tdata_t buf, tsize_t size) {
   auto* data = static_cast<TiffIo*>(fd);
   const tsize_t bytes_to_eof = (data->data + data->size) - data->fp;
-  if (size > bytes_to_eof) {
-    size = bytes_to_eof;
-  }
+  size = std::min(size, bytes_to_eof);
   std::memcpy(buf, data->fp, size);
   data->fp += size;
   return size;
