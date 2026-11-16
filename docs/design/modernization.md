@@ -9,11 +9,36 @@ opening a PR against the refactor branch.
 
 All decisions in §3 are made; there are no open questions. **Phases 0 to 5 are done** (phase 0: `4b8d3f5`..`ff9f07f`,
 phase 1: `7e1a9a4` + C++20 switch, phase 2: `7eba7f4`..`661a6ad`, phase 3: `cd2d241`..`74f75a0`, phase 4:
-`4979de3`..`fe63f82`, phase 5: `3747847`..`925d84d`, on `refactor/modern-cpp`). **Phase 6 is in progress** (§10;
-notes below). The branch is pushed to `origin` since 2026-11-16, so CI runs on every push. Merge `master` into the
-branch first if it moved (§10).
+`4979de3`..`fe63f82`, phase 5: `3747847`..`925d84d`, phase 6: `4b7fd95`..`2e8adda`, on `refactor/modern-cpp`).
+After phase 6 and before the release, the GPU items D1, D3, D4 and G2 and two exact CPU speedups were done
+(`c3d2d5c`..`30bce6d`). **Phase 7** (§10) ships it as v3.0.0: version in `app/version.h`, release notes in
+`docs/release-notes/v3.0.0.md` (the release job uses `docs/release-notes/<tag>.md` as the body), branch merged into
+`master`, tag `v3.0.0`. What is still open is listed under "Open after v3.0.0" below.
 
-Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
+### Open after v3.0.0
+
+Carried over from the working notes (`todo.md`, not committed). File names there predate phase 6; the items are not
+re-verified against the current code.
+- **GPU memory is not accounted for** (todo 9): `--memlimit` is host-only; a compare holds ~18 float planes on the
+  device, block zeroing ~24 B/px more. Query free VRAM / `CL_DEVICE_MAX_MEM_ALLOC_SIZE` before choosing the backend.
+  A 30 MP image runs on a 6 GB card.
+- **Small-image hazards in kernels** (14): unsigned `ysize - 8` in `clBlockDiffMapEx`, size 1 in
+  `clDiffPrecomputeEx`, divide by zero in `Butteraugli8x8CornerEdgeDetectorDiff` for xsize < 7. Masked today because
+  images below 32 px skip the comparator.
+- **32-100 px images mix CPU and GPU math** (20): the `> 100` thresholds gate only the reference-side setup.
+- **CUDA vs OpenCL numerics** (22): nvcc `-use_fast_math -ftz=true`, OpenCL `-cl-finite-math-only
+  -cl-no-signed-zeros -cl-mad-enable`; threshold comparisons can flip, so the backends may write different JPEGs
+  (they differ by a few hundred bytes on photos). Decide the policy deliberately.
+- **Speed:** overlap serialization with the GPU compare (S6, `std::async`); separable `clMinSquareValEx` (S11);
+  divergent `__constant__` lookups on CUDA (S12); device-to-device copy-backs and `clAverage5x5Ex` read-modify-writes
+  (S13); pinned host memory, size-class CUDA pool, a second queue/stream (S17).
+- **GPU migration:** G1 (device-resident `OutputImage`: coefficients and pixels stay on the GPU, ~1-1.5 s at 12 MP,
+  changes `OutputImage` ownership), G3 (block-zeroing kernel: 1.27 s of ~21.5 s at 12 MP; warp efficiency of the
+  8x4 tiling is 0.56-0.70, but no cheap predictor of per-block work exists (candidate count reaches 0.67-0.79) and
+  launch shapes are within 2 %; the remaining route is several threads per candidate evaluation), G4 (Huffman
+  coding on the GPU; must reproduce the bitstream exactly, probably not worth it).
+
+Phase 6 notes. Order and scope decided 2026-11-16, all in phase 6:
 1. Push the branch and fix CI. Done: everything passed on the first run (including `linux-asan`) except macOS,
    whose `macos-14` runner image is retired; the job now runs on `macos-15`.
 2. Makefile removed; kernel tooling in CMake. Done. The kernel source moved to `kernels/` (`guetzli.cl`,
