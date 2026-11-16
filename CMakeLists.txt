@@ -54,13 +54,10 @@ include(cmake/Dependencies.cmake)
 
 # ---------------------------------------------------------------------------------------------
 # Library objects (everything except main), shared by the executable and the unit tests.
-#   guetzli_core     encoder, image/JPEG code, butteraugli, config, logging, I/O -- no GPU code
-#   guetzli_backend  backend/ (CPU, OpenCL, CUDA, --check), the CPU butteraugli in clguetzli/ and the
-#                    embedded kernels (kernels/)
+#   guetzli_core     config/, logging/, core/ (encoder, image, JPEG, butteraugli, I/O) -- no GPU code
+#   guetzli_backend  backend/ (CPU, OpenCL, CUDA, --check) and the embedded kernels (kernels/)
 # The dependency rule (core never includes backend/ or GPU headers) is checked by the `layering` test.
 # ---------------------------------------------------------------------------------------------
-file(GLOB GUETZLI_SOURCES CONFIGURE_DEPENDS guetzli/*.cc)
-file(GLOB CLGUETZLI_SOURCES CONFIGURE_DEPENDS clguetzli/*.cpp)
 file(GLOB CORE_SOURCES CONFIGURE_DEPENDS config/*.cpp logging/*.cpp core/*/*.cpp)
 file(GLOB BACKEND_SOURCES CONFIGURE_DEPENDS backend/*.cpp backend/*/*.cpp kernels/*.cpp)
 
@@ -77,14 +74,8 @@ if(GUETZLI_SANITIZE)
   target_link_options(guetzli_flags INTERFACE -fsanitize=${GUETZLI_SANITIZE})
 endif()
 
-add_library(guetzli_core OBJECT
-  ${CORE_SOURCES}
-  ${GUETZLI_SOURCES}
-  third_party/butteraugli/butteraugli/butteraugli.cc)
-target_include_directories(guetzli_core PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/third_party/butteraugli"
-  ${GUETZLI_DEP_INCLUDE_DIRS})
+add_library(guetzli_core OBJECT ${CORE_SOURCES})
+target_include_directories(guetzli_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" ${GUETZLI_DEP_INCLUDE_DIRS})
 target_link_libraries(guetzli_core PUBLIC guetzli_flags)
 if(GUETZLI_WITH_FULL_JPEG)
   target_compile_definitions(guetzli_core PUBLIC __SUPPORT_FULL_JPEG__)
@@ -92,13 +83,9 @@ endif()
 
 add_library(guetzli_backend OBJECT
   ${BACKEND_SOURCES}
-  ${CLGUETZLI_SOURCES}
   third_party/minilzo/minilzo.c)
-# Keep this include order (some headers rely on it).
 target_include_directories(guetzli_backend PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/third_party/butteraugli"
-  "${CMAKE_CURRENT_SOURCE_DIR}/clguetzli"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/OpenCL/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/OpenCL-Wrapper"
   "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minilzo"
@@ -150,7 +137,7 @@ if(GUETZLI_BASH)
                               "$<TARGET_FILE:guetzli>" "${GUETZLI_SMOKE_FLAGS}")
 endif()
 
-# core/, guetzli/, config/, logging/ and the butteraugli library must not include backend/ or GPU headers.
+# core/, config/ and logging/ must not include backend/, kernels/ or GPU headers.
 add_test(NAME layering COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
                                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckLayering.cmake")
 

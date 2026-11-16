@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "backend/opencl/kernel_args.h"
-#include "guetzli/gamma_correct.h"
+#include "core/image/gamma_correct.h"
 
 namespace guetzli {
 

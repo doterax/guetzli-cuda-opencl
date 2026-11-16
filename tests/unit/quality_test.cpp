@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include "guetzli/quality.h"
+#include "core/quality/quality.h"
 
 TEST_CASE("butteraugli target decreases as quality increases") {
   double prev = guetzli::ButteraugliScoreForQuality(70);

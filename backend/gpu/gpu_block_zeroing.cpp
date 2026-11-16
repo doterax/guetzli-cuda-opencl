@@ -3,7 +3,7 @@
 #include <optional>
 #include <stdexcept>
 
-#include "guetzli/fast_log.h"
+#include "core/util/fast_log.h"
 
 namespace guetzli {
 

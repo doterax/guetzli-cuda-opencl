@@ -5,8 +5,8 @@
 #include <memory>
 #include <vector>
 
-#include "clguetzli/clbutter_comparator.h"
-#include "guetzli/butteraugli_comparator.h"
+#include "backend/cpu/optimized_butteraugli.h"
+#include "core/quality/butteraugli_comparator.h"
 
 namespace guetzli {
 

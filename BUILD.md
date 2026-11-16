@@ -149,8 +149,8 @@ runs:
 1. `unit`: the doctest unit tests (`tests/unit/`, binary `guetzli_tests`).
 2. `smoke`: `tests/run_tests.sh` checks that the binary runs, `--version` works and a tiny PNG
    (`tests/input/fro_small.png`, 6 KB) becomes a valid JPEG of sane size.
-3. `layering`: core code (`config/`, `logging/`, `core/`, `guetzli/`, butteraugli) must not include
-   `backend/`, `clguetzli/`, `kernels/` or OpenCL/CUDA headers.
+3. `layering`: core code (`config/`, `logging/`, `core/`) must not include `backend/`, `kernels/` or
+   OpenCL/CUDA headers.
 
 The byte-exact output regression harness is run separately (it needs a GPU for the GPU modes, so
 CI does not run it):
@@ -173,7 +173,7 @@ and `kernels/guetzli_cu_ptx.h` (PTX). Normal builds and CI never regenerate them
 | `check-kernel-headers` | Fail if the committed OpenCL header does not match `kernels/guetzli.cl` (run in CI) |
 | `kernel-headers` | Regenerate both headers (explicit only; commit the result) |
 
-If you change `kernels/guetzli.cl`, `kernels/guetzli.cu` or `clguetzli/clguetzli.cl.h`, run
+If you change `kernels/guetzli.cl`, `kernels/guetzli.cu` or `backend/gpu/kernel_types.h`, run
 `cmake --build --preset release --target kernel-headers` and commit both headers with your change.
 The PTX must be built with the pinned toolkit (**CUDA 11.8**, `GUETZLI_KERNEL_NVCC_VERSION`): drivers
 only JIT-compile PTX versions they know, and PTX from a newer toolkit is rejected by older drivers

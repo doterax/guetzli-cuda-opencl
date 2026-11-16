@@ -8,8 +8,8 @@
 #include <vector>
 
 #include "backend/gpu/gpu_kernels.h"
-#include "guetzli/dct_ops.h"
-#include "guetzli/output_image.h"
+#include "core/image/dct_ops.h"
+#include "core/image/output_image.h"
 
 namespace guetzli {
 

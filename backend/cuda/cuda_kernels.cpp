@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include "guetzli/gamma_correct.h"
+#include "core/image/gamma_correct.h"
 
 namespace guetzli {
 

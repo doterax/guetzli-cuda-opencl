@@ -1,8 +1,8 @@
 #include <cstdlib>
 
 #include "doctest.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/quantize.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/jpeg/quantize.h"
 
 using guetzli::coeff_t;
 using guetzli::kDCTBlockSize;

@@ -8,9 +8,9 @@
 #include <memory>
 #include <vector>
 
-#include "clguetzli/clguetzli.cl.h"
-#include "guetzli/block_zeroing.h"
-#include "guetzli/output_image.h"
+#include "backend/gpu/kernel_types.h"
+#include "core/encoder/block_zeroing.h"
+#include "core/image/output_image.h"
 
 namespace guetzli {
 

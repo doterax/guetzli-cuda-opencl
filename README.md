@@ -96,12 +96,11 @@ instructions.
 ```
 app/              Command line and composition root
 config/, logging/ Configuration value types, logger
-core/             Encoder pipeline, image I/O
-guetzli/          JPEG data, reader/writer, output image, butteraugli comparator
+core/             Encoder pipeline (encoder/), JPEG data and codec (jpeg/), output image and
+                  DCT (image/), butteraugli and scoring (quality/), image I/O (io/)
 backend/          CPU, OpenCL, CUDA and check-mode backends (GPU host code)
 kernels/          The GPU kernel source (OpenCL C, also compiled to PTX) and its embedded headers
-clguetzli/        Optimized CPU butteraugli, host-side kernel types
-third_party/      Bundled: butteraugli, minilzo, OpenCL headers, CLI11, doctest
+third_party/      Bundled: minilzo, OpenCL headers, CLI11, doctest
 external/         CMake superbuild for zlib, libpng, libtiff, libjpeg-turbo,
                   OpenCL ICD loader
 tests/            Smoke-test suite + sample images

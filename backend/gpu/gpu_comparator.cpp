@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <utility>
 
-#include "butteraugli/butteraugli.h"
-#include "guetzli/opsin_block.h"
+#include "core/quality/butteraugli.h"
+#include "core/quality/opsin_block.h"
 
 namespace guetzli {
 

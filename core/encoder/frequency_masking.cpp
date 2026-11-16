@@ -26,9 +26,9 @@
 
 #include "core/encoder/size_estimator.h"
 #include "core/util/narrow_cast.h"
-#include "guetzli/debug_print.h"
-#include "guetzli/fast_log.h"
-#include "guetzli/quantize.h"
+#include "core/encoder/debug_print.h"
+#include "core/util/fast_log.h"
+#include "core/jpeg/quantize.h"
 
 namespace guetzli {
 

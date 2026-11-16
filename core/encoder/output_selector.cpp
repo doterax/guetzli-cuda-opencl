@@ -2,8 +2,8 @@
 
 #include <stdexcept>
 
-#include "guetzli/debug_print.h"
-#include "guetzli/jpeg_data_writer.h"
+#include "core/encoder/debug_print.h"
+#include "core/jpeg/jpeg_data_writer.h"
 
 namespace guetzli {
 

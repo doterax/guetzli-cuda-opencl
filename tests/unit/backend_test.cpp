@@ -11,7 +11,7 @@
 #include "backend/check/checking_dct_ops.h"
 #include "backend/factory.h"
 #include "doctest.h"
-#include "guetzli/output_image.h"
+#include "core/image/output_image.h"
 #include "test_support.h"
 
 using guetzli::BackendKind;

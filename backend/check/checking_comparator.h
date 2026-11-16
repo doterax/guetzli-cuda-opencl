@@ -8,7 +8,7 @@
 #include <optional>
 #include <vector>
 
-#include "guetzli/comparator.h"
+#include "core/quality/comparator.h"
 #include "logging/logger.h"
 
 namespace guetzli {

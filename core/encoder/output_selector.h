@@ -5,9 +5,9 @@
 #include <string>
 #include <utility>
 
-#include "guetzli/comparator.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/stats.h"
+#include "core/quality/comparator.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/encoder/stats.h"
 
 namespace guetzli {
 

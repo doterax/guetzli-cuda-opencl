@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-#include "guetzli/block_zeroing.h"
+#include "core/encoder/block_zeroing.h"
 #include "logging/logger.h"
 
 namespace guetzli {

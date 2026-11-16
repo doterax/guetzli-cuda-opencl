@@ -3,7 +3,7 @@
 #include <cstddef>
 
 #include "backend/check/mismatch.h"
-#include "guetzli/output_image.h"
+#include "core/image/output_image.h"
 
 namespace guetzli {
 

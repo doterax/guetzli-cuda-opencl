@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "config/config.h"
-#include "guetzli/backend.h"
+#include "core/encoder/backend.h"
 #include "logging/logger.h"
 
 namespace guetzli {

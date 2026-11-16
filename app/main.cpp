@@ -8,7 +8,7 @@
 #include "app/application.h"
 #include "app/cli.h"
 #include "backend/factory.h"
-#include "guetzli/version.h"
+#include "app/version.h"
 #include "logging/logger.h"
 
 namespace {

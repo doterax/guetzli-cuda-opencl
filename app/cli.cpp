@@ -5,7 +5,7 @@
 
 #include "CLI11.hpp"
 #include "app/exit_codes.h"
-#include "guetzli/version.h"
+#include "app/version.h"
 
 namespace guetzli {
 

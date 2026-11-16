@@ -6,8 +6,8 @@
 #include "backend/gpu/gpu_backend.h"
 #include "backend/gpu/gpu_kernels.h"
 #include "doctest.h"
-#include "guetzli/output_image.h"
-#include "guetzli/stats.h"
+#include "core/image/output_image.h"
+#include "core/encoder/stats.h"
 
 namespace {
 

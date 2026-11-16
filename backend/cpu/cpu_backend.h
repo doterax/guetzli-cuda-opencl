@@ -2,7 +2,7 @@
 #ifndef GUETZLI_BACKEND_CPU_CPU_BACKEND_H_
 #define GUETZLI_BACKEND_CPU_CPU_BACKEND_H_
 
-#include "guetzli/backend.h"
+#include "core/encoder/backend.h"
 
 namespace guetzli {
 

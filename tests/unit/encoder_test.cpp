@@ -14,10 +14,10 @@
 #include "core/encoder/quant_matrix_search.h"
 #include "core/encoder/size_estimator.h"
 #include "doctest.h"
-#include "guetzli/jpeg_data_encoder.h"
-#include "guetzli/jpeg_data_reader.h"
-#include "guetzli/output_image.h"
-#include "guetzli/quantize.h"
+#include "core/image/jpeg_data_encoder.h"
+#include "core/jpeg/jpeg_data_reader.h"
+#include "core/image/output_image.h"
+#include "core/jpeg/quantize.h"
 #include "test_support.h"
 
 using guetzli::coeff_t;

@@ -11,10 +11,10 @@
 #include <random>
 
 #include "doctest.h"
-#include "guetzli/dct_double.h"
-#include "guetzli/fdct.h"
-#include "guetzli/idct.h"
-#include "guetzli/jpeg_data.h"
+#include "core/image/dct_double.h"
+#include "core/image/fdct.h"
+#include "core/image/idct.h"
+#include "core/jpeg/jpeg_data.h"
 
 using guetzli::coeff_t;
 using guetzli::kDCTBlockSize;

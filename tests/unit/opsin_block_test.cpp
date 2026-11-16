@@ -1,9 +1,9 @@
-// Host port of the kernel helpers (guetzli/opsin_block.cc).
+// Host port of the kernel helpers (core/quality/opsin_block.cpp).
 #include <cmath>
 
-#include "guetzli/opsin_block.h"
+#include "core/quality/opsin_block.h"
 #include "doctest.h"
-#include "guetzli/gamma_correct.h"
+#include "core/image/gamma_correct.h"
 
 TEST_CASE("float sRGB LUT matches the double LUT to float precision") {
   const float* f = guetzli::Srgb8ToLinearTableF();

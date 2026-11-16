@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "backend/gpu/gpu_kernels.h"
-#include "guetzli/butteraugli_comparator.h"
+#include "core/quality/butteraugli_comparator.h"
 
 namespace guetzli {
 

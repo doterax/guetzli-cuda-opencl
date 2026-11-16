@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "doctest.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/jpeg_data_encoder.h"
-#include "guetzli/output_image.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/image/jpeg_data_encoder.h"
+#include "core/image/output_image.h"
 
 using guetzli::coeff_t;
 using guetzli::kDCTBlockSize;

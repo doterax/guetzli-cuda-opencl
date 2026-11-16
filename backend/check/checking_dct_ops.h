@@ -5,7 +5,7 @@
 
 #include <memory>
 
-#include "guetzli/dct_ops.h"
+#include "core/image/dct_ops.h"
 #include "logging/logger.h"
 
 namespace guetzli {

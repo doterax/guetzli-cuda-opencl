@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "core/encoder/encoder_params.h"
-#include "guetzli/backend.h"
-#include "guetzli/comparator.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/stats.h"
+#include "core/encoder/backend.h"
+#include "core/quality/comparator.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/encoder/stats.h"
 #include "logging/logger.h"
 
 namespace guetzli {

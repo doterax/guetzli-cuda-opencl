@@ -23,7 +23,16 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    exact size (no more guessing the ratio). minilzo is compiled as C. `cmake --install` replaces `make install`; the
    Makefile-era test scripts (`tests/run_tests.bat`, `tests/test_guetzli.bat`, `tests/output.md5`) are gone. The PTX
    rebuilt with nvcc 11.8 from the moved source is byte-identical to the committed one.
-3. File moves into `core/jpeg`, `core/image`, `core/quality` (pure renames).
+3. File moves. Done (pure renames + include paths; `.cc` became `.cpp`; `guetzli/`, `clguetzli/` and
+   `third_party/butteraugli/` are gone). `core/jpeg/`: `JpegData`, reader, writer, Huffman, bit writer, entropy
+   codes, quantization. `core/image/`: `OutputImage`, `IDctOps`, DCT/IDCT, colour/gamma, downsampling, the
+   `JpegData` <-> pixels encoder/decoder (they need `OutputImage`, so they sit above `core/jpeg`).
+   `core/quality/`: butteraugli (the former third-party copy, minus its Bazel files and `butteraugli_main.cc`),
+   `ButteraugliComparator`, `Comparator`/`IComparatorFactory`, opsin helpers, quality and score.
+   `core/encoder/`: also `Backend`, `IBlockZeroingSearch` (+ `order.inc`), `ProcessStats`, `debug_print`.
+   `core/util/fast_log.h`, `app/version.h`. `clbutter_comparator` became `backend/cpu/optimized_butteraugli`,
+   `clguetzli.cl.h` became `backend/gpu/kernel_types.h`. The layering check now covers `config/`, `logging/`,
+   `core/`.
 4. Naming sweep (§9: `PascalCase` types, `camelCase` functions, `snake_case_` members), one mechanical commit.
 5. clang-tidy clean, in its own commit(s); then `GUETZLI_WARNINGS_AS_ERRORS` in CI.
 6. `GUETZLI_LOG` / `ProcessStats` trace → `ILogger` (§5.7).
@@ -607,16 +616,16 @@ After phase 3 the GPU performance items (todo G1–G4) can be developed against 
 |---|---|
 | `guetzli/guetzli.cc` | `app/main.cpp`, `app/cli.cpp`, `core/io/` |
 | `guetzli/processor.{h,cc}` | `core/encoder/*` |
-| `guetzli/output_image.{h,cc}` | `core/image/` (GPU branches → `backend/*/dct_ops`) |
-| `guetzli/jpeg_*`, `entropy_encode`, `fdct`, `idct`, `dct_double` | `core/jpeg/`, `core/image/` |
-| `guetzli/butteraugli_comparator.*`, `third_party/butteraugli` | `core/quality/` (§3) |
+| `guetzli/output_image.{h,cc}` | `core/image/` (GPU branches → `backend/*/dct_ops`) (done, phase 6) |
+| `guetzli/jpeg_*`, `entropy_encode`, `fdct`, `idct`, `dct_double` | `core/jpeg/`, `core/image/` (done, phase 6) |
+| `guetzli/butteraugli_comparator.*`, `third_party/butteraugli` | `core/quality/` (§3) (done, phase 6) |
 | `clguetzli/clguetzli.h` (`MATH_MODE`, globals) | removed → `config/`, `backend/factory` |
 | `clguetzli/ocl.*`, `clguetzli.cpp` | `backend/opencl/` |
 | `clguetzli/ocu.*`, `cuguetzli.cpp`, `cumem_pool.*`, `cuda_dynload.*` | `backend/cuda/` |
-| `clguetzli/clbutter_comparator.*`, `clguetzli.cl.cpp` (comparator part) | `backend/{cpu,opencl,cuda}/comparator` (the kernel-emulation part is deleted, §3) |
+| `clguetzli/clbutter_comparator.*`, `clguetzli.cl.cpp` (comparator part) | `backend/cpu/optimized_butteraugli.*` (done, phase 6), `backend/{cpu,opencl,cuda}` comparators (the kernel-emulation part is deleted, §3) |
 | `clguetzli/clguetzli_test.*` | replaced by `backend/check/` decorators (deleted in phase 3) |
 | `clguetzli/clguetzli.cl`, `.cu` | `kernels/guetzli.cl`, `kernels/guetzli.cu` (done, phase 6) |
-| `clguetzli/clguetzli.cl.h` (host-side kernel types) | `backend/gpu/` |
+| `clguetzli/clguetzli.cl.h` (host-side kernel types) | `backend/gpu/kernel_types.h` (done, phase 6) |
 | `clguetzli/lzodec.*`, `minilzoc/`, `format_header.py` | `kernels/embedded_kernels.*`, `kernels/tools/embed_kernel.cpp` (done, phase 6) |
 | `clguetzli/gpu_error.h` | `backend/gpu_error.h` |
 | `Makefile` | `CMakeLists.txt` + `CMakePresets.json` (removed in phase 6) (done) |

@@ -17,7 +17,7 @@
 #include "backend/gpu/gpu_options.h"
 #include "backend/gpu/kernel_names.h"
 #include "backend/gpu_error.h"
-#include "clguetzli/clguetzli.cl.h"
+#include "backend/gpu/kernel_types.h"
 #include "logging/logger.h"
 #include "third_party/OpenCL/include/CL/cl.h"
 

@@ -6,11 +6,11 @@
 #include <vector>
 
 #include "doctest.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/jpeg_data_decoder.h"
-#include "guetzli/jpeg_data_encoder.h"
-#include "guetzli/jpeg_data_reader.h"
-#include "guetzli/jpeg_data_writer.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/image/jpeg_data_decoder.h"
+#include "core/image/jpeg_data_encoder.h"
+#include "core/jpeg/jpeg_data_reader.h"
+#include "core/jpeg/jpeg_data_writer.h"
 
 namespace {
 

@@ -24,12 +24,12 @@
 #include "core/encoder/output_selector.h"
 #include "core/encoder/quant_matrix_search.h"
 #include "core/io/jpeg_decode.h"
-#include "guetzli/debug_print.h"
-#include "guetzli/jpeg_data_decoder.h"
-#include "guetzli/jpeg_data_encoder.h"
-#include "guetzli/jpeg_data_reader.h"
-#include "guetzli/output_image.h"
-#include "guetzli/quantize.h"
+#include "core/encoder/debug_print.h"
+#include "core/image/jpeg_data_decoder.h"
+#include "core/image/jpeg_data_encoder.h"
+#include "core/jpeg/jpeg_data_reader.h"
+#include "core/image/output_image.h"
+#include "core/jpeg/quantize.h"
 
 namespace guetzli {
 

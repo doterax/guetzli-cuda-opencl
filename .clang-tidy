@@ -24,7 +24,7 @@ Checks: >
   cppcoreguidelines-virtual-class-destructor,
   performance-*
 WarningsAsErrors: ''
-HeaderFilterRegex: '^(.*[/\\])?(guetzli|clguetzli|third_party[/\\]butteraugli|tests[/\\]unit|app|config|core|backend|logging)[/\\].*'
+HeaderFilterRegex: '^(.*[/\\])?(tests[/\\]unit|app|config|core|backend|kernels|logging)[/\\].*'
 FormatStyle: file
 CheckOptions:
   - key: readability-identifier-naming.ClassCase

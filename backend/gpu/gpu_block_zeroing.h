@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "backend/gpu/gpu_kernels.h"
-#include "guetzli/block_zeroing.h"
+#include "core/encoder/block_zeroing.h"
 
 namespace guetzli {
 

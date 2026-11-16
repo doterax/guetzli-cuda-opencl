@@ -9,11 +9,11 @@
 
 #include "core/encoder/encoder_params.h"
 #include "core/encoder/output_selector.h"
-#include "guetzli/block_zeroing.h"
-#include "guetzli/comparator.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/output_image.h"
-#include "guetzli/stats.h"
+#include "core/encoder/block_zeroing.h"
+#include "core/quality/comparator.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/image/output_image.h"
+#include "core/encoder/stats.h"
 
 namespace guetzli {
 

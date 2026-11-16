@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "guetzli/jpeg_data.h"
-#include "guetzli/jpeg_data_writer.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/jpeg/jpeg_data_writer.h"
 
 namespace guetzli {
 

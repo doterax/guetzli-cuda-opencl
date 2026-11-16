@@ -5,9 +5,9 @@ if(NOT SOURCE_DIR)
   message(FATAL_ERROR "SOURCE_DIR not set")
 endif()
 
-set(_core_dirs config logging core guetzli third_party/butteraugli/butteraugli)
+set(_core_dirs config logging core)
 set(_forbidden
-    "#[ \t]*include[ \t]*[\"<](backend|clguetzli|kernels)/"
+    "#[ \t]*include[ \t]*[\"<](backend|kernels)/"
     "#[ \t]*include[ \t]*[\"<](ocl|ocu|clguetzli|cuguetzli|cuda_dynload|cumem_pool|gpu_error|gpu_options)\\.h[\">]"
     "#[ \t]*include[ \t]*[\"<](CL/|cuda\\.h|cuda_runtime|opencl\\.hpp|cl\\.hpp)")
 

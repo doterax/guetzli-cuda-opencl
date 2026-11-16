@@ -1,6 +1,6 @@
 #include "backend/cpu/cpu_comparator.h"
 
-#include "butteraugli/butteraugli.h"
+#include "core/quality/butteraugli.h"
 
 namespace guetzli {
 

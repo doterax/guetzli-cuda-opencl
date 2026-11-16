@@ -20,7 +20,7 @@
 #include <cstring>
 #include <string>
 
-#include "guetzli/debug_print.h"
+#include "core/encoder/debug_print.h"
 
 namespace guetzli {
 

@@ -8,9 +8,9 @@
 #include "backend/factory.h"
 #include "core/encoder/encoder.h"
 #include "core/io/image_io.h"
-#include "guetzli/jpeg_data.h"
-#include "guetzli/jpeg_data_reader.h"
-#include "guetzli/quality.h"
+#include "core/jpeg/jpeg_data.h"
+#include "core/jpeg/jpeg_data_reader.h"
+#include "core/quality/quality.h"
 
 namespace guetzli {
 
