@@ -113,14 +113,23 @@ class OpenClContext {
   [[nodiscard]] ClBuffer uninitialized(size_t bytes);
   // Blocking upload: data may go away right after the call.
   [[nodiscard]] ClBuffer upload(size_t bytes, const void* data);
+  // Queued upload: data must stay valid until finish() (or a later blocking call) returns.
+  [[nodiscard]] ClBuffer uploadAsync(size_t bytes, const void* data);
   [[nodiscard]] ClChannels zeroedChannels(size_t bytes);
   [[nodiscard]] ClChannels uninitializedChannels(size_t bytes);
   [[nodiscard]] ClChannels uploadChannels(size_t bytes, const void* c0, const void* c1, const void* c2);
 
   // Unpooled allocations for constant tables.
-  [[nodiscard]] ClMemory createMemory(size_t bytes);
+  [[nodiscard]] ClMemory allocateMemory(size_t bytes);
   [[nodiscard]] ClMemory uploadMemory(size_t bytes, const void* data);
   [[nodiscard]] ConstantCache<ClMemory>& constants() { return constants_; }
+
+  // Queued device-to-device copy.
+  void copy(cl_mem dst, cl_mem src, size_t bytes);
+  // Queued download: dst is valid after finish().
+  void readAsync(void* dst, cl_mem src, size_t bytes);
+  // Waits for all queued work.
+  void finish();
 
  private:
   friend class ClBuffer;

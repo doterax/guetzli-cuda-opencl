@@ -114,6 +114,8 @@ class CudaContext {
   [[nodiscard]] CuBuffer uninitialized(size_t bytes);
   // Queued upload from pageable host memory (staged before the call returns).
   [[nodiscard]] CuBuffer upload(size_t bytes, const void* data);
+  // Same as upload (pageable memory is staged before the call returns).
+  [[nodiscard]] CuBuffer uploadAsync(size_t bytes, const void* data) { return upload(bytes, data); }
   [[nodiscard]] CuChannels zeroedChannels(size_t bytes);
   [[nodiscard]] CuChannels uninitializedChannels(size_t bytes);
   [[nodiscard]] CuChannels uploadChannels(size_t bytes, const void* c0, const void* c1, const void* c2);
@@ -122,6 +124,11 @@ class CudaContext {
   [[nodiscard]] CuMemory allocateMemory(size_t bytes);
   [[nodiscard]] CuMemory uploadMemory(size_t bytes, const void* data);  // synchronous
   [[nodiscard]] ConstantCache<CuMemory>& constants() { return constants_; }
+
+  // Queued device-to-device copy.
+  void copy(cu_mem dst, cu_mem src, size_t bytes);
+  // Queued download: dst is valid after finish().
+  void readAsync(void* dst, cu_mem src, size_t bytes);
 
  private:
   void destroy() noexcept;

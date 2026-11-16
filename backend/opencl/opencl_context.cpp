@@ -160,6 +160,24 @@ ClBuffer OpenClContext::upload(size_t bytes, const void* data) {
   return buffer;
 }
 
+ClBuffer OpenClContext::uploadAsync(size_t bytes, const void* data) {
+  ClBuffer buffer = uninitialized(bytes);
+  CL_CHECK(clEnqueueWriteBuffer(queue_, buffer.get(), CL_FALSE, 0, bytes, data, 0, nullptr, nullptr));
+  return buffer;
+}
+
+void OpenClContext::copy(cl_mem dst, cl_mem src, size_t bytes) {
+  CL_CHECK(clEnqueueCopyBuffer(queue_, src, dst, 0, 0, bytes, 0, nullptr, nullptr));
+}
+
+void OpenClContext::readAsync(void* dst, cl_mem src, size_t bytes) {
+  CL_CHECK(clEnqueueReadBuffer(queue_, src, CL_FALSE, 0, bytes, dst, 0, nullptr, nullptr));
+}
+
+void OpenClContext::finish() {
+  CL_CHECK(clFinish(queue_));
+}
+
 ClChannels OpenClContext::zeroedChannels(size_t bytes) {
   ClChannels c;
   for (ClBuffer& b : c.ch) {
@@ -206,12 +224,12 @@ void OpenClContext::drainPool() noexcept {
   free_buffers_.clear();
 }
 
-ClMemory OpenClContext::createMemory(size_t bytes) {
+ClMemory OpenClContext::allocateMemory(size_t bytes) {
   return ClMemory(createBuffer(bytes));
 }
 
 ClMemory OpenClContext::uploadMemory(size_t bytes, const void* data) {
-  ClMemory memory = createMemory(bytes);
+  ClMemory memory = allocateMemory(bytes);
   CL_CHECK(clEnqueueWriteBuffer(queue_, memory.get(), CL_TRUE, 0, bytes, data, 0, nullptr, nullptr));
   return memory;
 }

@@ -65,7 +65,14 @@ Phase 6 notes (in progress). Order and scope decided 2026-11-16, all in phase 6:
    map, a logger pointer and an unused `filename`. The comparators' unused `ProcessStats*` parameter is gone from
    `IComparatorFactory::create()`. Verified: `--verbose` traces byte-identical (CPU on the larger images, OpenCL /
    CUDA / check on a regress input), regress unchanged.
-7. OpenCL/CUDA launcher deduplication of the butteraugli pipeline (phase 4 note).
+7. OpenCL/CUDA launcher deduplication. Done. `backend/gpu/gpu_kernels_base.h` (`GpuKernelsBase<Derived, Types>`,
+   CRTP) holds the butteraugli pipeline once; `OpenClKernels` / `CudaKernels` keep only the context, one `*Kernel()`
+   launcher per kernel (argument packing, launch shape) and the DCT / block-zeroing round trips (1699 -> 376 + 385 +
+   453 shared lines). The contexts gained `copy`, `readAsync`, `uploadAsync`, `finish` and a common
+   `allocateMemory`. Numerics unified on the OpenCL variant (decided by the user): blur weights' `scaler` in double,
+   the DoMask LUTs and `kGlobalScale` in double; CUDA used float for these. Verified: OpenCL traces byte-identical;
+   CUDA distances change in the last digits on some rejected iterations, no regress output changes in any of the 7
+   modes; CUDA-only, no-GPU and no-full-JPEG builds compile; clang-tidy clean.
 
 Phase 5 notes:
 - **Where things are.** `guetzli/processor.{h,cc}` is gone; the encoder is in `core/encoder/`: `Encoder` (one image:
@@ -225,6 +232,11 @@ release notes:
   unchanged (regress, 7 modes, and CPU traces identical to the msvcrt build). (phase 6)
 - The process no longer calls std::terminate for an exception escaping main; the message and exit code are the same.
   (phase 6)
+- CUDA backend: the host-side butteraugli constants (blur weights, DoMask LUTs, global scale) are computed like the
+  OpenCL backend (in double); CUDA distances can differ in the last digits from v2. No output change on the
+  regression inputs. (phase 6)
+- Linux CPU path: math calls on floats use the float overloads (std::exp etc.), like Windows; the Linux CPU output may
+  differ slightly from v2 and now matches Windows. (phase 6)
 
 Phase 1 notes:
 - CMake (`CMakeLists.txt`, `CMakePresets.json`, `cmake/`) builds `guetzli` and `guetzli_tests` from one OBJECT library

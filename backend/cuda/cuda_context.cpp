@@ -145,6 +145,14 @@ void CudaContext::finish() {
   CU_CHECK(driver_.stream_synchronize(stream_));
 }
 
+void CudaContext::copy(cu_mem dst, cu_mem src, size_t bytes) {
+  CU_CHECK(driver_.memcpy_dtod_async(dst, src, bytes, stream_));
+}
+
+void CudaContext::readAsync(void* dst, cu_mem src, size_t bytes) {
+  CU_CHECK(driver_.memcpy_dtoh_async(dst, src, bytes, stream_));
+}
+
 CuBuffer CudaContext::zeroed(size_t bytes) {
   return {&pool_, pool_.allocate(bytes, nullptr, true)};
 }
