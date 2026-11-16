@@ -221,9 +221,16 @@ jobs:
         run: |
           pipx install clang-tidy==21.1.6
           clang-tidy --version
+          set -o pipefail
           git ls-files 'app/*.cpp' 'backend/*.cpp' 'config/*.cpp' 'core/*.cpp' 'kernels/*.cpp' 'logging/*.cpp' \
                        'tests/unit/*.cpp' \
-            | xargs -P "$(nproc)" -n 1 clang-tidy -p "build/${{ matrix.preset }}" --quiet --warnings-as-errors='*'
+            | xargs -P "$(nproc)" -n 1 clang-tidy -p "build/${{ matrix.preset }}" --quiet --warnings-as-errors='*' \
+            2>&1 | tee tidy.log || {
+              # One annotation per finding (file:line: message [check]), deduplicated across files.
+              grep -E '(warning|error): ' tidy.log | sed "s|^$GITHUB_WORKSPACE/||" | sort -u | head -40 \
+                | while IFS= read -r line; do echo "::error::${line}"; done
+              exit 1
+            }
 
       # The embedded kernel headers are committed; CI must never regenerate them.
       - name: Verify embedded kernel headers
