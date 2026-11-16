@@ -17,7 +17,7 @@
 #include "core/image/jpeg_data_encoder.h"
 
 #include <algorithm>
-#include <string.h>
+#include <cstring>
 
 #include "core/image/fdct.h"
 
@@ -25,10 +25,10 @@ namespace guetzli {
 
 namespace {
 
-static const int kIQuantBits = 16;
+const int kIQuantBits = 16;
 // Output of the DCT is upscaled by 16.
-static const int kDctBits = kIQuantBits + 4;
-static const int kBias = 0x80 << (kDctBits - 8);
+const int kDctBits = kIQuantBits + 4;
+const int kBias = 0x80 << (kDctBits - 8);
 
 void quantize(coeff_t* v, int iquant) {
   *v = (*v * iquant + kBias) >> kDctBits;
@@ -37,7 +37,7 @@ void quantize(coeff_t* v, int iquant) {
 // Single pixel rgb to 16-bit yuv conversion.
 // The returned yuv values are signed integers in the
 // range [-128, 127] inclusive.
-inline static void rgbToYuv16(const uint8_t* const rgb, coeff_t* out) {
+inline void rgbToYuv16(const uint8_t* const rgb, coeff_t* out) {
   enum { FRAC = 16, HALF = 1 << (FRAC - 1) };
   const int r = rgb[0];
   const int g = rgb[1];
@@ -57,7 +57,7 @@ void addApp0Data(JpegData* jpg) {
       0x00, 0x00, 0x01, 0x00, 0x01,  // aspect ratio = 1:1
       0x00, 0x00                     // thumbnail width/height
   };
-  jpg->app_data.push_back(std::string(reinterpret_cast<const char*>(app0_data), sizeof(app0_data)));
+  jpg->app_data.emplace_back(reinterpret_cast<const char*>(app0_data), sizeof(app0_data));
 }
 
 bool encodeRgbToJpeg(const std::vector<uint8_t>& rgb, int w, int h, const int* quant, JpegData* jpg) {

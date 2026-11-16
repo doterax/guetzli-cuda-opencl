@@ -5,6 +5,8 @@
 # Acronyms are words: JpegData, toSrgb, kDctBlockSize.
 # Not enforced yet: the tree is cleaned up phase by phase and must be
 # clang-tidy clean at the end of phase 6, when CI starts failing on findings.
+# Off on purpose: readability-math-missing-parentheses (would parenthesize every product in the
+# butteraugli formulas, (a * x) + b) and performance-enum-size (`: uint8_t` on small enums gains nothing).
 Checks: >
   -*,
   bugprone-*,
@@ -18,6 +20,7 @@ Checks: >
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses,
   cppcoreguidelines-owning-memory,
   cppcoreguidelines-no-malloc,
   cppcoreguidelines-avoid-non-const-global-variables,
@@ -26,7 +29,8 @@ Checks: >
   cppcoreguidelines-slicing,
   cppcoreguidelines-special-member-functions,
   cppcoreguidelines-virtual-class-destructor,
-  performance-*
+  performance-*,
+  -performance-enum-size
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(.*[/\\])?(tests[/\\]unit|app|config|core|backend|kernels|logging)[/\\].*'
 FormatStyle: file

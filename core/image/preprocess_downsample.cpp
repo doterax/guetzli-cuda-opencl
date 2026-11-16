@@ -17,8 +17,8 @@
 #include "core/image/preprocess_downsample.h"
 
 #include <algorithm>
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
 #include <cmath>
 
 using std::size_t;
@@ -93,7 +93,7 @@ std::vector<float> sharpen(const std::vector<float>& image, int w, int h, float 
   }
 
   double sum = 0;
-  for (size_t i = 0; i < kernel.size(); i++) sum += kernel[i];
+  for (double i : kernel) sum += i;
   const double mul = 1.0 / sum;
 
   std::vector<float> result = convolve2X(image, w, h, kernel.data(), kernel.size(), mul);
@@ -136,7 +136,7 @@ std::vector<float> blur(const std::vector<float>& image, int w, int h) {
   }
 
   double sum = 0;
-  for (size_t i = 0; i < kernel.size(); i++) sum += kernel[i];
+  for (double i : kernel) sum += i;
   const double mul = 1.0 / sum;
 
   return convolve2X(image, w, h, kernel.data(), kernel.size(), mul);
@@ -441,7 +441,7 @@ std::vector<std::vector<float>> rgbToYuv420(const std::vector<uint8_t>& rgb_in, 
     std::vector<float> rgb_rec = yuv420ToRgb(yuv_guess, width, height);
     std::vector<float> y_rec = linearlyAveragedLuma(rgb_rec);
     std::vector<std::vector<float>> yuv_rec = rgbToYuv(linearlyDownsample2x2(rgb_rec, width, height));
-    updateGuess(y_target, y_rec, &yuv_guess[0]);
+    updateGuess(y_target, y_rec, yuv_guess.data());
     updateGuess(yuv_target[1], yuv_rec[1], &yuv_guess[1]);
     updateGuess(yuv_target[2], yuv_rec[2], &yuv_guess[2]);
   }

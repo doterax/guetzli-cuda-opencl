@@ -9,6 +9,7 @@
 #include "core/quality/opsin_block.h"
 
 #include <cmath>
+#include <utility>
 
 namespace guetzli {
 namespace {
@@ -122,7 +123,7 @@ void convolution(const unsigned int xsize, const unsigned int ysize, const int x
   for (int j = 0; j <= 2 * offset; ++j) {
     weight_no_border += multipliers[j];
   }
-  for (int x = 0, ox = 0; x < (int)xsize; x += xstep, ox++) {
+  for (int x = 0, ox = 0; std::cmp_less(x, xsize); x += xstep, ox++) {
     int minx = x < offset ? 0 : x - offset;
     int maxx = minInt((int)xsize, (int)(x + len - offset)) - 1;
     float weight = 0.0f;
@@ -137,7 +138,7 @@ void convolution(const unsigned int xsize, const unsigned int ysize, const int x
       for (int j = minx; j <= maxx; ++j) {
         sum += inp[y * xsize + j] * multipliers[j - x + offset];
       }
-      result[ox * ysize + y] = (float)(sum * scale);
+      result[ox * ysize + y] = (sum * scale);
     }
   }
 }
@@ -179,11 +180,13 @@ void opsinDynamicsImageBlock(float* r, float* g, float* b, const float* r_blurre
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    float x, y, z;
+    float x;
+    float y;
+    float z;
     rgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
-    r[i] = (float)(x);
-    g[i] = (float)(y);
-    b[i] = (float)(z);
+    r[i] = x;
+    g[i] = y;
+    b[i] = z;
   }
 }
 

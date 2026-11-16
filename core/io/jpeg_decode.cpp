@@ -108,7 +108,10 @@ std::optional<RgbImage> decodeJpegPixels(const std::string& data, ILogger& logge
     return std::nullopt;
   }
   RgbImage image;
-  int width, height, subsampling, colorspace;
+  int width;
+  int height;
+  int subsampling;
+  int colorspace;
   bool ok;
   if (tjDecompressHeader3(handle, reinterpret_cast<unsigned char*>(const_cast<char*>(data.data())),
                           static_cast<unsigned long>(data.size()), &width, &height, &subsampling, &colorspace) != 0) {

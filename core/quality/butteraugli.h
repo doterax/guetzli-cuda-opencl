@@ -48,7 +48,7 @@ class ButteraugliComparator {
   // NOTE: The xyb0 and xyb1 images are mutated by this function in-place.
   virtual void diffmapOpsinDynamicsImage(std::vector<std::vector<float>>& xyb0, std::vector<std::vector<float>>& xyb1,
                                          std::vector<float>& result);
-  int step() { return step_; }
+  int step() const { return step_; }
 
  protected:
   virtual void blockDiffMap(const std::vector<std::vector<float>>& rgb0, const std::vector<std::vector<float>>& rgb1,
@@ -65,7 +65,6 @@ class ButteraugliComparator {
                                const std::vector<float>& block_diff_dc, const std::vector<float>& block_diff_ac,
                                const std::vector<float>& edge_detector_map, std::vector<float>* result);
 
- protected:
   const size_t xsize_;
   const size_t ysize_;
   const size_t num_pixels_;

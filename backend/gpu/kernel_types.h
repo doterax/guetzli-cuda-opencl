@@ -18,12 +18,12 @@
 
 #ifdef __USE_CUDA__
 #include "cuda.h"
-typedef CUdeviceptr cu_mem;
+using cu_mem = CUdeviceptr;
 #endif
 
-typedef unsigned char uchar;
-typedef unsigned short ushort;
-typedef short coeff_t;
+using uchar = unsigned char;
+using ushort = unsigned short;
+using coeff_t = short;
 
 #ifdef __USE_OPENCL__
 union OclChannels {

@@ -8,8 +8,8 @@
 
 #include "backend/opencl/opencl_kernels.h"
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 
 #include <algorithm>
 #include <exception>
@@ -94,7 +94,7 @@ void OpenClKernels::enqueueRange2D(cl_kernel kernel, size_t w, size_t h, size_t 
   }
   size_t global[2] = {roundUp(w, lx), roundUp(h, ly)};
   size_t local[2] = {lx, ly};
-  CL_CHECK(clEnqueueNDRangeKernel(ocl.queue(), kernel, 2, NULL, global, local, 0, NULL, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(ocl.queue(), kernel, 2, nullptr, global, local, 0, nullptr, nullptr));
 }
 
 void OpenClKernels::enqueueRange1D(cl_kernel kernel, size_t n, size_t l) {
@@ -104,7 +104,7 @@ void OpenClKernels::enqueueRange1D(cl_kernel kernel, size_t n, size_t l) {
   while (l > max_wg && l > 1) l /= 2;
   size_t global[1] = {roundUp(n, l)};
   size_t local[1] = {l};
-  CL_CHECK(clEnqueueNDRangeKernel(ocl.queue(), kernel, 1, NULL, global, local, 0, NULL, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(ocl.queue(), kernel, 1, nullptr, global, local, 0, nullptr, nullptr));
 }
 
 void OpenClKernels::opsinDynamicsImage(float* r, float* g, float* b, const unsigned int xsize,
@@ -118,9 +118,9 @@ void OpenClKernels::opsinDynamicsImage(float* r, float* g, float* b, const unsig
 
   opsinDynamicsOnDevice(rgb.view(), xsize, ysize);
 
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[0].get(), false, 0, channel_size, r, 0, NULL, NULL));
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[1].get(), false, 0, channel_size, g, 0, NULL, NULL));
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[2].get(), false, 0, channel_size, b, 0, NULL, NULL));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[0].get(), false, 0, channel_size, r, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[1].get(), false, 0, channel_size, g, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), rgb.ch[2].get(), false, 0, channel_size, b, 0, nullptr, nullptr));
   CL_CHECK(clFinish(ocl.queue()));
 }
 
@@ -184,7 +184,7 @@ void OpenClKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, cons
   enqueueRange2D(kernel, blockf_width, blockf_height, 8, 4);
 
   CL_CHECK(clEnqueueReadBuffer(ocl.queue(), mem_output_order_batch.get(), false, 0, output_order_batch_size,
-                               output_order_batch, 0, NULL, NULL));
+                               output_order_batch, 0, nullptr, nullptr));
   CL_CHECK(clFinish(ocl.queue()));
 }
 
@@ -205,11 +205,12 @@ void OpenClKernels::mask(float* mask_r, float* mask_g, float* mask_b, float* mas
   float* const mask_out[3] = {mask_r, mask_g, mask_b};
   float* const mask_dc_out[3] = {maskdc_r, maskdc_g, maskdc_b};
   for (int i = 0; i < 3; i++) {
-    CL_CHECK(clEnqueueReadBuffer(ocl.queue(), mask.ch[i].get(), false, 0, channel_size, mask_out[i], 0, NULL, NULL));
+    CL_CHECK(
+        clEnqueueReadBuffer(ocl.queue(), mask.ch[i].get(), false, 0, channel_size, mask_out[i], 0, nullptr, nullptr));
   }
   for (int i = 0; i < 3; i++) {
-    CL_CHECK(
-        clEnqueueReadBuffer(ocl.queue(), mask_dc.ch[i].get(), false, 0, channel_size, mask_dc_out[i], 0, NULL, NULL));
+    CL_CHECK(clEnqueueReadBuffer(ocl.queue(), mask_dc.ch[i].get(), false, 0, channel_size, mask_dc_out[i], 0, nullptr,
+                                 nullptr));
   }
   CL_CHECK(clFinish(ocl.queue()));
 }
@@ -368,12 +369,12 @@ void OpenClKernels::maskHighIntensityChange(const OclChannels& xyb0 /*in,out*/, 
   const OclChannels c0 = c0_buffers.view();
   const OclChannels c1 = c1_buffers.view();
 
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.r, c0.r, 0, 0, channel_size, 0, NULL, NULL));
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.g, c0.g, 0, 0, channel_size, 0, NULL, NULL));
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.b, c0.b, 0, 0, channel_size, 0, NULL, NULL));
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.r, c1.r, 0, 0, channel_size, 0, NULL, NULL));
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.g, c1.g, 0, 0, channel_size, 0, NULL, NULL));
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.b, c1.b, 0, 0, channel_size, 0, NULL, NULL));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.r, c0.r, 0, 0, channel_size, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.g, c0.g, 0, 0, channel_size, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb0.b, c0.b, 0, 0, channel_size, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.r, c1.r, 0, 0, channel_size, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.g, c1.g, 0, 0, channel_size, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), xyb1.b, c1.b, 0, 0, channel_size, 0, nullptr, nullptr));
 
   cl_kernel kernel = ocl.kernel(KERNEL_MASKHIGHINTENSITYCHANGE);
   setKernelArgs(kernel, &xyb0.r, &xyb0.g, &xyb0.b, &xsize, &ysize, &xyb1.r, &xyb1.g, &xyb1.b, &c0.r, &c0.g, &c0.b,
@@ -477,7 +478,7 @@ void OpenClKernels::average5x5(cl_mem img /*in,out*/, const unsigned int xsize, 
   size_t len = xsize * ysize * sizeof(float);
   ClBuffer img_org = ocl.uninitialized(len);  // full copy below
 
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), img, img_org.get(), 0, 0, len, 0, NULL, NULL));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), img, img_org.get(), 0, 0, len, 0, nullptr, nullptr));
 
   cl_kernel kernel = ocl.kernel(KERNEL_AVERAGE5X5);
   setKernelArgs(kernel, &img, &xsize, &ysize, &img_org.get());
@@ -496,7 +497,8 @@ void OpenClKernels::minSquareVal(cl_mem img /*in,out*/, const unsigned int xsize
   setKernelArgs(kernel, &result.get(), &xsize, &ysize, &img, &square_size, &offset);
 
   enqueueRange2D(kernel, xsize, ysize);
-  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), result.get(), img, 0, 0, sizeof(cl_float) * xsize * ysize, 0, NULL, NULL));
+  CL_CHECK(
+      clEnqueueCopyBuffer(ocl.queue(), result.get(), img, 0, 0, sizeof(cl_float) * xsize * ysize, 0, nullptr, nullptr));
 }
 
 void OpenClKernels::doMask(OclChannels mask /*in, out*/, OclChannels mask_dc /*in, out*/, size_t xsize, size_t ysize) {
@@ -510,7 +512,8 @@ void OpenClKernels::doMask(OclChannels mask /*in, out*/, OclChannels mask_dc /*i
       return ocl.uploadMemory(sizeof(table), table);
     });
   };
-  OclChannels xyb, xyb_dc;
+  OclChannels xyb;
+  OclChannels xyb_dc;
   xyb.ch[0] = lut(0, 0.975741017749, -4.25328244168, 0.454909521427, 0.0738288224836, 20.8029176447);
   xyb.ch[1] = lut(1, 0.373995618954, 1.5307267433, 0.911952641929, 1.1731667845, 16.2447033988);
   xyb.ch[2] = lut(2, 0.61582234137, -4.25376118646, 1.05105070921, 0.47434643535, 31.1444967089);
@@ -573,12 +576,13 @@ void OpenClKernels::upsampleSquareRoot(cl_mem diffmap, const unsigned int xsize,
   cl_kernel kernel = ocl.kernel(KERNEL_UPSAMPLESQUAREROOT);
   const size_t res_xsize = (xsize + step - 1) / step;
   const size_t res_ysize = (ysize + step - 1) / step;
-  const int res_xsize_arg = (int)res_xsize, res_ysize_arg = (int)res_ysize;
+  const int res_xsize_arg = (int)res_xsize;
+  const int res_ysize_arg = (int)res_ysize;
   setKernelArgs(kernel, &diffmap_out.get(), &diffmap, &xsize, &ysize, &step, &res_xsize_arg, &res_ysize_arg);
 
   enqueueRange2D(kernel, res_xsize, res_ysize);
-  CL_CHECK(
-      clEnqueueCopyBuffer(ocl.queue(), diffmap_out.get(), diffmap, 0, 0, xsize * ysize * sizeof(float), 0, NULL, NULL));
+  CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), diffmap_out.get(), diffmap, 0, 0, xsize * ysize * sizeof(float), 0, nullptr,
+                               nullptr));
 }
 
 void OpenClKernels::removeBorder(cl_mem out, const cl_mem in, const unsigned int xsize, const unsigned int ysize,
@@ -653,8 +657,9 @@ void OpenClKernels::copyFromJpegComponent(coeff_t* output_batch /*in,out*/, uint
 
   enqueueRange2D(kernel, output_block_width, output_block_height);
 
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_coeff.get(), false, 0, dst_coeff_size, output_batch, 0, NULL, NULL));
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_idct.get(), false, 0, dst_idct_size, output_idct, 0, NULL, NULL));
+  CL_CHECK(
+      clEnqueueReadBuffer(ocl.queue(), dst_coeff.get(), false, 0, dst_coeff_size, output_batch, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_idct.get(), false, 0, dst_idct_size, output_idct, 0, nullptr, nullptr));
   CL_CHECK(clFinish(ocl.queue()));
 }
 
@@ -680,9 +685,10 @@ void OpenClKernels::applyGlobalQuantization(coeff_t* output_batch /*in,out*/, ui
 
   enqueueRange2D(kernel, block_width, block_height);
 
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_coeff.get(), false, 0, dst_coeff_size, output_batch, 0, NULL, NULL));
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_idct.get(), false, 0, dst_idct_size, output_idct, 0, NULL, NULL));
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_bool.get(), false, 0, dst_bool_size, output_bool, 0, NULL, NULL));
+  CL_CHECK(
+      clEnqueueReadBuffer(ocl.queue(), dst_coeff.get(), false, 0, dst_coeff_size, output_batch, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_idct.get(), false, 0, dst_idct_size, output_idct, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), dst_bool.get(), false, 0, dst_bool_size, output_bool, 0, nullptr, nullptr));
   CL_CHECK(clFinish(ocl.queue()));
 }
 
@@ -733,7 +739,7 @@ void OpenClKernels::componentsToPixels(uint8_t* rgb, /*out*/
                                        const std::vector<OutputImageComponent>& components /*in*/) {
   OpenClContext& ocl = context();
 
-  const OutputImageComponent* comps[3] = {&components[0], &components[1], &components[2]};
+  const OutputImageComponent* comps[3] = {components.data(), &components[1], &components[2]};
   ClBuffer pixels[3];
   cl_mem pixel_mems[3];
   for (int c = 0; c < 3; ++c) {
@@ -747,7 +753,7 @@ void OpenClKernels::componentsToPixels(uint8_t* rgb, /*out*/
 
   componentsToPixelsDevice(cl_out.get(), pixel_mems, xmin, ymin, xsize, ysize, comps);
 
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), cl_out.get(), CL_TRUE, 0, out_size, rgb, 0, NULL, NULL));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), cl_out.get(), CL_TRUE, 0, out_size, rgb, 0, nullptr, nullptr));
 }
 
 std::unique_ptr<GpuCompareSession> OpenClKernels::startCompare(const float* r, const float* g, const float* b,
@@ -776,8 +782,8 @@ void OpenClKernels::compare(const OclChannels& ref, const int xsize, const int y
       pixel_mems[c] = pixels[c].get();
       // Non-blocking: img outlives this call, and the blocking read at the end
       // completes all queued work before we return.
-      CL_CHECK(clEnqueueWriteBuffer(ocl.queue(), pixel_mems[c], CL_FALSE, 0, pixels_size, comps[c]->pixels(), 0, NULL,
-                                    NULL));
+      CL_CHECK(clEnqueueWriteBuffer(ocl.queue(), pixel_mems[c], CL_FALSE, 0, pixels_size, comps[c]->pixels(), 0,
+                                    nullptr, nullptr));
     }
 
     ClBuffer srgb = ocl.uninitialized((size_t)size * 3);
@@ -803,7 +809,7 @@ void OpenClKernels::compare(const OclChannels& ref, const int xsize, const int y
   ClChannels xyb0_buffers = ocl.uninitializedChannels(channel_size);
   const OclChannels xyb0 = xyb0_buffers.view();
   for (int c = 0; c < 3; ++c) {
-    CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), ref.ch[c], xyb0.ch[c], 0, 0, channel_size, 0, NULL, NULL));
+    CL_CHECK(clEnqueueCopyBuffer(ocl.queue(), ref.ch[c], xyb0.ch[c], 0, 0, channel_size, 0, nullptr, nullptr));
   }
 
   // Zero-filled: CombineChannels / UpsampleSquareRoot leave the borders untouched.
@@ -812,7 +818,7 @@ void OpenClKernels::compare(const OclChannels& ref, const int xsize, const int y
   opsinDynamicsOnDevice(xyb1, xsize, ysize);
   diffmapOpsinDynamicsImage(mem_result.get(), xyb0, xyb1, xsize, ysize, step);
 
-  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), mem_result.get(), CL_TRUE, 0, channel_size, distmap, 0, NULL, NULL));
+  CL_CHECK(clEnqueueReadBuffer(ocl.queue(), mem_result.get(), CL_TRUE, 0, channel_size, distmap, 0, nullptr, nullptr));
 }
 
 }  // namespace guetzli

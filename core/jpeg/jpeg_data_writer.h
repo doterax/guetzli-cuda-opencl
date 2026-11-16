@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <utility>
 #include <vector>
 
 #include "core/jpeg/jpeg_data.h"
@@ -29,12 +30,12 @@ namespace guetzli {
 
 // Function pointer type used to write len bytes into buf. Returns the
 // number of bytes written or -1 on error.
-typedef int (*JPEGOutputHook)(void* data, const uint8_t* buf, size_t len);
+using JPEGOutputHook = int (*)(void* data, const uint8_t* buf, size_t len);
 
 // Output callback function with associated data.
 struct JpegOutput {
   JpegOutput(JPEGOutputHook cb, void* data) : cb_(cb), data_(data) {}
-  bool write(const uint8_t* buf, size_t len) const { return (len == 0) || (cb_(data_, buf, len) == len); }
+  bool write(const uint8_t* buf, size_t len) const { return (len == 0) || (std::cmp_equal(cb_(data_, buf, len), len)); }
 
  private:
   JPEGOutputHook cb_;
@@ -64,7 +65,7 @@ struct JpegHistogram {
     }
     counts[kSize - 1] = 1;
   }
-  int numSymbols() const {
+  [[nodiscard]] int numSymbols() const {
     int n = 0;
     for (int i = 0; i + 1 < kSize; ++i) {
       n += (counts[i] > 0 ? 1 : 0);

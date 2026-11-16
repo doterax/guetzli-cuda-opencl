@@ -58,8 +58,8 @@ TEST_CASE("corrupt PNG or JPEG: exit 3, reported as such and not as an unknown f
     std::string data;
     const char* message;
   } cases[] = {
-      {"png", png.substr(0, png.size() / 2), "Error reading PNG data"},
-      {"jpeg", std::string("\xFF\xD8\xFF\xE0 garbage", 12), "Error reading JPEG data"},
+      {.name = "png", .data = png.substr(0, png.size() / 2), .message = "Error reading PNG data"},
+      {.name = "jpeg", .data = std::string("\xFF\xD8\xFF\xE0 garbage", 12), .message = "Error reading JPEG data"},
   };
   for (const auto& c : cases) {
     CAPTURE(c.name);

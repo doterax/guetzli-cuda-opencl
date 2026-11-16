@@ -48,7 +48,8 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
   app.footer(kFooter);
   app.get_formatter()->column_width(28);
 
-  std::string input, output;
+  std::string input;
+  std::string output;
   // Not required() so that --version works with other flags; Config::validate() reports missing files.
   app.add_option("input", input, "Input image (PNG, JPEG, TIFF; - = stdin)");
   app.add_option("output", output, "Output JPEG (- = stdout)");
@@ -72,6 +73,7 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
   if (features.opencl) backends["opencl"] = BackendKind::OpenCl;
   if (features.cuda) backends["cuda"] = BackendKind::Cuda;
   std::vector<std::string> backend_names;
+  backend_names.reserve(backends.size());
   for (const auto& [name, kind] : backends) backend_names.push_back(name);
   std::string backend_value;
   CLI::Option* backend_opt =

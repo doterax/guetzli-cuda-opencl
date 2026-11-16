@@ -26,7 +26,7 @@ namespace guetzli {
 
 // A node of a Huffman tree.
 struct HuffmanTree {
-  HuffmanTree() {}
+  HuffmanTree() = default;
   HuffmanTree(uint32_t count, int16_t left, int16_t right)
       : total_count(count), index_left(left), index_right_or_value(right) {}
   uint32_t total_count;
@@ -48,8 +48,7 @@ bool setDepth(int p, HuffmanTree* pool, uint8_t* depth, int max_depth);
 // be at least 2 * length + 1 long.
 //
 // See http://en.wikipedia.org/wiki/Huffman_coding
-void createHuffmanTree(const uint32_t* data, const size_t length, const int tree_limit, HuffmanTree* tree,
-                       uint8_t* depth);
+void createHuffmanTree(const uint32_t* data, size_t length, int tree_limit, HuffmanTree* tree, uint8_t* depth);
 
 }  // namespace guetzli
 

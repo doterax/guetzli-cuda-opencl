@@ -33,17 +33,17 @@ class OutputImageComponent {
 
   void reset(int factor_x, int factor_y);
 
-  int width() const { return width_; }
-  int height() const { return height_; }
-  int factorX() const { return factor_x_; }
-  int factorY() const { return factor_y_; }
-  int widthInBlocks() const { return width_in_blocks_; }
-  int heightInBlocks() const { return height_in_blocks_; }
-  const coeff_t* coeffs() const { return &coeffs_[0]; }
-  const uint16_t* pixels() const { return &pixels_[0]; }
-  size_t pixelsSize() const { return pixels_.size(); }
-  const int* quant() const { return quant_.data(); }
-  bool isAllZero() const;
+  [[nodiscard]] int width() const { return width_; }
+  [[nodiscard]] int height() const { return height_; }
+  [[nodiscard]] int factorX() const { return factor_x_; }
+  [[nodiscard]] int factorY() const { return factor_y_; }
+  [[nodiscard]] int widthInBlocks() const { return width_in_blocks_; }
+  [[nodiscard]] int heightInBlocks() const { return height_in_blocks_; }
+  [[nodiscard]] const coeff_t* coeffs() const { return coeffs_.data(); }
+  [[nodiscard]] const uint16_t* pixels() const { return pixels_.data(); }
+  [[nodiscard]] size_t pixelsSize() const { return pixels_.size(); }
+  [[nodiscard]] const int* quant() const { return quant_.data(); }
+  [[nodiscard]] bool isAllZero() const;
 
   // Fills in block[] with the 8x8 coefficient block with block coordinates
   // (block_x, block_y).
@@ -75,7 +75,7 @@ class OutputImageComponent {
   void applyGlobalQuantization(const int q[kDctBlockSize]);
 
   // Low-level access for the device implementations of IDctOps.
-  coeff_t* mutableCoeffs() { return &coeffs_[0]; }
+  coeff_t* mutableCoeffs() { return coeffs_.data(); }
   void updatePixelsForBlock(int block_x, int block_y, const uint8_t idct[kDctBlockSize]);
   void setQuant(const int q[kDctBlockSize]);
 
@@ -98,12 +98,12 @@ class OutputImage {
   // ops runs the coefficient/pixel operations; it must outlive the image (and its copies).
   OutputImage(int w, int h, IDctOps& ops);
 
-  int width() const { return width_; }
-  int height() const { return height_; }
+  [[nodiscard]] int width() const { return width_; }
+  [[nodiscard]] int height() const { return height_; }
 
   OutputImageComponent& component(int c) { return components_[c]; }
-  const OutputImageComponent& component(int c) const { return components_[c]; }
-  const std::vector<OutputImageComponent>& components() const { return components_; }
+  [[nodiscard]] const OutputImageComponent& component(int c) const { return components_[c]; }
+  [[nodiscard]] const std::vector<OutputImageComponent>& components() const { return components_; }
 
   // Requires that jpg is in YUV444 format.
   void copyFromJpegData(const JpegData& jpg);
@@ -133,15 +133,15 @@ class OutputImage {
 
   void saveToJpegData(JpegData* jpg) const;
 
-  std::vector<uint8_t> toSrgb() const;
+  [[nodiscard]] std::vector<uint8_t> toSrgb() const;
 
-  std::vector<uint8_t> toSrgb(int xmin, int ymin, int xsize, int ysize) const;
+  [[nodiscard]] std::vector<uint8_t> toSrgb(int xmin, int ymin, int xsize, int ysize) const;
 
   void toLinearRgb(std::vector<std::vector<float>>* rgb) const;
 
   void toLinearRgb(int xmin, int ymin, int xsize, int ysize, std::vector<std::vector<float>>* rgb) const;
 
-  std::string frameTypeStr() const;
+  [[nodiscard]] std::string frameTypeStr() const;
 
  private:
   const int width_;

@@ -46,7 +46,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
 #include "core/encoder/order.inc"
   std::vector<std::pair<int, float>> input_order;
   for (int c = 0; c < 3; ++c) {
-    if (!(comp_mask & (1 << c))) continue;
+    if ((comp_mask & (1 << c)) == 0) continue;
     for (int k = 1; k < kDctBlockSize; ++k) {
       int idx = c * kDctBlockSize + k;
       if (block[idx] != 0) {
@@ -57,7 +57,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
           score =
               static_cast<float>((std::abs(orig_block[idx]) - kJpegZigZagOrder[k] / 64.0) * kWeight[c] / kOldCsf[k]);
         }
-        input_order.push_back(std::make_pair(idx, score));
+        input_order.emplace_back(idx, score);
       }
     }
   }
@@ -75,7 +75,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
       const int idx = input_order[i].first;
       candidate_block[idx] = 0;
       for (int c = 0; c < 3; ++c) {
-        if (comp_mask & (1 << c)) {
+        if ((comp_mask & (1 << c)) != 0) {
           img->component(c).setCoeffBlock(block_x, block_y, &candidate_block[c * kDctBlockSize]);
         }
       }
@@ -85,7 +85,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
           int block_xx = block_x * factor_x + ix;
           int block_yy = block_y * factor_y + iy;
           if (8 * block_xx < img->width() && 8 * block_yy < img->height()) {
-            float err = static_cast<float>(comparator->compareBlock(*img, ix, iy, candidate_block, comp_mask));
+            auto err = static_cast<float>(comparator->compareBlock(*img, ix, iy, candidate_block, comp_mask));
             max_err = std::max(max_err, err);
           }
         }
@@ -98,9 +98,9 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
     int idx = input_order[best_i].first;
     processed_block[idx] = 0;
     input_order.erase(input_order.begin() + best_i);
-    output_order->push_back({idx, best_err});
+    output_order->push_back({.idx = idx, .block_err = best_err});
     for (int c = 0; c < 3; ++c) {
-      if (comp_mask & (1 << c)) {
+      if ((comp_mask & (1 << c)) != 0) {
         img->component(c).setCoeffBlock(block_x, block_y, &processed_block[c * kDctBlockSize]);
       }
     }
@@ -124,7 +124,7 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
   output_order->resize(num);
   // Restore *img to the same state as it was at the start of this function.
   for (int c = 0; c < 3; ++c) {
-    if (comp_mask & (1 << c)) {
+    if ((comp_mask & (1 << c)) != 0) {
       img->component(c).setCoeffBlock(block_x, block_y, &block[c * kDctBlockSize]);
     }
   }
@@ -149,7 +149,7 @@ std::vector<CoeffData> CpuBlockZeroingSearch::run(const BlockZeroingInput& in) {
       coeff_t block[kBlockSize] = {0};
       coeff_t orig_block[kBlockSize] = {0};
       for (int c = 0; c < 3; ++c) {
-        if (comp_mask & (1 << c)) {
+        if ((comp_mask & (1 << c)) != 0) {
           assert(img->component(c).factor_x() == factor_x);
           assert(img->component(c).factor_y() == factor_y);
           img->component(c).getCoeffBlock(block_x, block_y, &block[c * kDctBlockSize]);

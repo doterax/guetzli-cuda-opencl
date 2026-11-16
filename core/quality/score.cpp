@@ -29,13 +29,12 @@ double scoreJpeg(double butteraugli_distance, int size, double butteraugli_targe
   double diff = butteraugli_distance - butteraugli_target;
   if (diff <= 0.0) {
     return size;
+  }
+  double exponent = kScale * diff;
+  if (exponent > kMaxExponent) {
+    return kLargeSize * std::exp(kMaxExponent) * diff + size;
   } else {
-    double exponent = kScale * diff;
-    if (exponent > kMaxExponent) {
-      return kLargeSize * std::exp(kMaxExponent) * diff + size;
-    } else {
-      return std::exp(exponent) * size;
-    }
+    return std::exp(exponent) * size;
   }
 }
 

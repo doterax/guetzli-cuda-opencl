@@ -33,7 +33,7 @@ void GpuDctOps::applyGlobalQuantization(OutputImageComponent& c, const int q[kDc
   for (int block_y = 0; block_y < bh; ++block_y) {
     for (int block_x = 0; block_x < bw; ++block_x) {
       const int block_ix = block_y * bw + block_x;
-      if (changed[block_ix]) {
+      if (changed[block_ix] != 0u) {
         c.updatePixelsForBlock(block_x, block_y, &idct[block_ix * kDctBlockSize]);
       }
     }

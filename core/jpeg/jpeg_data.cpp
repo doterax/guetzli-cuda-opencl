@@ -16,8 +16,8 @@
 
 #include "core/jpeg/jpeg_data.h"
 
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
 
 namespace guetzli {
 
@@ -64,7 +64,7 @@ void saveQuantTables(const int q[3][kDctBlockSize], JpegData* jpg) {
     // Check if we have this quant table already.
     bool found = false;
     for (int j = 0; j < num_tables; ++j) {
-      if (memcmp(&q[i][0], &jpg->quant[j].values[0], table_size) == 0) {
+      if (memcmp(&q[i][0], jpg->quant[j].values.data(), table_size) == 0) {
         comp->quant_idx = j;
         found = true;
         break;
@@ -72,7 +72,7 @@ void saveQuantTables(const int q[3][kDctBlockSize], JpegData* jpg) {
     }
     if (!found) {
       JpegQuantTable table;
-      memcpy(&table.values[0], &q[i][0], table_size);
+      memcpy(table.values.data(), &q[i][0], table_size);
       table.precision = 0;
       for (int k = 0; k < kDctBlockSize; ++k) {
         assert(table.values[k] >= 0);

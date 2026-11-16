@@ -21,7 +21,7 @@
 namespace guetzli {
 
 const double* newSrgb8ToLinearTable() {
-  double* table = new double[256];
+  auto* table = new double[256];
   int i = 0;
   for (; i < 11; ++i) {
     table[i] = i / 12.92;

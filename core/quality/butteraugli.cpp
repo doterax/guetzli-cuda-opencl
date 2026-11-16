@@ -31,14 +31,15 @@
 
 #include "core/quality/butteraugli.h"
 
-#include <assert.h>
-#include <math.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 #include <algorithm>
 #include <array>
+#include <utility>
 
 // Restricted pointers speed up Convolution(); MSVC uses a different keyword.
 #ifdef _MSC_VER
@@ -292,15 +293,18 @@ double removeRangeAroundZero(double v, double range) {
   }
   if (v < 0) {
     return v + range;
-  } else {
-    return v - range;
   }
+  return v - range;
 }
 
 void xybDiffLowFreqSquaredAccumulate(double r0, double g0, double b0, double r1, double g1, double b1, double factor,
                                      double res[3]) {
-  double valx0, valy0, valz0;
-  double valx1, valy1, valz1;
+  double valx0;
+  double valy0;
+  double valz0;
+  double valx1;
+  double valy1;
+  double valz1;
   xybLowFreqToVals(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
     PROFILER_ZONE("XybDiff r1=g1=b1=0");
@@ -331,7 +335,7 @@ inline double abssq(const Complex& c) {
 }
 
 static void transposeBlock(Complex data[kBlockSize]) {
-  for (int i = 0; i < kBlockEdge; i++) {
+  for (int i = 0; std::cmp_less(i, kBlockEdge); i++) {
     for (int j = 0; j < i; j++) {
       std::swap(data[kBlockEdge * i + j], data[kBlockEdge * j + i]);
     }
@@ -340,7 +344,14 @@ static void transposeBlock(Complex data[kBlockSize]) {
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
 inline void fft4(Complex* a) {
-  double t1, t2, t3, t4, t5, t6, t7, t8;
+  double t1;
+  double t2;
+  double t3;
+  double t4;
+  double t5;
+  double t6;
+  double t7;
+  double t8;
   t5 = a[2].real;
   t1 = a[0].real - t5;
   t7 = a[3].real;
@@ -372,7 +383,14 @@ static const double kSqrtHalf = 0.70710678118654752440084436210484903;
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
 void fft8(Complex* a) {
-  double t1, t2, t3, t4, t5, t6, t7, t8;
+  double t1;
+  double t2;
+  double t3;
+  double t4;
+  double t5;
+  double t6;
+  double t7;
+  double t8;
 
   t7 = a[4].imag;
   t4 = a[0].imag - t7;
@@ -468,7 +486,13 @@ void fft8(Complex* a) {
 // TODO: Since this does not need to be in-place, maybe there is a
 // faster FFT than this one, which is derived from DJB's in-place complex FFT.
 void realFft8(const double* in, Complex* out) {
-  double t1, t2, t3, t5, t6, t7, t8;
+  double t1;
+  double t2;
+  double t3;
+  double t5;
+  double t6;
+  double t7;
+  double t8;
   t8 = in[6];
   t5 = in[2] - t8;
   t8 += in[2];
@@ -546,19 +570,19 @@ void butteraugliFftSquared(double block[kBlockSize]) {
   double global_mul = 0.000064;
   Complex block_c[kBlockSize];
   assert(kBlockEdge == 8);
-  for (int y = 0; y < kBlockEdge; ++y) {
+  for (int y = 0; std::cmp_less(y, kBlockEdge); ++y) {
     realFft8(block + y * kBlockEdge, block_c + y * kBlockEdge);
   }
   transposeBlock(block_c);
   double r0[kBlockEdge];
   double r1[kBlockEdge];
-  for (int x = 0; x < kBlockEdge; ++x) {
+  for (int x = 0; std::cmp_less(x, kBlockEdge); ++x) {
     r0[x] = block_c[x].real;
     r1[x] = block_c[kBlockHalf + x].real;
   }
   realFft8(r0, block_c);
   realFft8(r1, block_c + kBlockHalf);
-  for (int y = 1; y < kBlockEdgeHalf; ++y) {
+  for (int y = 1; std::cmp_less(y, kBlockEdgeHalf); ++y) {
     fft8(block_c + y * kBlockEdge);
   }
   for (int i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i) {
@@ -705,14 +729,14 @@ double gammaMinArg() {
   double in[3] = {0.0, 0.0, 0.0};
   double out[3];
   opsinAbsorbance(in, out);
-  return std::min(out[0], std::min(out[1], out[2]));
+  return std::min({out[0], out[1], out[2]});
 }
 
 double gammaMaxArg() {
   double in[3] = {255.0, 255.0, 255.0};
   double out[3];
   opsinAbsorbance(in, out);
-  return std::max(out[0], std::max(out[1], out[2]));
+  return std::max({out[0], out[1], out[2]});
 }
 
 ButteraugliComparator::ButteraugliComparator(size_t xsize, size_t ysize, int step)
@@ -740,9 +764,10 @@ void maskHighIntensityChange(size_t xsize, size_t ysize, const std::vector<std::
       double sqr_max_diff = -1;
       {
         int offset[4] = {-1, 1, -static_cast<int>(xsize), static_cast<int>(xsize)};
-        int border[4] = {x == 0, x + 1 == xsize, y == 0, y + 1 == ysize};
+        int border[4] = {static_cast<int>(x == 0), static_cast<int>(x + 1 == xsize), static_cast<int>(y == 0),
+                         static_cast<int>(y + 1 == ysize)};
         for (int dir = 0; dir < 4; ++dir) {
-          if (border[dir]) {
+          if (border[dir] != 0) {
             continue;
           }
           const int ix2 = ix + offset[dir];
@@ -827,7 +852,7 @@ struct RationalPolynomial {
   }
 
   // Evaluates the polynomial at x (in [min_value, max_value]).
-  inline double operator()(const float x) const {
+  double operator()(const float x) const {
     // First normalize to [0, 1].
     const double x01 = (x - min_value) / (max_value - min_value);
     // And then to [-1, 1] domain of Chebyshev polynomials.
@@ -851,17 +876,18 @@ struct RationalPolynomial {
 
 static inline float gammaPolynomial(float value) {
   // Generated by gamma_polynomial.m from equispaced x/gamma(x) samples.
-  static const RationalPolynomial kR = {0.770000000000000,
-                                        274.579999999999984,
-                                        {
-                                            881.979476556478289,
-                                            1496.058452015812463,
-                                            908.662212739659481,
-                                            373.566100223287378,
-                                            85.840860336314364,
-                                            6.683258861509244,
-                                        },
-                                        {
+  static const RationalPolynomial kR = {.min_value = 0.770000000000000,
+                                        .max_value = 274.579999999999984,
+                                        .p =
+                                            {
+                                                881.979476556478289,
+                                                1496.058452015812463,
+                                                908.662212739659481,
+                                                373.566100223287378,
+                                                85.840860336314364,
+                                                6.683258861509244,
+                                            },
+                                        .q = {
                                             12.262350348616792,
                                             20.557285797683576,
                                             12.161463238367844,
@@ -901,7 +927,9 @@ void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<floa
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    double x, y, z;
+    double x;
+    double y;
+    double z;
     rgbToXyb(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
     rgb[0][i] = static_cast<float>(x);
     rgb[1][i] = static_cast<float>(y);
@@ -911,8 +939,8 @@ void opsinDynamicsImage(size_t xsize, size_t ysize, std::vector<std::vector<floa
 
 void scaleImage(double scale, std::vector<float>* result) {
   PROFILER_FUNC;
-  for (size_t i = 0; i < result->size(); ++i) {
-    (*result)[i] *= static_cast<float>(scale);
+  for (float& i : *result) {
+    i *= static_cast<float>(scale);
   }
 }
 
@@ -1090,9 +1118,9 @@ void ButteraugliComparator::edgeDetectorLowFreq(const std::vector<std::vector<fl
         diff[3][i] = x < step ? 0 : ((blurred1[i][ix] - blurred0[i][ix]) + (blurred0[i][ix2] - blurred1[i][ix2]));
       }
       double max_diff_xyb[3] = {0};
-      for (int k = 0; k < 4; ++k) {
+      for (auto& k : diff) {
         double diff_xyb[3] = {0};
-        xybDiffLowFreqSquaredAccumulate(diff[k][0], diff[k][1], diff[k][2], 0, 0, 0, 1.0, diff_xyb);
+        xybDiffLowFreqSquaredAccumulate(k[0], k[1], k[2], 0, 0, 0, 1.0, diff_xyb);
         for (int i = 0; i < 3; ++i) {
           max_diff_xyb[i] = std::max<double>(max_diff_xyb[i], diff_xyb[i]);
         }
@@ -1130,8 +1158,8 @@ void ButteraugliComparator::combineChannels(const std::vector<std::vector<float>
 float butteraugliScoreFromDiffmap(const std::vector<float>& diffmap) {
   PROFILER_FUNC;
   float retval = 0.0f;
-  for (size_t ix = 0; ix < diffmap.size(); ++ix) {
-    retval = std::max(retval, diffmap[ix]);
+  for (float ix : diffmap) {
+    retval = std::max(retval, ix);
   }
   return retval;
 }

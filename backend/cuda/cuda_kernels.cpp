@@ -43,7 +43,8 @@ void calcBlock(int width, int height, int& x, int& y) {
 
 // Launches a width x height range with calcBlock()'s block shape.
 void launch2D(CudaContext& ocu, CUfunction kernel, int width, int height, const void* args[]) {
-  int x = kBlockSizeX, y = kBlockSizeY;
+  int x = kBlockSizeX;
+  int y = kBlockSizeY;
   calcBlock(width, height, x, y);
   ocu.launch(kernel, blockCount(width, x), blockCount(height, y), x, y, args);
 }
@@ -199,7 +200,8 @@ void CudaKernels::computeBlockZeroingOrder(CoeffData* output_order_batch, const 
 
   // Heavy per-thread state (registers + local memory) limits occupancy anyway: use
   // one-warp blocks so small images (few blocks) still spread across all SMs.
-  int x = 8, y = 4;
+  int x = 8;
+  int y = 4;
   ocu.launch(kernel, blockCount(blockf_width, x), blockCount(blockf_height, y), x, y, args);
 
   CU_CHECK(ocu.driver().memcpy_dtoh(output_order_batch, mem_output_order_batch.get(), output_order_batch_size));
@@ -330,7 +332,7 @@ void CudaKernels::blur(cu_mem image /*out, opt*/, const unsigned int xsize, cons
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = static_cast<float>(exp(scaler * i * i));
+    expn[i + diff] = exp(scaler * i * i);
   }
 
   const int xstep = std::max<int>(1, int(sigma / 3));
@@ -343,9 +345,10 @@ void CudaKernels::blur(cu_mem image /*out, opt*/, const unsigned int xsize, cons
   // Every element ConvolutionY reads is written by ConvolutionX: no zero-fill needed.
   CuBuffer temp = ocu.uninitialized(sizeof(float) * xsize * ysize);
   convolutionX(temp.get(), image, xsize, ysize, mem_expn, expn_size, xstep, diff, border_ratio);
-  convolutionY(result ? result : image, temp.get(), xsize, ysize, mem_expn, expn_size, xstep, diff, border_ratio);
+  convolutionY((result != 0u) ? result : image, temp.get(), xsize, ysize, mem_expn, expn_size, xstep, diff,
+               border_ratio);
   if (xstep > 1) {
-    squareSample(result ? result : image, result ? result : image, xsize, ysize, xstep, xstep);
+    squareSample((result != 0u) ? result : image, (result != 0u) ? result : image, xsize, ysize, xstep, xstep);
   }
 }
 
@@ -531,7 +534,8 @@ void CudaKernels::doMask(OcuChannels mask /*in, out*/, OcuChannels mask_dc /*in,
       return ocu.uploadMemory(sizeof(table), table);
     });
   };
-  OcuChannels xyb, xyb_dc;
+  OcuChannels xyb;
+  OcuChannels xyb_dc;
   xyb.ch[0] = lut(0, 0.975741017749f, -4.25328244168f, 0.454909521427f, 0.0738288224836f, 20.8029176447f);
   xyb.ch[1] = lut(1, 0.373995618954f, 1.5307267433f, 0.911952641929f, 1.1731667845f, 16.2447033988f);
   xyb.ch[2] = lut(2, 0.61582234137f, -4.25376118646f, 1.05105070921f, 0.47434643535f, 31.1444967089f);
@@ -596,7 +600,8 @@ void CudaKernels::upsampleSquareRoot(cu_mem diffmap, const unsigned int xsize, c
   CUfunction kernel = ocu.kernel(KERNEL_UPSAMPLESQUAREROOT);
   const unsigned int res_xsize = (xsize + step - 1) / step;
   const unsigned int res_ysize = (ysize + step - 1) / step;
-  const int res_xsize_arg = (int)res_xsize, res_ysize_arg = (int)res_ysize;
+  const int res_xsize_arg = (int)res_xsize;
+  const int res_ysize_arg = (int)res_ysize;
   const void* args[] = {&diffmap_out.get(), &diffmap, &xsize, &ysize, &step, &res_xsize_arg, &res_ysize_arg};
 
   // 2D blocks with bounds guard in the kernel (was 1x1-thread blocks).
@@ -760,7 +765,7 @@ void CudaKernels::componentsToPixels(uint8_t* rgb, /*out*/
                                      const std::vector<OutputImageComponent>& components /*in*/) {
   CudaContext& ocu = context();
 
-  const OutputImageComponent* comps[3] = {&components[0], &components[1], &components[2]};
+  const OutputImageComponent* comps[3] = {components.data(), &components[1], &components[2]};
   CuBuffer pixels[3];
   cu_mem pixel_mems[3];
   for (int c = 0; c < 3; ++c) {

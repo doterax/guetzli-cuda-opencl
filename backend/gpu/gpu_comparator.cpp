@@ -107,7 +107,7 @@ void GpuButteraugliComparator::startBlockComparisons() {
 
 std::optional<BlockReferenceData> GpuButteraugliComparator::blockReferenceData() const {
   if (!block_lists_ready_) return std::nullopt;
-  return BlockReferenceData{opsin_blocks_, mask_scale_blocks_};
+  return BlockReferenceData{.opsin = opsin_blocks_, .mask_scale = mask_scale_blocks_};
 }
 
 std::unique_ptr<Comparator> GpuComparatorFactory::create(int width, int height, const std::vector<uint8_t>* rgb,

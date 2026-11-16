@@ -40,11 +40,11 @@ CUdeviceptr CudaMemoryPool::allocate(size_t s, const void* init, bool zero) {
     if (err != CUDA_SUCCESS) {
       throw GpuError("CUDA allocation of " + std::to_string(s) + " bytes failed: " + translateCudaError(err));
     }
-    blocks_.push_back(Block{Status::Busy, s, s, new_mem});
+    blocks_.push_back(Block{.status = Status::Busy, .size = s, .used = s, .mem = new_mem});
     blocks_.sort([](const Block& a, const Block& b) { return a.size < b.size; });
     mem = new_mem;
   }
-  if (init) {
+  if (init != nullptr) {
     CU_CHECK(driver_.memcpy_htod_async(mem, init, s, stream_));
   } else if (zero) {
     CU_CHECK(driver_.memset_d8_async(mem, 0, s, stream_));

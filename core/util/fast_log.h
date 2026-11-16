@@ -26,7 +26,7 @@ inline int log2FloorNonZero(uint32_t n) {
   return 31 ^ __builtin_clz(n);
 #else
   unsigned int result = 0;
-  while (n >>= 1) result++;
+  while (n >>= 1 != 0u) result++;
   return result;
 #endif
 }

@@ -25,7 +25,7 @@ CuBuffer::CuBuffer(CuBuffer&& other) noexcept : pool_(other.pool_), mem_(other.m
 
 CuBuffer& CuBuffer::operator=(CuBuffer&& other) noexcept {
   if (this != &other) {
-    if (pool_) pool_->release(mem_);
+    if (pool_ != nullptr) pool_->release(mem_);
     pool_ = std::exchange(other.pool_, nullptr);
     mem_ = std::exchange(other.mem_, 0);
   }
@@ -33,7 +33,7 @@ CuBuffer& CuBuffer::operator=(CuBuffer&& other) noexcept {
 }
 
 CuBuffer::~CuBuffer() {
-  if (pool_) pool_->release(mem_);
+  if (pool_ != nullptr) pool_->release(mem_);
 }
 
 CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, ILogger& logger)
@@ -63,7 +63,8 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
     char name[1024] = {0};
     int proc_count = 0;
     int thread_count = 0;
-    int cap_major = 0, cap_minor = 0;
+    int cap_major = 0;
+    int cap_minor = 0;
     driver_.device_get_name(name, sizeof(name), dev);
     driver_.device_get_attribute(&cap_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev);
     driver_.device_get_attribute(&cap_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev);
@@ -72,7 +73,7 @@ CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, IL
     // Always printed, to stderr (as before the logger existed).
     logger_.log(LogLevel::Warning, "CUDA Adapter:%s Ver%d.%d MP %d MaxThread Per MP %d)\r\n", name, cap_major,
                 cap_minor, proc_count, thread_count);
-    if (!proc_count || !thread_count) {
+    if ((proc_count == 0) || (thread_count == 0)) {
       throw GpuError("CUDA device reports no multiprocessors");
     }
 
@@ -115,9 +116,9 @@ void CudaContext::destroy() noexcept {
   // Teardown order: free device memory, unload module, destroy stream, then context.
   constants_.clear();
   pool_.drain();
-  if (module_) driver_.module_unload(module_);
-  if (stream_) driver_.stream_destroy(stream_);
-  if (context_) driver_.ctx_destroy(context_);
+  if (module_ != nullptr) driver_.module_unload(module_);
+  if (stream_ != nullptr) driver_.stream_destroy(stream_);
+  if (context_ != nullptr) driver_.ctx_destroy(context_);
   module_ = nullptr;
   stream_ = nullptr;
   context_ = nullptr;
@@ -133,15 +134,15 @@ void CudaContext::finish() {
 }
 
 CuBuffer CudaContext::zeroed(size_t bytes) {
-  return CuBuffer(&pool_, pool_.allocate(bytes, nullptr, true));
+  return {&pool_, pool_.allocate(bytes, nullptr, true)};
 }
 
 CuBuffer CudaContext::uninitialized(size_t bytes) {
-  return CuBuffer(&pool_, pool_.allocate(bytes, nullptr, false));
+  return {&pool_, pool_.allocate(bytes, nullptr, false)};
 }
 
 CuBuffer CudaContext::upload(size_t bytes, const void* data) {
-  return CuBuffer(&pool_, pool_.allocate(bytes, data, true));
+  return {&pool_, pool_.allocate(bytes, data, true)};
 }
 
 CuChannels CudaContext::zeroedChannels(size_t bytes) {

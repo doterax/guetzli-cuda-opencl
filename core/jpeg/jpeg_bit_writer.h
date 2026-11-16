@@ -30,8 +30,7 @@ inline uint64_t hasZeroByte(uint64_t x) {
 
 // Handles the packing of bits into output bytes.
 struct BitWriter {
-  explicit BitWriter(size_t length)
-      : len(length), data(new uint8_t[len]), pos(0), put_buffer(0), put_bits(64), overflow(false) {}
+  explicit BitWriter(size_t length) : len(length), data(new uint8_t[len]) {}
 
   void writeBits(int nbits, uint64_t bits) {
     put_bits -= nbits;
@@ -42,7 +41,7 @@ struct BitWriter {
       // The JPEG format requires that after every 0xff byte in the entropy
       // coded section, there is a zero byte, therefore we first check if any of
       // the 6 most significant bytes of put_buffer_ is 0xff.
-      if (hasZeroByte(~put_buffer | 0xffff)) {
+      if (hasZeroByte(~put_buffer | 0xffff) != 0u) {
         // We have a 0xff byte somewhere, examine each byte and append a zero
         // byte if necessary.
         emitByte((put_buffer >> 56) & 0xff);
@@ -98,10 +97,10 @@ struct BitWriter {
 
   size_t len;
   std::unique_ptr<uint8_t[]> data;
-  size_t pos;
-  uint64_t put_buffer;
-  int put_bits;
-  bool overflow;
+  size_t pos{0};
+  uint64_t put_buffer{0};
+  int put_bits{64};
+  bool overflow{false};
 };
 
 }  // namespace guetzli

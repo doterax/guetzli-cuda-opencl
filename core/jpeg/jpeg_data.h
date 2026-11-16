@@ -58,22 +58,21 @@ const int kJpegZigZagOrder[64] = {0,  1,  5,  6,  14, 15, 27, 28, 2,  4,  7,  13
 
 // Quantization values for an 8x8 pixel block.
 struct JpegQuantTable {
-  JpegQuantTable() : values(kDctBlockSize), precision(0), index(0), is_last(true) {}
+  JpegQuantTable() : values(kDctBlockSize) {}
 
   std::vector<int> values;
-  int precision;
+  int precision{0};
   // The index of this quantization table as it was parsed from the input JPEG.
   // Each DQT marker segment contains an 'index' field, and we save this index
   // here. Valid values are 0 to 3.
-  int index;
+  int index{0};
   // Set to true if this table is the last one within its marker segment.
-  bool is_last;
+  bool is_last{true};
 };
 
 // Huffman code and decoding lookup table used for DC and AC coefficients.
 struct JpegHuffmanCode {
-  JpegHuffmanCode()
-      : counts(kJpegHuffmanMaxBitLength + 1), values(kJpegHuffmanAlphabetSize + 1), slot_id(0), is_last(true) {}
+  JpegHuffmanCode() : counts(kJpegHuffmanMaxBitLength + 1), values(kJpegHuffmanAlphabetSize + 1) {}
 
   // Bit length histogram.
   std::vector<int> counts;
@@ -81,9 +80,9 @@ struct JpegHuffmanCode {
   std::vector<int> values;
   // The index of the Huffman code in the current set of Huffman codes. For AC
   // component Huffman codes, 0x10 is added to the index.
-  int slot_id;
+  int slot_id{0};
   // Set to true if this Huffman code is the last one within its marker segment.
-  bool is_last;
+  bool is_last{true};
 };
 
 // Huffman table indexes used for one component of one scan.
@@ -107,24 +106,24 @@ struct JpegScanInfo {
   std::vector<JpegComponentScanInfo> components;
 };
 
-typedef int16_t coeff_t;
+using coeff_t = int16_t;
 
 // Represents one component of a jpeg file.
 struct JpegComponent {
-  JpegComponent() : id(0), h_samp_factor(1), v_samp_factor(1), quant_idx(0), width_in_blocks(0), height_in_blocks(0) {}
+  JpegComponent() {}
 
   // One-byte id of the component.
-  int id;
+  int id{0};
   // Horizontal and vertical sampling factors.
   // In interleaved mode, each minimal coded unit (MCU) has
   // h_samp_factor x v_samp_factor DCT blocks from this component.
-  int h_samp_factor;
-  int v_samp_factor;
+  int h_samp_factor{1};
+  int v_samp_factor{1};
   // The index of the quantization table used for this component.
-  size_t quant_idx;
+  size_t quant_idx{0};
   // The dimensions of the component measured in 8x8 blocks.
-  int width_in_blocks;
-  int height_in_blocks;
+  int width_in_blocks{0};
+  int height_in_blocks{0};
   int num_blocks;
   // The DCT coefficients of this component, laid out block-by-block, divided
   // through the quantization matrix values.
@@ -134,29 +133,20 @@ struct JpegComponent {
 // Represents a parsed jpeg file.
 struct JpegData {
   JpegData()
-      : width(0),
-        height(0),
-        version(0),
-        max_h_samp_factor(1),
-        max_v_samp_factor(1),
-        mcu_rows(0),
-        mcu_cols(0),
-        restart_interval(0),
-        original_jpg(NULL),
-        original_jpg_size(0),
-        error(JPEG_OK) {}
 
-  bool is420() const;
-  bool is444() const;
+  {}
 
-  int width;
-  int height;
-  int version;
-  int max_h_samp_factor;
-  int max_v_samp_factor;
-  int mcu_rows;
-  int mcu_cols;
-  int restart_interval;
+  [[nodiscard]] bool is420() const;
+  [[nodiscard]] bool is444() const;
+
+  int width{0};
+  int height{0};
+  int version{0};
+  int max_h_samp_factor{1};
+  int max_v_samp_factor{1};
+  int mcu_rows{0};
+  int mcu_cols{0};
+  int restart_interval{0};
   std::vector<std::string> app_data;
   std::vector<std::string> com_data;
   std::vector<JpegQuantTable> quant;
@@ -166,9 +156,9 @@ struct JpegData {
   std::vector<uint8_t> marker_order;
   std::vector<std::string> inter_marker_data;
   std::string tail_data;
-  const uint8_t* original_jpg;
-  size_t original_jpg_size;
-  JpegReadError error;
+  const uint8_t* original_jpg{NULL};
+  size_t original_jpg_size{0};
+  JpegReadError error{JPEG_OK};
 };
 
 void initJpegDataForYuv444(int w, int h, JpegData* jpg);

@@ -8,6 +8,7 @@
 */
 #include <algorithm>
 #include <array>
+#include <utility>
 #include "backend/cpu/optimized_butteraugli.h"
 
 namespace butteraugli {
@@ -42,7 +43,7 @@ void convolutionOpt(size_t xsize, size_t ysize, size_t xstep, size_t len, size_t
       for (int j = minx; j <= maxx; ++j) {
         sum += inp[y * xsize + j] * multipliers[j - x + offset];
       }
-      result[ox * ysize + y] = static_cast<float>(sum * scale);
+      result[ox * ysize + y] = (sum * scale);
     }
   }
 }
@@ -55,7 +56,7 @@ void blurOpt(size_t xsize, size_t ysize, float* channel, float sigma, float bord
   const int expn_size = 2 * diff + 1;
   std::vector<float> expn(expn_size);
   for (int i = -diff; i <= diff; ++i) {
-    expn[i + diff] = static_cast<float>(exp(scaler * i * i));
+    expn[i + diff] = exp(scaler * i * i);
   }
   const int xstep = std::max(1, int(sigma / 3));
   const int ystep = xstep;
@@ -249,15 +250,18 @@ float removeRangeAroundZeroOpt(float v, float range) {
   }
   if (v < 0) {
     return v + range;
-  } else {
-    return v - range;
   }
+  return v - range;
 }
 
 void xybDiffLowFreqSquaredAccumulateOpt(float r0, float g0, float b0, float r1, float g1, float b1, float factor,
                                         float res[3]) {
-  float valx0, valy0, valz0;
-  float valx1, valy1, valz1;
+  float valx0;
+  float valy0;
+  float valz0;
+  float valx1;
+  float valy1;
+  float valz1;
   xybLowFreqToValsOpt(r0, g0, b0, &valx0, &valy0, &valz0);
   if (r1 == 0.0 && g1 == 0.0 && b1 == 0.0) {
     res[0] += factor * valx0 * valx0;
@@ -287,7 +291,7 @@ inline float abssq(const ComplexOpt& c) {
 }
 
 static void transposeBlock(ComplexOpt data[kBlockSize]) {
-  for (int i = 0; i < kBlockEdge; i++) {
+  for (int i = 0; std::cmp_less(i, kBlockEdge); i++) {
     for (int j = 0; j < i; j++) {
       std::swap(data[kBlockEdge * i + j], data[kBlockEdge * j + i]);
     }
@@ -296,7 +300,14 @@ static void transposeBlock(ComplexOpt data[kBlockSize]) {
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 4 elements.
 inline void fft4Opt(ComplexOpt* a) {
-  float t1, t2, t3, t4, t5, t6, t7, t8;
+  float t1;
+  float t2;
+  float t3;
+  float t4;
+  float t5;
+  float t6;
+  float t7;
+  float t8;
   t5 = a[2].real;
   t1 = a[0].real - t5;
   t7 = a[3].real;
@@ -328,7 +339,14 @@ static const float kSqrtHalf = 0.70710678118654752440084436210484903;
 
 //  D. J. Bernstein's Fast Fourier Transform algorithm on 8 elements.
 void fft8OptOpt(ComplexOpt* a) {
-  float t1, t2, t3, t4, t5, t6, t7, t8;
+  float t1;
+  float t2;
+  float t3;
+  float t4;
+  float t5;
+  float t6;
+  float t7;
+  float t8;
 
   t7 = a[4].imag;
   t4 = a[0].imag - t7;
@@ -424,7 +442,13 @@ void fft8OptOpt(ComplexOpt* a) {
 // TODO: Since this does not need to be in-place, maybe there is a
 // faster FFT than this one, which is derived from DJB's in-place complex FFT.
 void realFft8Opt(const float* in, ComplexOpt* out) {
-  float t1, t2, t3, t5, t6, t7, t8;
+  float t1;
+  float t2;
+  float t3;
+  float t5;
+  float t6;
+  float t7;
+  float t8;
   t8 = in[6];
   t5 = in[2] - t8;
   t8 += in[2];
@@ -502,19 +526,19 @@ void butteraugliFftSquaredOpt(float block[kBlockSize]) {
   float global_mul = 0.000064;
   ComplexOpt block_c[kBlockSize];
   assert(kBlockEdge == 8);
-  for (int y = 0; y < kBlockEdge; ++y) {
+  for (int y = 0; std::cmp_less(y, kBlockEdge); ++y) {
     realFft8Opt(block + y * kBlockEdge, block_c + y * kBlockEdge);
   }
   transposeBlock(block_c);
   float r0[kBlockEdge];
   float r1[kBlockEdge];
-  for (int x = 0; x < kBlockEdge; ++x) {
+  for (int x = 0; std::cmp_less(x, kBlockEdge); ++x) {
     r0[x] = block_c[x].real;
     r1[x] = block_c[kBlockHalf + x].real;
   }
   realFft8Opt(r0, block_c);
   realFft8Opt(r1, block_c + kBlockHalf);
-  for (int y = 1; y < kBlockEdgeHalf; ++y) {
+  for (int y = 1; std::cmp_less(y, kBlockEdgeHalf); ++y) {
     fft8OptOpt(block_c + y * kBlockEdge);
   }
   for (int i = kBlockEdgeHalf; i < kBlockHalf + kBlockEdgeHalf + 1; ++i) {
@@ -669,9 +693,10 @@ void maskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<st
       float sqr_max_diff = -1;
       {
         int offset[4] = {-1, 1, -static_cast<int>(xsize), static_cast<int>(xsize)};
-        int border[4] = {x == 0, x + 1 == xsize, y == 0, y + 1 == ysize};
+        int border[4] = {static_cast<int>(x == 0), static_cast<int>(x + 1 == xsize), static_cast<int>(y == 0),
+                         static_cast<int>(y + 1 == ysize)};
         for (int dir = 0; dir < 4; ++dir) {
-          if (border[dir]) {
+          if (border[dir] != 0) {
             continue;
           }
           const int ix2 = ix + offset[dir];
@@ -696,8 +721,8 @@ void maskHighIntensityChangeOpt(size_t xsize, size_t ysize, const std::vector<st
       // Interpolate lineraly between the average color and the actual
       // color -- to reduce the importance of this pixel.
       for (int i = 0; i < 3; ++i) {
-        xyb0[i][ix] = static_cast<float>(mix[i] * c0[i][ix] + (1 - mix[i]) * ave[i]);
-        xyb1[i][ix] = static_cast<float>(mix[i] * c1[i][ix] + (1 - mix[i]) * ave[i]);
+        xyb0[i][ix] = (mix[i] * c0[i][ix] + (1 - mix[i]) * ave[i]);
+        xyb1[i][ix] = (mix[i] * c1[i][ix] + (1 - mix[i]) * ave[i]);
       }
     }
   }
@@ -736,7 +761,7 @@ struct RationalPolynomialOpt {
   }
 
   // Evaluates the polynomial at x (in [min_value, max_value]).
-  inline float operator()(const float x) const {
+  float operator()(const float x) const {
     // First normalize to [0, 1].
     const float x01 = (x - min_value) / (max_value - min_value);
     // And then to [-1, 1] domain of Chebyshev polynomials.
@@ -760,17 +785,18 @@ struct RationalPolynomialOpt {
 
 static inline float gammaPolynomialOpt(float value) {
   // Generated by gamma_polynomial.m from equispaced x/gamma(x) samples.
-  static const RationalPolynomialOpt kR = {0.770000000000000,
-                                           274.579999999999984,
-                                           {
-                                               881.979476556478289,
-                                               1496.058452015812463,
-                                               908.662212739659481,
-                                               373.566100223287378,
-                                               85.840860336314364,
-                                               6.683258861509244,
-                                           },
-                                           {
+  static const RationalPolynomialOpt kR = {.min_value = 0.770000000000000,
+                                           .max_value = 274.579999999999984,
+                                           .p =
+                                               {
+                                                   881.979476556478289,
+                                                   1496.058452015812463,
+                                                   908.662212739659481,
+                                                   373.566100223287378,
+                                                   85.840860336314364,
+                                                   6.683258861509244,
+                                               },
+                                           .q = {
                                                12.262350348616792,
                                                20.557285797683576,
                                                12.161463238367844,
@@ -778,12 +804,12 @@ static inline float gammaPolynomialOpt(float value) {
                                                0.899112889751053,
                                                0.035662329617191,
                                            }};
-  return static_cast<float>(kR(value));
+  return kR(value);
 }
 
 static inline float gammaOpt(float v) {
   // return SimpleGamma(v);
-  return gammaPolynomialOpt(static_cast<float>(v));
+  return gammaPolynomialOpt(v);
 }
 
 void opsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<float>>& rgb) {
@@ -809,17 +835,19 @@ void opsinDynamicsImageOpt(size_t xsize, size_t ysize, std::vector<std::vector<f
     cur_mixed[0] *= sensitivity[0];
     cur_mixed[1] *= sensitivity[1];
     cur_mixed[2] *= sensitivity[2];
-    float x, y, z;
+    float x;
+    float y;
+    float z;
     rgbToXybOpt(cur_mixed[0], cur_mixed[1], cur_mixed[2], &x, &y, &z);
-    rgb[0][i] = static_cast<float>(x);
-    rgb[1][i] = static_cast<float>(y);
-    rgb[2][i] = static_cast<float>(z);
+    rgb[0][i] = x;
+    rgb[1][i] = y;
+    rgb[2][i] = z;
   }
 }
 
 void scaleImageOpt(float scale, std::vector<float>* result) {
-  for (size_t i = 0; i < result->size(); ++i) {
-    (*result)[i] *= static_cast<float>(scale);
+  for (float& i : *result) {
+    i *= scale;
   }
 }
 
@@ -963,7 +991,7 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
         float tmpf = values[x + j * xsize];
         if (tmpf < min) min = tmpf;
       }
-      tmp[x + y * xsize] = static_cast<float>(min);
+      tmp[x + y * xsize] = min;
     }
   }
   for (size_t x = 0; x < xsize; ++x) {
@@ -975,7 +1003,7 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
         float tmpf = tmp[j + y * xsize];
         if (tmpf < min) min = tmpf;
       }
-      values[x + y * xsize] = static_cast<float>(min);
+      values[x + y * xsize] = min;
     }
   }
 }
@@ -1025,7 +1053,7 @@ void diffPrecomputeOpt(const std::vector<std::vector<float>>& xyb0, const std::v
         float sup0 = fabs(valsh0[i]) + fabs(valsv0[i]);
         float sup1 = fabs(valsh1[i]) + fabs(valsv1[i]);
         float m = std::min(sup0, sup1);
-        (*mask)[i][ix] = static_cast<float>(m);
+        (*mask)[i][ix] = m;
       }
     }
   }
@@ -1066,12 +1094,12 @@ void maskOpt(const std::vector<std::vector<float>>& xyb0, const std::vector<std:
       const float p1 = kW11 * s1;
       const float p2 = kW22 * s2;
 
-      (*mask)[0][idx] = static_cast<float>(maskXOpt(p0));
-      (*mask)[1][idx] = static_cast<float>(maskYOpt(p1));
-      (*mask)[2][idx] = static_cast<float>(maskBOpt(p2));
-      (*mask_dc)[0][idx] = static_cast<float>(maskDcXOpt(p0));
-      (*mask_dc)[1][idx] = static_cast<float>(maskDcYOpt(p1));
-      (*mask_dc)[2][idx] = static_cast<float>(maskDcBOpt(p2));
+      (*mask)[0][idx] = maskXOpt(p0);
+      (*mask)[1][idx] = maskYOpt(p1);
+      (*mask)[2][idx] = maskBOpt(p2);
+      (*mask_dc)[0][idx] = maskDcXOpt(p0);
+      (*mask_dc)[1][idx] = maskDcYOpt(p1);
+      (*mask_dc)[2][idx] = maskDcBOpt(p2);
     }
   }
   for (int i = 0; i < 3; ++i) {
@@ -1140,8 +1168,8 @@ void OptimizedButteraugliComparator::blockDiffMapOpt(const std::vector<std::vect
       float diff_xyb_edge_dc[3] = {0.0};
       butteraugliBlockDiffOpt(block0, block1, diff_xyb_dc, diff_xyb_ac, diff_xyb_edge_dc);
       for (int i = 0; i < 3; ++i) {
-        (*block_diff_dc)[3 * res_ix + i] = static_cast<float>(diff_xyb_dc[i]);
-        (*block_diff_ac)[3 * res_ix + i] = static_cast<float>(diff_xyb_ac[i]);
+        (*block_diff_dc)[3 * res_ix + i] = diff_xyb_dc[i];
+        (*block_diff_ac)[3 * res_ix + i] = diff_xyb_ac[i];
       }
     }
   }
@@ -1168,7 +1196,7 @@ void OptimizedButteraugliComparator::edgeDetectorMapOpt(const std::vector<std::v
       butteraugli8x8CornerEdgeDetectorDiffOpt(std::min(res_x, xsize_ - 8), std::min(res_y, ysize_ - 8), xsize_, ysize_,
                                               blurred0, blurred1, diff_xyb);
       for (int i = 0; i < 3; ++i) {
-        (*edge_detector_map)[3 * res_ix + i] = static_cast<float>(diff_xyb[i]);
+        (*edge_detector_map)[3 * res_ix + i] = diff_xyb[i];
       }
     }
   }
@@ -1204,9 +1232,9 @@ void OptimizedButteraugliComparator::edgeDetectorLowFreqOpt(const std::vector<st
         diff[3][i] = x < step ? 0 : ((blurred1[i][ix] - blurred0[i][ix]) + (blurred0[i][ix2] - blurred1[i][ix2]));
       }
       float max_diff_xyb[3] = {0};
-      for (int k = 0; k < 4; ++k) {
+      for (auto& k : diff) {
         float diff_xyb[3] = {0};
-        xybDiffLowFreqSquaredAccumulateOpt(diff[k][0], diff[k][1], diff[k][2], 0, 0, 0, 1.0, diff_xyb);
+        xybDiffLowFreqSquaredAccumulateOpt(k[0], k[1], k[2], 0, 0, 0, 1.0, diff_xyb);
         for (int i = 0; i < 3; ++i) {
           max_diff_xyb[i] = std::max<float>(max_diff_xyb[i], diff_xyb[i]);
         }
@@ -1234,9 +1262,9 @@ void OptimizedButteraugliComparator::combineChannelsOpt(const std::vector<std::v
         mask[i] = mask_xyb[i][(res_y + 3) * xsize_ + (res_x + 3)];
         dc_mask[i] = mask_xyb_dc[i][(res_y + 3) * xsize_ + (res_x + 3)];
       }
-      (*result)[res_ix] = static_cast<float>(dotProductOpt(&block_diff_dc[3 * res_ix], dc_mask) +
-                                             dotProductOpt(&block_diff_ac[3 * res_ix], mask) +
-                                             dotProductOpt(&edge_detector_map[3 * res_ix], mask));
+      (*result)[res_ix] =
+          (dotProductOpt(&block_diff_dc[3 * res_ix], dc_mask) + dotProductOpt(&block_diff_ac[3 * res_ix], mask) +
+           dotProductOpt(&edge_detector_map[3 * res_ix], mask));
     }
   }
 }

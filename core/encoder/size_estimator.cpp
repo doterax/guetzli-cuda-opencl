@@ -42,7 +42,7 @@ size_t computeEntropyCodes(const std::vector<JpegHistogram>& histograms, std::ve
   size_t num = histograms.size();
   std::vector<int> indexes(histograms.size());
   std::vector<uint8_t> clustered_depths(histograms.size() * JpegHistogram::kSize);
-  clusterHistograms(&clustered[0], &num, &indexes[0], &clustered_depths[0]);
+  clusterHistograms(clustered.data(), &num, indexes.data(), clustered_depths.data());
   depths->resize(clustered_depths.size());
   for (size_t i = 0; i < histograms.size(); ++i) {
     std::memcpy(&(*depths)[i * JpegHistogram::kSize], &clustered_depths[indexes[i] * JpegHistogram::kSize],
@@ -65,11 +65,11 @@ size_t entropyCodedDataSize(const std::vector<JpegHistogram>& histograms, const 
 
 size_t estimateDcSize(const JpegData& jpg) {
   std::vector<JpegHistogram> histograms(jpg.components.size());
-  buildDcHistograms(jpg, &histograms[0]);
+  buildDcHistograms(jpg, histograms.data());
   size_t num = histograms.size();
   std::vector<int> indexes(num);
   std::vector<uint8_t> depths(num * JpegHistogram::kSize);
-  return clusterHistograms(&histograms[0], &num, &indexes[0], &depths[0]);
+  return clusterHistograms(histograms.data(), &num, indexes.data(), depths.data());
 }
 
 JpegSizeEstimator::JpegSizeEstimator(const JpegData& jpg, size_t num_histograms, bool clear_metadata)
@@ -78,7 +78,7 @@ JpegSizeEstimator::JpegSizeEstimator(const JpegData& jpg, size_t num_histograms,
   const int header_size = static_cast<int>(jpegHeaderSize(jpg, clear_metadata));
   const int dc_size = static_cast<int>(estimateDcSize(jpg));
   fixed_size_ = static_cast<size_t>(header_size) + static_cast<size_t>(dc_size);
-  buildAcHistograms(jpg, &histograms_[0]);
+  buildAcHistograms(jpg, histograms_.data());
   refreshEntropyCodes();
 }
 

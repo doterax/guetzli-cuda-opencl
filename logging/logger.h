@@ -48,8 +48,8 @@ class ConsoleLogger final : public ILogger {
 
 class NullLogger final : public ILogger {
  public:
-  [[nodiscard]] bool enabled(LogLevel) const override { return false; }
-  void write(LogLevel, std::string_view) override {}
+  [[nodiscard]] bool enabled(LogLevel /*level*/) const override { return false; }
+  void write(LogLevel /*level*/, std::string_view /*message*/) override {}
 };
 
 }  // namespace guetzli

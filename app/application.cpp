@@ -36,8 +36,8 @@ void Application::logMemoryLimitExceeded() {
 
 bool Application::withinMemoryLimit(double pixels) const {
   if (!config_.io.memlimit_mb) return true;
-  const double limit = static_cast<double>(*config_.io.memlimit_mb);
-  return !(pixels * kBytesPerPixel / (1 << 20) > limit || limit < kLowestMemusageMb);
+  const auto limit = static_cast<double>(*config_.io.memlimit_mb);
+  return pixels * kBytesPerPixel / (1 << 20) <= limit && limit >= kLowestMemusageMb;
 }
 
 Application::Result Application::encode(Backend& backend, const std::string& in_data, std::string* out_data) {

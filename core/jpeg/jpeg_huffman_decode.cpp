@@ -16,10 +16,10 @@
 
 #include "core/jpeg/jpeg_huffman_decode.h"
 
-#include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cassert>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 #include "core/jpeg/jpeg_data.h"
 
@@ -82,7 +82,7 @@ int buildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableE
       code.bits = len;
       code.value = symbols[idx++];
       reps = 1 << (kJpegHuffmanRootTableBits - len);
-      while (reps--) {
+      while ((reps--) != 0) {
         table[key++] = code;
       }
     }
@@ -108,7 +108,7 @@ int buildJpegHuffmanTable(const int* count_in, const int* symbols, HuffmanTableE
       code.bits = len - kJpegHuffmanRootTableBits;
       code.value = symbols[idx++];
       reps = 1 << (table_bits - code.bits);
-      while (reps--) {
+      while ((reps--) != 0) {
         table[low++] = code;
       }
     }

@@ -31,7 +31,7 @@ static const char* const kNumItersUpCnt = "number of iterations up";
 static const char* const kNumItersDownCnt = "number of iterations down";
 
 struct ProcessStats {
-  ProcessStats() {}
+  ProcessStats() = default;
   std::map<std::string, int> counters;
   ILogger* logger = nullptr;  // receives the --verbose trace (LogLevel::Debug); may be null
 

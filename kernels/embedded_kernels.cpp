@@ -7,10 +7,10 @@
 #include "backend/gpu_error.h"
 #include "minilzo.h"
 
-#if defined(__USE_OPENCL__)
+#ifdef __USE_OPENCL__
 #include "kernels/guetzli_cl_src.h"
 #endif
-#if defined(__USE_CUDA__)
+#ifdef __USE_CUDA__
 #include "kernels/guetzli_cu_ptx.h"
 #endif
 

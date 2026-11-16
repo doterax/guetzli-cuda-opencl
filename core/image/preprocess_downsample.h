@@ -31,7 +31,7 @@ std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, flo
 // Gamma-compensated chroma subsampling.
 // Returns Y, U, V image planes, each with width x height dimensions, but the
 // U and V planes are composed of 2x2 blocks with the same values.
-std::vector<std::vector<float>> rgbToYuv420(const std::vector<uint8_t>& rgb_in, const int width, const int height);
+std::vector<std::vector<float>> rgbToYuv420(const std::vector<uint8_t>& rgb_in, int width, int height);
 
 }  // namespace guetzli
 

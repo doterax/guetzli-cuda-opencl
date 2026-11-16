@@ -43,15 +43,15 @@ constexpr int kMinComparatorSize = 32;
 void removeOriginalQuantization(JpegData* jpg, int q_in[3][kDctBlockSize]) {
   for (int i = 0; i < 3; ++i) {
     JpegComponent& c = jpg->components[i];
-    const int* q = &jpg->quant[c.quant_idx].values[0];
+    const int* q = jpg->quant[c.quant_idx].values.data();
     std::memcpy(&q_in[i][0], q, kDctBlockSize * sizeof(q[0]));
     for (size_t j = 0; j < c.coeffs.size(); ++j) {
       c.coeffs[j] *= q[j % kDctBlockSize];
     }
   }
   int q[3][kDctBlockSize];
-  for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < kDctBlockSize; ++j) q[i][j] = 1;
+  for (auto& i : q)
+    for (int j = 0; j < kDctBlockSize; ++j) i[j] = 1;
   saveQuantTables(q, jpg);
 }
 
@@ -74,8 +74,8 @@ bool checkJpegSanity(const JpegData& jpg) {
 bool isGrayscale(const JpegData& jpg) {
   for (int c = 1; c < 3; ++c) {
     const JpegComponent& comp = jpg.components[c];
-    for (size_t i = 0; i < comp.coeffs.size(); ++i) {
-      if (comp.coeffs[i] != 0) return false;
+    for (short coeff : comp.coeffs) {
+      if (coeff != 0) return false;
     }
   }
   return true;
@@ -146,23 +146,23 @@ std::optional<std::string> Encoder::encodeJpegData(const JpegData& jpg_in, Compa
     removeOriginalQuantization(&jpg, q_in);
     OutputImage img(jpg.width, jpg.height, *backend_->dct);
     img.copyFromJpegData(jpg);
-    if (downsample) {
+    if (downsample != 0) {
       downsampleImage(&img, params_.use_silver_screen);
       img.saveToJpegData(&jpg);
     }
     int best_q[3][kDctBlockSize];
     std::memcpy(best_q, q_in, sizeof(best_q));
     if (!quant_search.run(jpg, downsample != 0, best_q, img)) {
-      for (int c = 0; c < 3; ++c) {
+      for (auto& c : best_q) {
         for (int i = 0; i < kDctBlockSize; ++i) {
-          best_q[c][i] = 1;
+          c[i] = 1;
         }
       }
     }
     img.copyFromJpegData(jpg);
     img.applyGlobalQuantization(best_q);
 
-    if (!downsample) {
+    if (downsample == 0) {
       masking.run(jpg, img, 7, 1.0, false);
     } else {
       const float ymul = jpg.components.size() == 1 ? 1.0f : 0.97f;

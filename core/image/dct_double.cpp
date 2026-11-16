@@ -25,7 +25,7 @@ namespace {
 
 // kDCTMatrix[8*u+x] = 0.5*alpha(u)*cos((2*x+1)*u*M_PI/16),
 // where alpha(0) = 1/sqrt(2) and alpha(u) = 1 for u > 0.
-static const double kDctMatrix[64] = {
+const double kDctMatrix[64] = {
     0.3535533906,  0.3535533906,  0.3535533906,  0.3535533906,  0.3535533906,  0.3535533906,  0.3535533906,
     0.3535533906,  0.4903926402,  0.4157348062,  0.2777851165,  0.0975451610,  -0.0975451610, -0.2777851165,
     -0.4157348062, -0.4903926402, 0.4619397663,  0.1913417162,  -0.1913417162, -0.4619397663, -0.4619397663,
@@ -56,7 +56,7 @@ void idct1d(const double* in, int stride, double* out) {
   }
 }
 
-typedef void (*Transform1d)(const double* in, int stride, double* out);
+using Transform1d = void (*)(const double* in, int stride, double* out);
 
 void transformBlock(double block[64], Transform1d f) {
   double tmp[64];

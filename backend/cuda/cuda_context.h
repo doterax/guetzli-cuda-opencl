@@ -77,7 +77,7 @@ class CuMemory {
   CuMemory(const CuMemory&) = delete;
   CuMemory& operator=(const CuMemory&) = delete;
   ~CuMemory() {
-    if (mem_) driver_->mem_free(mem_);
+    if (mem_ != 0u) driver_->mem_free(mem_);
   }
 
   [[nodiscard]] cu_mem get() const { return mem_; }

@@ -62,7 +62,7 @@ bool resolve(LibraryHandle lib, Fn& fn, const char* name, bool exact, ILogger& l
 
 std::optional<CudaDriver> CudaDriver::load(ILogger& logger) {
   LibraryHandle lib = openLibrary();
-  if (!lib) return std::nullopt;
+  if (lib == nullptr) return std::nullopt;
 
   CudaDriver d;
   const bool ok =

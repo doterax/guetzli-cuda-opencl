@@ -57,7 +57,8 @@ TEST_CASE("OutputImageComponent: a coefficient block round-trips and updates its
 }
 
 TEST_CASE("OutputImage: JPEG coefficients round-trip through CopyFromJpegData / SaveToJpegData") {
-  const int w = 35, h = 19;
+  const int w = 35;
+  const int h = 19;
   const guetzli::JpegData jpg = encodeWithQuant(colorImage(w, h), w, h, 3);
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(w, h, dct);
@@ -76,7 +77,8 @@ TEST_CASE("OutputImage: JPEG coefficients round-trip through CopyFromJpegData / 
 }
 
 TEST_CASE("OutputImage: global quantization") {
-  const int w = 24, h = 16;
+  const int w = 24;
+  const int h = 16;
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(w, h, dct);
   img.copyFromJpegData(encodeWithQuant(colorImage(w, h), w, h, 1));
@@ -95,7 +97,8 @@ TEST_CASE("OutputImage: global quantization") {
 }
 
 TEST_CASE("OutputImage: downsampling to 4:2:0 and saving the result") {
-  const int w = 33, h = 18;
+  const int w = 33;
+  const int h = 18;
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(w, h, dct);
   img.copyFromJpegData(encodeWithQuant(colorImage(w, h), w, h, 1));
@@ -114,7 +117,8 @@ TEST_CASE("OutputImage: downsampling to 4:2:0 and saving the result") {
 }
 
 TEST_CASE("OutputImage: an image without chroma is saved as grayscale") {
-  const int w = 16, h = 16;
+  const int w = 16;
+  const int h = 16;
   std::vector<uint8_t> gray(3 * w * h);
   for (int i = 0; i < w * h; ++i) gray[3 * i] = gray[3 * i + 1] = gray[3 * i + 2] = static_cast<uint8_t>(i);
   guetzli::CpuDctOps dct;

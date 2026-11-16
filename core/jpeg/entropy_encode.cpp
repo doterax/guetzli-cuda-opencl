@@ -18,7 +18,7 @@
 
 #include "core/jpeg/entropy_encode.h"
 
-#include <assert.h>
+#include <cassert>
 #include <algorithm>
 
 namespace guetzli {
@@ -36,9 +36,9 @@ bool setDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
       stack[level] = pool[p].index_right_or_value;
       p = pool[p].index_left;
       continue;
-    } else {
-      depth[pool[p].index_right_or_value] = static_cast<uint8_t>(level);
     }
+    depth[pool[p].index_right_or_value] = static_cast<uint8_t>(level);
+
     while (level >= 0 && stack[level] == -1) level--;
     if (level < 0) return true;
     p = stack[level];
@@ -79,7 +79,7 @@ void createHuffmanTree(const uint32_t* data, const size_t length, const int tree
     size_t n = 0;
     for (size_t i = length; i != 0;) {
       --i;
-      if (data[i]) {
+      if (data[i] != 0u) {
         const uint32_t count = std::max<uint32_t>(data[i], count_limit);
         tree[n++] = HuffmanTree(count, -1, static_cast<int16_t>(i));
       }
@@ -106,7 +106,8 @@ void createHuffmanTree(const uint32_t* data, const size_t length, const int tree
     size_t i = 0;      // Points to the next leaf node.
     size_t j = n + 1;  // Points to the next non-leaf node.
     for (size_t k = n - 1; k != 0; --k) {
-      size_t left, right;
+      size_t left;
+      size_t right;
       if (tree[i].total_count <= tree[j].total_count) {
         left = i;
         ++i;

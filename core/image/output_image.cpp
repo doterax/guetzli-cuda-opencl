@@ -254,7 +254,7 @@ void OutputImage::copyFromJpegData(const JpegData& jpg) {
     int factor_x = jpg.max_h_samp_factor / comp.h_samp_factor;
     int factor_y = jpg.max_v_samp_factor / comp.v_samp_factor;
     assert(comp.quant_idx < jpg.quant.size());
-    ops_->copyFromJpegComponent(components_[i], comp, factor_x, factor_y, &jpg.quant[comp.quant_idx].values[0]);
+    ops_->copyFromJpegComponent(components_[i], comp, factor_x, factor_y, jpg.quant[comp.quant_idx].values.data());
   }
 }
 
@@ -307,7 +307,7 @@ void OutputImage::downsample(const DownsampleConfig& cfg) {
       cfg.v_factor_y == 2) {
     std::vector<uint8_t> rgb = toSrgb();
     std::vector<std::vector<float>> yuv = rgbToYuv420(rgb, width_, height_);
-    setDownsampledCoefficients(yuv[0], 1, 1, &components_[0]);
+    setDownsampledCoefficients(yuv[0], 1, 1, components_.data());
     setDownsampledCoefficients(yuv[1], 2, 2, &components_[1]);
     setDownsampledCoefficients(yuv[2], 2, 2, &components_[2]);
     return;
@@ -316,7 +316,7 @@ void OutputImage::downsample(const DownsampleConfig& cfg) {
   // DCT coefficients.
   std::vector<std::vector<float>> yuv(3, std::vector<float>(width_ * height_));
   for (int c = 0; c < 3; ++c) {
-    components_[c].toFloatPixels(&yuv[c][0], 1);
+    components_[c].toFloatPixels(yuv[c].data(), 1);
   }
 
   yuv = preProcessChannel(width_, height_, 2, 1.3f, 0.5f, cfg.u_sharpen, cfg.u_blur, yuv);
@@ -372,7 +372,7 @@ void OutputImage::saveToJpegData(JpegData* jpg) const {
 
     int last_dc = 0;
     const coeff_t* src_coeffs = components_[c].coeffs();
-    coeff_t* dest_coeffs = &comp->coeffs[0];
+    coeff_t* dest_coeffs = comp->coeffs.data();
     for (int block_y = 0; block_y < comp->height_in_blocks; ++block_y) {
       for (int block_x = 0; block_x < comp->width_in_blocks; ++block_x) {
         if (block_y >= components_[c].heightInBlocks() || block_x >= components_[c].widthInBlocks()) {

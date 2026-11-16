@@ -18,8 +18,8 @@
 
 namespace guetzli {
 
-void printDebug(ProcessStats* stats, std::string s) {
-  if (stats->logger) {
+void printDebug(ProcessStats* stats, const std::string& s) {
+  if (stats->logger != nullptr) {
     stats->logger->write(LogLevel::Debug, s);
   }
 }

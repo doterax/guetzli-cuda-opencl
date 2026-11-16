@@ -25,7 +25,7 @@
 
 namespace guetzli {
 
-void printDebug(ProcessStats* stats, std::string s);
+void printDebug(ProcessStats* stats, const std::string& s);
 
 }  // namespace guetzli
 

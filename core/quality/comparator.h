@@ -39,8 +39,8 @@ struct BlockReferenceData {
 // criteria based on this metric.
 class Comparator {
  public:
-  Comparator() {}
-  virtual ~Comparator() {}
+  Comparator() = default;
+  virtual ~Comparator() = default;
 
   // Compares img with the baseline image and saves the resulting distance map
   // inside the object. The provided image must have the same dimensions as the
@@ -61,12 +61,12 @@ class Comparator {
   // the resulting per-block distance. The interpretation of the returned
   // distance depends on the comparator used.
   virtual double compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
-                              const int comp_mask) const = 0;
+                              int comp_mask) const = 0;
 
   // Returns the combined score of the output image in the last Compare() call
   // (or the baseline image, if Compare() was not called yet), based on output
   // size and the similarity metric.
-  virtual double scoreOutputSize(int size) const = 0;
+  [[nodiscard]] virtual double scoreOutputSize(int size) const = 0;
 
   // Returns true if the argument of the last Compare() call (or the baseline
   // image, if Compare() was not called yet) meets the image acceptance
@@ -75,24 +75,24 @@ class Comparator {
   //    = 1.0 : the original acceptance criteria is used,
   //    < 1.0 : a more strict acceptance criteria is used,
   //    > 1.0 : a less strict acceptance criteria is used.
-  virtual bool distanceOk(double target_mul) const = 0;
+  [[nodiscard]] virtual bool distanceOk(double target_mul) const = 0;
 
   // Returns the distance map between the baseline image and the image in the
   // last Compare() call (or the baseline image, if Compare() was not called
   // yet).
   // The dimensions of the distance map are the same as the baseline image.
   // The interpretation of the distance values depend on the comparator used.
-  virtual const std::vector<float> distmap() const = 0;
+  [[nodiscard]] virtual const std::vector<float> distmap() const = 0;
 
   // Returns an aggregate distance or similarity value between the baseline
   // image and the image in the last Compare() call (or the baseline image, if
   // Compare() was not called yet).
   // The interpretation of this aggregate value depends on the comparator used.
-  virtual float distmapAggregate() const = 0;
+  [[nodiscard]] virtual float distmapAggregate() const = 0;
 
   // Returns a heuristic cutoff on block errors in the sense that we won't
   // consider distortions where a block error is greater than this.
-  virtual float blockErrorLimit() const = 0;
+  [[nodiscard]] virtual float blockErrorLimit() const = 0;
   // Given the search direction (+1 for upwards and -1 for downwards) and the
   // current distance map, fills in *block_weight image with the relative block
   // error adjustment weights.
@@ -105,7 +105,7 @@ class Comparator {
 
   // Data for a device block-zeroing search, available after StartBlockComparisons(); empty if this
   // comparator does not provide it.
-  virtual std::optional<BlockReferenceData> blockReferenceData() const { return std::nullopt; }
+  [[nodiscard]] virtual std::optional<BlockReferenceData> blockReferenceData() const { return std::nullopt; }
 };
 
 // Creates the comparator for one image; part of a Backend.

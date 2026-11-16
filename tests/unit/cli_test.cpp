@@ -12,8 +12,8 @@ using guetzli::CliResult;
 
 namespace {
 
-constexpr BuildFeatures kAll{true, true};
-constexpr BuildFeatures kCpuOnly{false, false};
+constexpr BuildFeatures kAll{.opencl = true, .cuda = true};
+constexpr BuildFeatures kCpuOnly{.opencl = false, .cuda = false};
 
 struct Parsed {
   CliResult result;
@@ -24,9 +24,13 @@ struct Parsed {
 Parsed parse(std::vector<std::string> args, BuildFeatures features = kAll) {
   args.insert(args.begin(), "guetzli");
   std::vector<const char*> argv;
+  argv.reserve(args.size());
   for (const std::string& a : args) argv.push_back(a.c_str());
-  std::ostringstream out, err;
-  Parsed p{guetzli::parseCommandLine(static_cast<int>(argv.size()), argv.data(), out, err, features), "", ""};
+  std::ostringstream out;
+  std::ostringstream err;
+  Parsed p{.result = guetzli::parseCommandLine(static_cast<int>(argv.size()), argv.data(), out, err, features),
+           .out = "",
+           .err = ""};
   p.out = out.str();
   p.err = err.str();
   return p;
@@ -92,9 +96,12 @@ TEST_CASE("legacy backend aliases") {
     bool check;
   };
   const Case cases[] = {
-      {"--c", BackendKind::Cpu, false},         {"--auto", BackendKind::Auto, false},
-      {"--opencl", BackendKind::OpenCl, false}, {"--checkcl", BackendKind::OpenCl, true},
-      {"--cuda", BackendKind::Cuda, false},     {"--checkcuda", BackendKind::Cuda, true},
+      {.flag = "--c", .kind = BackendKind::Cpu, .check = false},
+      {.flag = "--auto", .kind = BackendKind::Auto, .check = false},
+      {.flag = "--opencl", .kind = BackendKind::OpenCl, .check = false},
+      {.flag = "--checkcl", .kind = BackendKind::OpenCl, .check = true},
+      {.flag = "--cuda", .kind = BackendKind::Cuda, .check = false},
+      {.flag = "--checkcuda", .kind = BackendKind::Cuda, .check = true},
   };
   for (const Case& c : cases) {
     CAPTURE(c.flag);
@@ -170,7 +177,7 @@ TEST_CASE("GPU flags exist only when the backend is compiled in") {
   CHECK(parse({"--backend", "opencl", "a", "b"}, kCpuOnly).result.exit_code == 1);
   CHECK(runConfig(parse({"--backend", "cpu", "a", "b"}, kCpuOnly)).backend.kind == BackendKind::Cpu);
 
-  const BuildFeatures opencl_only{true, false};
+  const BuildFeatures opencl_only{.opencl = true, .cuda = false};
   CHECK(runConfig(parse({"--opencl", "a", "b"}, opencl_only)).backend.kind == BackendKind::OpenCl);
   CHECK(parse({"--cuda", "a", "b"}, opencl_only).result.exit_code == 1);
 }

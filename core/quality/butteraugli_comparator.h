@@ -48,7 +48,7 @@ class ButteraugliOps {
 // shared and runs the image operations through the backend's ButteraugliOps.
 class ButteraugliComparator : public Comparator {
  public:
-  ButteraugliComparator(const int width, const int height, const std::vector<uint8_t>* rgb, const float target_distance,
+  ButteraugliComparator(int width, int height, const std::vector<uint8_t>* rgb, float target_distance,
                         ProcessStats* stats, ButteraugliOps& ops);
 
   void startBlockComparisons() override;
@@ -57,16 +57,16 @@ class ButteraugliComparator : public Comparator {
   void switchBlock(int block_x, int block_y, int factor_x, int factor_y) override;
 
   double compareBlock(const OutputImage& img, int off_x, int off_y, const coeff_t* candidate_block,
-                      const int comp_mask) const override;
+                      int comp_mask) const override;
 
-  double scoreOutputSize(int size) const override;
+  [[nodiscard]] double scoreOutputSize(int size) const override;
 
-  bool distanceOk(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
+  [[nodiscard]] bool distanceOk(double target_mul) const override { return distance_ <= target_mul * target_distance_; }
 
-  const std::vector<float> distmap() const override { return distmap_; }
-  float distmapAggregate() const override { return distance_; }
+  [[nodiscard]] const std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] float distmapAggregate() const override { return distance_; }
 
-  float blockErrorLimit() const override;
+  [[nodiscard]] float blockErrorLimit() const override;
 
   void computeBlockErrorAdjustmentWeights(int direction, int max_block_dist, double target_mul, int factor_x,
                                           int factor_y, const std::vector<float>& distmap,
@@ -88,7 +88,7 @@ class ButteraugliComparator : public Comparator {
   std::vector<std::vector<float>> mask_xyz_orig_;
   std::vector<std::vector<float>> mask_xyz_;  // valid between Start/FinishBlockComparisons()
   std::vector<std::vector<std::vector<float>>> per_block_pregamma_;
-  float distance_;
+  float distance_{0.0};
   std::vector<float> distmap_;
   ProcessStats* stats_;
 };

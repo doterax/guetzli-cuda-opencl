@@ -20,7 +20,7 @@ class GpuError : public std::runtime_error {
 // to exercise the CPU fallback path (see tests/regress/regress.sh).
 inline void maybeInjectGpuFailure(const char* backend) {
   const char* v = getenv("GUETZLI_TEST_GPU_FAIL");
-  if (v && v[0] && v[0] != '0') {
+  if ((v != nullptr) && (v[0] != 0) && v[0] != '0') {
     throw GpuError(std::string(backend) + ": failure injected by GUETZLI_TEST_GPU_FAIL");
   }
 }

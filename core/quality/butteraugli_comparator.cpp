@@ -32,7 +32,7 @@ ButteraugliComparator::ButteraugliComparator(const int width, const int height, 
       target_distance_(target_distance),
       rgb_orig_(*rgb),
       ops_(ops),
-      distance_(0.0),
+
       stats_(stats) {
   rgb_orig_opsin_.resize(3);
   rgb_orig_opsin_[0].resize(width * height);
@@ -171,7 +171,7 @@ void ButteraugliComparator::computeBlockErrorAdjustmentWeights(int direction, in
   for (int block_y = 0; block_y < block_height; ++block_y) {
     for (int block_x = 0; block_x < block_width; ++block_x) {
       int block_ix = block_y * block_width + block_x;
-      float max_local_dist = static_cast<float>(target_distance);
+      auto max_local_dist = static_cast<float>(target_distance);
       int x_min = std::max(0, block_x - max_block_dist);
       int y_min = std::max(0, block_y - max_block_dist);
       int x_max = std::min(block_width, block_x + 1 + max_block_dist);

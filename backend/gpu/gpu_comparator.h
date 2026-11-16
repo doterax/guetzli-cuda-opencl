@@ -39,7 +39,7 @@ class GpuButteraugliComparator final : public ButteraugliComparator {
   void compare(const OutputImage& img) override;
   // Also builds the per-block lists for the device block-zeroing search (once per image).
   void startBlockComparisons() override;
-  std::optional<BlockReferenceData> blockReferenceData() const override;
+  [[nodiscard]] std::optional<BlockReferenceData> blockReferenceData() const override;
 
  private:
   std::shared_ptr<GpuButteraugliKernels> kernels_;

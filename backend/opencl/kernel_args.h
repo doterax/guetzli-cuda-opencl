@@ -25,7 +25,7 @@ inline cl_int set(cl_kernel k, int idx, const int* t) {
 }
 
 inline cl_int set(cl_kernel k, int idx, const size_t* t) {
-  const cl_int c = static_cast<cl_int>(*t);
+  const auto c = static_cast<cl_int>(*t);
   return clSetKernelArg(k, idx, sizeof(cl_int), &c);
 }
 

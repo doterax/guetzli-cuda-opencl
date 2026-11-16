@@ -28,7 +28,7 @@ ClBuffer::ClBuffer(ClBuffer&& other) noexcept : owner_(other.owner_), mem_(other
 
 ClBuffer& ClBuffer::operator=(ClBuffer&& other) noexcept {
   if (this != &other) {
-    if (owner_) owner_->release(mem_);
+    if (owner_ != nullptr) owner_->release(mem_);
     owner_ = std::exchange(other.owner_, nullptr);
     mem_ = std::exchange(other.mem_, nullptr);
   }
@@ -36,11 +36,11 @@ ClBuffer& ClBuffer::operator=(ClBuffer&& other) noexcept {
 }
 
 ClBuffer::~ClBuffer() {
-  if (owner_) owner_->release(mem_);
+  if (owner_ != nullptr) owner_->release(mem_);
 }
 
 ClMemory::~ClMemory() {
-  if (mem_) clReleaseMemObject(mem_);
+  if (mem_ != nullptr) clReleaseMemObject(mem_);
 }
 
 OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logger_(logger) {
@@ -53,7 +53,7 @@ OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logge
 
   // Select device: use user-specified index if valid, otherwise pick best by flops
   Device_Info best_device;
-  if (options.device >= 0 && options.device < (int)devices.size()) {
+  if (options.device >= 0 && std::cmp_less(options.device, devices.size())) {
     best_device = select_device_with_id((uint)options.device, devices);
   } else {
     if (options.device >= 0) {
@@ -86,7 +86,7 @@ OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logge
 
 OpenClContext::~OpenClContext() {
   for (cl_kernel kernel : kernels_) {
-    if (kernel) clReleaseKernel(kernel);
+    if (kernel != nullptr) clReleaseKernel(kernel);
   }
   // Pooled buffers; constants_ and device_ (context, queue, program) are released by their destructors.
   for (const auto& [mem, size] : buffer_sizes_) clReleaseMemObject(mem);
@@ -127,7 +127,7 @@ ClBuffer OpenClContext::uninitialized(size_t bytes) {
     mem = createBuffer(bytes);
     buffer_sizes_[mem] = bytes;
   }
-  return ClBuffer(this, mem);
+  return {this, mem};
 }
 
 ClBuffer OpenClContext::zeroed(size_t bytes) {
@@ -199,23 +199,23 @@ void OpenClContext::printDeviceCapabilities() const {
   std::string platform_version = "Unknown";
   std::string platform_vendor = "Unknown";
 
-  if (err == CL_SUCCESS && platform) {
+  if (err == CL_SUCCESS && (platform != nullptr)) {
     size_t name_len = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &name_len);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, nullptr, &name_len);
     std::vector<char> platform_name_vec(name_len + 1);
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, name_len, &platform_name_vec[0], NULL);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, name_len, platform_name_vec.data(), nullptr);
     platform_name = std::string(platform_name_vec.data());
 
     size_t version_len = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &version_len);
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, nullptr, &version_len);
     std::vector<char> platform_version_vec(version_len);
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, version_len, &platform_version_vec[0], NULL);
+    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, version_len, platform_version_vec.data(), nullptr);
     platform_version = std::string(platform_version_vec.data());
 
     size_t vendor_len = 0;
-    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, NULL, &vendor_len);
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &vendor_len);
     std::vector<char> platform_vendor_vec(vendor_len);
-    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendor_len, &platform_vendor_vec[0], NULL);
+    clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendor_len, platform_vendor_vec.data(), nullptr);
     platform_vendor = std::string(platform_vendor_vec.data());
   }
 
@@ -223,25 +223,25 @@ void OpenClContext::printDeviceCapabilities() const {
   cl_device_id device = device_info.cl_device();
 
   size_t max_work_group_size = 0;  // CL_DEVICE_MAX_WORK_GROUP_SIZE is a size_t
-  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_work_group_size), &max_work_group_size, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_work_group_size), &max_work_group_size, nullptr);
 
   size_t max_work_item_sizes[3] = {0};
-  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_work_item_sizes), &max_work_item_sizes, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_work_item_sizes), &max_work_item_sizes, nullptr);
 
   cl_bool compiler_available = CL_FALSE;
-  clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compiler_available), &compiler_available, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(compiler_available), &compiler_available, nullptr);
 
   cl_bool linker_available = CL_FALSE;
-  clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linker_available), &linker_available, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_LINKER_AVAILABLE, sizeof(linker_available), &linker_available, nullptr);
 
   cl_device_fp_config fp_config = 0;
-  clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, nullptr);
 
   char device_version[256] = {0};
-  clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_version) - 1, device_version, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_version) - 1, device_version, nullptr);
 
   cl_device_exec_capabilities exec_capabilities = 0;
-  clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(exec_capabilities), &exec_capabilities, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(exec_capabilities), &exec_capabilities, nullptr);
 
   // Print comprehensive device report
   logger_.log(LogLevel::Debug, "=== OpenCL Device Capabilities Report ===\n");
@@ -263,19 +263,19 @@ void OpenClContext::printDeviceCapabilities() const {
   logger_.log(LogLevel::Debug, "Max Work Item Sizes: [%zu, %zu, %zu]\n", max_work_item_sizes[0], max_work_item_sizes[1],
               max_work_item_sizes[2]);
   logger_.log(LogLevel::Debug, "Clock Frequency: %u MHz\n", device_info.clock_frequency);
-  logger_.log(LogLevel::Debug, "Compiler Available: %s\n", compiler_available ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "Linker Available: %s\n", linker_available ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Compiler Available: %s\n", (compiler_available != 0u) ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "Linker Available: %s\n", (linker_available != 0u) ? "Yes" : "No");
   logger_.log(LogLevel::Debug, "Double Precision Support: %s\n",
               fp_config != 0 ? "Yes" : "No");  // non-zero DOUBLE_FP_CONFIG => fp64 supported
-  logger_.log(LogLevel::Debug, "FP64 Capable: %s\n", device_info.is_fp64_capable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "FP32 Capable: %s\n", device_info.is_fp32_capable ? "Yes" : "No");
-  logger_.log(LogLevel::Debug, "FP16 Capable: %s\n", device_info.is_fp16_capable ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP64 Capable: %s\n", (device_info.is_fp64_capable != 0u) ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP32 Capable: %s\n", (device_info.is_fp32_capable != 0u) ? "Yes" : "No");
+  logger_.log(LogLevel::Debug, "FP16 Capable: %s\n", (device_info.is_fp16_capable != 0u) ? "Yes" : "No");
   logger_.log(LogLevel::Debug, "Device Type: %s%s\n", device_info.is_cpu ? "CPU " : "",
               device_info.is_gpu ? "GPU" : "");
   logger_.log(LogLevel::Debug, "Estimated Performance: %.2f TFLOPs\n", device_info.tflops);
   logger_.log(LogLevel::Debug, "Execution Capabilities: %s%s%s\n",
-              (exec_capabilities & CL_EXEC_KERNEL) ? "Kernel " : "",
-              (exec_capabilities & CL_EXEC_NATIVE_KERNEL) ? "Native " : "", "");
+              ((exec_capabilities & CL_EXEC_KERNEL) != 0u) ? "Kernel " : "",
+              ((exec_capabilities & CL_EXEC_NATIVE_KERNEL) != 0u) ? "Native " : "", "");
   logger_.log(LogLevel::Debug, "==========================================\n\n");
 }
 
@@ -418,11 +418,11 @@ void enumOpenClDevices() {
 
   fprintf(stdout, "OpenCL:\n");
   uint id = 0;
-  for (uint i = 0; i < (uint)cl_platforms.size(); i++) {
+  for (const auto& cl_platform : cl_platforms) {
     std::vector<cl::Device> cl_devices;
-    cl_platforms[i].getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
-    for (uint j = 0; j < (uint)cl_devices.size(); j++) {
-      std::string name = cl_devices[j].getInfo<CL_DEVICE_NAME>();
+    cl_platform.getDevices(CL_DEVICE_TYPE_ALL, &cl_devices);
+    for (const auto& cl_device : cl_devices) {
+      std::string name = cl_device.getInfo<CL_DEVICE_NAME>();
       // trim whitespace
       size_t start = name.find_first_not_of(" \t\r\n");
       size_t end = name.find_last_not_of(" \t\r\n");

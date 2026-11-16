@@ -50,17 +50,21 @@ void fillQuant(int q[3][kDctBlockSize], int value) {
 // to 1 are acceptable, every block may be adjusted upwards and none downwards.
 class ScoreComparator final : public guetzli::Comparator {
  public:
-  void compare(const guetzli::OutputImage&) override {}
+  void compare(const guetzli::OutputImage& /*img*/) override {}
   void startBlockComparisons() override {}
   void finishBlockComparisons() override {}
-  void switchBlock(int, int, int, int) override {}
-  double compareBlock(const guetzli::OutputImage&, int, int, const coeff_t*, const int) const override { return 0; }
-  double scoreOutputSize(int size) const override { return score >= 0 ? score : size; }
-  bool distanceOk(double) const override { return true; }
-  const std::vector<float> distmap() const override { return {}; }
-  float distmapAggregate() const override { return 0; }
-  float blockErrorLimit() const override { return 1.0f; }
-  void computeBlockErrorAdjustmentWeights(int direction, int, double, int, int, const std::vector<float>&,
+  void switchBlock(int /*block_x*/, int /*block_y*/, int /*factor_x*/, int /*factor_y*/) override {}
+  double compareBlock(const guetzli::OutputImage& /*img*/, int /*off_x*/, int /*off_y*/,
+                      const coeff_t* /*candidate_block*/, const int /*comp_mask*/) const override {
+    return 0;
+  }
+  [[nodiscard]] double scoreOutputSize(int size) const override { return score >= 0 ? score : size; }
+  [[nodiscard]] bool distanceOk(double /*target_mul*/) const override { return true; }
+  [[nodiscard]] const std::vector<float> distmap() const override { return {}; }
+  [[nodiscard]] float distmapAggregate() const override { return 0; }
+  [[nodiscard]] float blockErrorLimit() const override { return 1.0f; }
+  void computeBlockErrorAdjustmentWeights(int direction, int /*max_block_dist*/, double /*target_mul*/,
+                                          int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*distmap*/,
                                           std::vector<float>* block_weight) override {
     std::fill(block_weight->begin(), block_weight->end(), direction > 0 ? 1.0f : 0.0f);
   }
@@ -72,7 +76,7 @@ class ScoreComparator final : public guetzli::Comparator {
 class FixedSearch final : public guetzli::IBlockZeroingSearch {
  public:
   explicit FixedSearch(std::vector<guetzli::CoeffData> orders) : orders_(std::move(orders)) {}
-  std::vector<guetzli::CoeffData> run(const guetzli::BlockZeroingInput&) override { return orders_; }
+  std::vector<guetzli::CoeffData> run(const guetzli::BlockZeroingInput& /*in*/) override { return orders_; }
 
  private:
   std::vector<guetzli::CoeffData> orders_;
@@ -84,7 +88,8 @@ class FixedSearch final : public guetzli::IBlockZeroingSearch {
 // Size estimator
 // ---------------------------------------------------------------------------------------------
 TEST_CASE("JpegSizeEstimator: incremental updates match a full recomputation") {
-  const int w = 61, h = 45;
+  const int w = 61;
+  const int h = 45;
   const std::vector<uint8_t> rgb = noisyImage(w, h, 1);
   int quant[3 * kDctBlockSize];
   for (int i = 0; i < 3 * kDctBlockSize; ++i) quant[i] = 2 + i % 5;
@@ -114,7 +119,7 @@ TEST_CASE("JpegSizeEstimator: incremental updates match a full recomputation") {
     coeff_t block[kDctBlockSize];
     std::copy(old_block, old_block + kDctBlockSize, block);
     const int value = static_cast<int>(rng() % 200) - 100;
-    block[k] = rng() % 2 ? 0 : guetzli::quantize(static_cast<coeff_t>(value), comp.quant()[k]);
+    block[k] = ((rng() % 2) != 0u) ? 0 : guetzli::quantize(static_cast<coeff_t>(value), comp.quant()[k]);
     estimator.replaceBlock(c, old_block, block, comp.quant());
     comp.setCoeffBlock(bx, by, block);
 
@@ -137,7 +142,8 @@ TEST_CASE("JpegSizeEstimator: incremental updates match a full recomputation") {
 }
 
 TEST_CASE("JpegSizeEstimator: extra histograms start empty") {
-  const int w = 16, h = 16;
+  const int w = 16;
+  const int h = 16;
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(std::vector<uint8_t>(3 * w * h, 128), w, h, &jpg));
   jpg.components.resize(1);  // a grayscale file
@@ -194,8 +200,8 @@ TEST_CASE("QuantMatrixGenerator: binary search between the coarsest good and fin
   SUBCASE("4:2:0 starts at the identity matrix") {
     guetzli::QuantMatrixGenerator gen(true);
     REQUIRE(gen.getNext(q));
-    for (int c = 0; c < 3; ++c)
-      for (int k = 0; k < kDctBlockSize; ++k) CHECK(q[c][k] == 1);
+    for (auto& c : q)
+      for (int k = 0; k < kDctBlockSize; ++k) CHECK(c[k] == 1);
   }
   SUBCASE("terminates and never proposes a matrix twice") {
     guetzli::QuantMatrixGenerator gen(false);
@@ -222,11 +228,12 @@ TEST_CASE("QuantMatrixGenerator: binary search between the coarsest good and fin
 // Frequency masking and output selection
 // ---------------------------------------------------------------------------------------------
 TEST_CASE("CollectZeroingCandidates keeps the entries within the error limit, per block") {
-  std::vector<guetzli::CoeffData> orders(2 * guetzli::kBlockZeroingBlockSize, guetzli::CoeffData{0, 0.0f});
-  orders[0] = {5, 0.1f};
-  orders[1] = {6, 0.5f};
-  orders[2] = {7, 2.0f};  // above the limit
-  orders[guetzli::kBlockZeroingBlockSize + 3] = {130, 0.2f};
+  std::vector<guetzli::CoeffData> orders(2 * guetzli::kBlockZeroingBlockSize,
+                                         guetzli::CoeffData{.idx = 0, .block_err = 0.0f});
+  orders[0] = {.idx = 5, .block_err = 0.1f};
+  orders[1] = {.idx = 6, .block_err = 0.5f};
+  orders[2] = {.idx = 7, .block_err = 2.0f};  // above the limit
+  orders[guetzli::kBlockZeroingBlockSize + 3] = {.idx = 130, .block_err = 0.2f};
   const guetzli::ZeroingCandidates c = guetzli::collectZeroingCandidates(orders, 2, 1.0f);
   CHECK(c.offsets == std::vector<int>{0, 2, 3});
   CHECK(c.coeffs == std::vector<uint8_t>{5, 6, 130});
@@ -234,7 +241,8 @@ TEST_CASE("CollectZeroingCandidates keeps the entries within the error limit, pe
 }
 
 TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chroma component") {
-  const int w = 64, h = 48;  // chroma: 4x3 blocks of 16x16 pixels
+  const int w = 64;
+  const int h = 48;  // chroma: 4x3 blocks of 16x16 pixels
   int ones[3 * kDctBlockSize];
   std::fill(ones, ones + 3 * kDctBlockSize, 1);  // as after RemoveOriginalQuantization
   guetzli::JpegData jpg;
@@ -249,14 +257,16 @@ TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chr
   REQUIRE(cb.heightInBlocks() == 3);
 
   // One candidate: a nonzero AC coefficient of Cb block (3, 1).
-  const int bx = 3, by = 1;
+  const int bx = 3;
+  const int by = 1;
   coeff_t target[kDctBlockSize];
   cb.getCoeffBlock(bx, by, target);
   int k = 1;
   while (k < kDctBlockSize && target[k] == 0) ++k;
   REQUIRE(k < kDctBlockSize);
-  std::vector<guetzli::CoeffData> orders(12 * guetzli::kBlockZeroingBlockSize, guetzli::CoeffData{0, 0.0f});
-  orders[(by * 4 + bx) * guetzli::kBlockZeroingBlockSize] = {kDctBlockSize + k, 0.5f};
+  std::vector<guetzli::CoeffData> orders(12 * guetzli::kBlockZeroingBlockSize,
+                                         guetzli::CoeffData{.idx = 0, .block_err = 0.0f});
+  orders[(by * 4 + bx) * guetzli::kBlockZeroingBlockSize] = {.idx = kDctBlockSize + k, .block_err = 0.5f};
 
   std::vector<coeff_t> before(cb.coeffs(), cb.coeffs() + 12 * kDctBlockSize);
   guetzli::ProcessStats stats;
@@ -317,7 +327,8 @@ TEST_CASE("Encoder: encodes RGB pixels on the CPU backend") {
   guetzli::EncoderParams params;
   params.butteraugli_target = 2.0f;
   guetzli::Encoder encoder(params, backend, logger);
-  const int w = 40, h = 36;
+  const int w = 40;
+  const int h = 36;
   const std::optional<std::string> jpeg = encoder.encodeRgb(noisyImage(w, h, 5), w, h);
   REQUIRE(jpeg);
   guetzli::JpegData read;

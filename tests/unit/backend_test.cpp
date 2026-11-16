@@ -61,11 +61,19 @@ TEST_CASE("auto tries CUDA, then OpenCL, then falls back to the CPU") {
     int cuda_calls, opencl_calls;
   };
   const Case cases[] = {
-      {true, true, BackendKind::Cuda, 1, 0},
-      {false, true, BackendKind::OpenCl, 1, 1},
-      {false, false, BackendKind::Cpu, 1, 1},
-      {std::nullopt, true, BackendKind::OpenCl, 0, 1},       // CUDA not compiled in
-      {std::nullopt, std::nullopt, BackendKind::Cpu, 0, 0},  // no GPU backend compiled in
+      {.cuda = true, .opencl = true, .expected = BackendKind::Cuda, .cuda_calls = 1, .opencl_calls = 0},
+      {.cuda = false, .opencl = true, .expected = BackendKind::OpenCl, .cuda_calls = 1, .opencl_calls = 1},
+      {.cuda = false, .opencl = false, .expected = BackendKind::Cpu, .cuda_calls = 1, .opencl_calls = 1},
+      {.cuda = std::nullopt,
+       .opencl = true,
+       .expected = BackendKind::OpenCl,
+       .cuda_calls = 0,
+       .opencl_calls = 1},  // CUDA not compiled in
+      {.cuda = std::nullopt,
+       .opencl = std::nullopt,
+       .expected = BackendKind::Cpu,
+       .cuda_calls = 0,
+       .opencl_calls = 0},  // no GPU backend compiled in
   };
   for (const Case& c : cases) {
     ProbeLog log;
@@ -102,24 +110,28 @@ class FakeComparator final : public guetzli::Comparator {
   FakeComparator(std::vector<float> distmap, float distance, std::vector<std::string>& calls, const char* name)
       : distmap_(std::move(distmap)), distance_(distance), calls_(calls), name_(name) {}
 
-  void compare(const guetzli::OutputImage&) override { record("Compare"); }
+  void compare(const guetzli::OutputImage& /*img*/) override { record("Compare"); }
   void startBlockComparisons() override { record("Start"); }
   void finishBlockComparisons() override { record("Finish"); }
-  void switchBlock(int, int, int, int) override { record("SwitchBlock"); }
-  double compareBlock(const guetzli::OutputImage&, int, int, const coeff_t*, const int) const override {
+  void switchBlock(int /*block_x*/, int /*block_y*/, int /*factor_x*/, int /*factor_y*/) override {
+    record("SwitchBlock");
+  }
+  double compareBlock(const guetzli::OutputImage& /*img*/, int /*off_x*/, int /*off_y*/,
+                      const coeff_t* /*candidate_block*/, const int /*comp_mask*/) const override {
     record("CompareBlock");
     return distance_;
   }
-  double scoreOutputSize(int size) const override { return size * distance_; }
-  bool distanceOk(double) const override { return true; }
-  const std::vector<float> distmap() const override { return distmap_; }
-  float distmapAggregate() const override { return distance_; }
-  float blockErrorLimit() const override { return distance_; }
-  void computeBlockErrorAdjustmentWeights(int, int, double, int, int, const std::vector<float>&,
-                                          std::vector<float>*) override {}
-  std::optional<guetzli::BlockReferenceData> blockReferenceData() const override {
+  [[nodiscard]] double scoreOutputSize(int size) const override { return size * distance_; }
+  [[nodiscard]] bool distanceOk(double /*target_mul*/) const override { return true; }
+  [[nodiscard]] const std::vector<float> distmap() const override { return distmap_; }
+  [[nodiscard]] float distmapAggregate() const override { return distance_; }
+  [[nodiscard]] float blockErrorLimit() const override { return distance_; }
+  void computeBlockErrorAdjustmentWeights(int /*direction*/, int /*max_block_dist*/, double /*target_mul*/,
+                                          int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*distmap*/,
+                                          std::vector<float>* /*block_weight*/) override {}
+  [[nodiscard]] std::optional<guetzli::BlockReferenceData> blockReferenceData() const override {
     if (!provides_block_data) return std::nullopt;
-    return guetzli::BlockReferenceData{distmap_, distmap_};
+    return guetzli::BlockReferenceData{.opsin = distmap_, .mask_scale = distmap_};
   }
 
   bool provides_block_data = false;
@@ -136,7 +148,7 @@ class FakeComparator final : public guetzli::Comparator {
 int countChk(const RecordingLogger& logger) {
   int n = 0;
   for (const auto& [level, message] : logger.lines) {
-    if (level == LogLevel::Error && message.rfind("CHK ", 0) == 0) ++n;
+    if (level == LogLevel::Error && message.starts_with("CHK ")) ++n;
   }
   return n;
 }
@@ -152,9 +164,9 @@ TEST_CASE("CheckingComparator: runs both, keeps the reference result, reports di
     int expected_chk;
   };
   const Case cases[] = {
-      {{1.0f, 2.0f, 3.0f}, 0},
-      {{1.0f, 2.004f, 3.0f}, 0},  // within the tolerance
-      {{1.0f, 2.5f, 3.0f}, 1},
+      {.tested = {1.0f, 2.0f, 3.0f}, .expected_chk = 0},
+      {.tested = {1.0f, 2.004f, 3.0f}, .expected_chk = 0},  // within the tolerance
+      {.tested = {1.0f, 2.5f, 3.0f}, .expected_chk = 1},
   };
   for (const Case& c : cases) {
     std::vector<std::string> calls;
@@ -186,7 +198,7 @@ namespace {
 class FakeSearch final : public guetzli::IBlockZeroingSearch {
  public:
   explicit FakeSearch(std::vector<guetzli::CoeffData> result) : result_(std::move(result)) {}
-  std::vector<guetzli::CoeffData> run(const guetzli::BlockZeroingInput&) override {
+  std::vector<guetzli::CoeffData> run(const guetzli::BlockZeroingInput& /*in*/) override {
     ++runs;
     return result_;
   }
@@ -204,18 +216,25 @@ TEST_CASE("CheckingBlockZeroingSearch: returns the reference orders and reports 
   guetzli::JpegData jpg;
   std::vector<std::string> calls;
   FakeComparator comparator({}, 1.0f, calls, "c");
-  const guetzli::BlockZeroingInput input{jpg, img, 7, comparator, 3, true};
+  const guetzli::BlockZeroingInput input{.jpg = jpg,
+                                         .img = img,
+                                         .comp_mask = 7,
+                                         .comparator = comparator,
+                                         .greedy_lookahead = 3,
+                                         .new_zeroing_model = true};
 
-  const std::vector<guetzli::CoeffData> reference_orders = {{5, 0.5f}, {9, 0.75f}};
+  const std::vector<guetzli::CoeffData> reference_orders = {{.idx = 5, .block_err = 0.5f},
+                                                            {.idx = 9, .block_err = 0.75f}};
   struct Case {
     std::vector<guetzli::CoeffData> tested;
     int expected_chk;
   };
   const Case cases[] = {
-      {{{5, 0.5f}, {9, 0.75f}}, 0},
-      {{{5, 0.5f}, {9, 0.7505f}}, 0},  // within 0.001
-      {{{5, 0.5f}, {8, 0.75f}}, 1},    // different coefficient
-      {{{5, 0.5f}}, 1},                // different size
+      {.tested = {{.idx = 5, .block_err = 0.5f}, {.idx = 9, .block_err = 0.75f}}, .expected_chk = 0},
+      {.tested = {{.idx = 5, .block_err = 0.5f}, {.idx = 9, .block_err = 0.7505f}}, .expected_chk = 0},  // within 0.001
+      {.tested = {{.idx = 5, .block_err = 0.5f}, {.idx = 8, .block_err = 0.75f}},
+       .expected_chk = 1},                                             // different coefficient
+      {.tested = {{.idx = 5, .block_err = 0.5f}}, .expected_chk = 1},  // different size
   };
   for (const Case& c : cases) {
     auto tested = std::make_unique<FakeSearch>(c.tested);

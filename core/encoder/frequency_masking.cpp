@@ -79,8 +79,12 @@ void FrequencyMasking::run(const JpegData& jpg, OutputImage& img, const uint8_t 
   const BlockGrid grid = blockGrid(img, last_c);
 
   comparator_->startBlockComparisons();
-  const BlockZeroingInput search_input{
-      jpg, img, comp_mask, *comparator_, params_->zeroing_greedy_lookahead, params_->new_zeroing_model};
+  const BlockZeroingInput search_input{.jpg = jpg,
+                                       .img = img,
+                                       .comp_mask = comp_mask,
+                                       .comparator = *comparator_,
+                                       .greedy_lookahead = params_->zeroing_greedy_lookahead,
+                                       .new_zeroing_model = params_->new_zeroing_model};
   const std::vector<CoeffData> orders = search_->run(search_input);
   const ZeroingCandidates candidates =
       collectZeroingCandidates(orders, grid.num_blocks, comparator_->blockErrorLimit());
@@ -151,15 +155,15 @@ void FrequencyMasking::adjust(const JpegData& jpg, OutputImage& img, const uint8
               continue;
             }
             if (direction > 0) {
-              for (size_t i = last_index; i < num_candidates; ++i) {
+              for (size_t i = last_index; std::cmp_less(i, num_candidates); ++i) {
                 float val = ((candidate_errors[i] - max_err) / block_weight[block_ix]);
-                global_order.push_back(std::make_pair(block_ix, val));
+                global_order.emplace_back(block_ix, val);
               }
               blocks_to_change += (last_index < num_candidates ? 1 : 0);
             } else {
               for (int i = last_index - 1; i >= 0; --i) {
                 float val = ((max_err - candidate_errors[i]) / block_weight[block_ix]);
-                global_order.push_back(std::make_pair(block_ix, val));
+                global_order.emplace_back(block_ix, val);
               }
               blocks_to_change += (last_index > 0 ? 1 : 0);
             }

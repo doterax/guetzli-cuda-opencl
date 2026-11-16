@@ -51,12 +51,11 @@ int compareQuantMatrices(const int* a, const int* b) {
       if (a[i] > b[i]) return 2;
     }
     return -1;
-  } else {
-    for (++i; i < kQuantMatrixSize; ++i) {
-      if (a[i] < b[i]) return 2;
-    }
-    return 1;
   }
+  for (++i; i < kQuantMatrixSize; ++i) {
+    if (a[i] < b[i]) return 2;
+  }
+  return 1;
 }
 
 double quantMatrixHeuristicScore(const int q[3][kDctBlockSize]) {
@@ -111,9 +110,9 @@ bool QuantMatrixGenerator::getNext(int q[3][kDctBlockSize]) {
     }
     getQuantMatrixWithHeuristicScore(hscore, q);
     bool retry = false;
-    for (size_t i = 0; i < quants_.size(); ++i) {
-      if (compareQuantMatrices(&q[0][0], &quants_[i].q[0][0]) == 0) {
-        if (quants_[i].dist_ok) {
+    for (auto& quant : quants_) {
+      if (compareQuantMatrices(&q[0][0], &quant.q[0][0]) == 0) {
+        if (quant.dist_ok) {
           hscore_a_ = hscore;
         } else {
           hscore_b_ = hscore;

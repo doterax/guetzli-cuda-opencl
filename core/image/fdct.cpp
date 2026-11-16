@@ -150,8 +150,8 @@ const coeff_t kTable35[7] = {26722, 25172, 22654, 19266, 15137, 10426, 5315};
 #define LOAD_CST(dst, src) (dst) = (src)
 #define LOAD(dst, src) (dst) = (src)
 #define MULT(a, b) (a) = (((a) * (b)) >> 16)
-#define ADD(a, b) (a) = (a) + (b)
-#define SUB(a, b) (a) = (a) - (b)
+#define ADD(a, b) ((a) = (a) + (b))
+#define SUB(a, b) ((a) = (a) - (b))
 #define LSHIFT(a, n) (a) = ((a) << (n))
 #define STORE16(a, b) (a) = (b)
 #define CORRECT_LSB(a) (a) += 1
@@ -160,7 +160,14 @@ const coeff_t kTable35[7] = {26722, 25172, 22654, 19266, 15137, 10426, 5315};
 
 inline void columnDct(coeff_t* in) {
   for (int i = 0; i < 8; ++i) {
-    int m0, m1, m2, m3, m4, m5, m6, m7;
+    int m0;
+    int m1;
+    int m2;
+    int m3;
+    int m4;
+    int m5;
+    int m6;
+    int m7;
     COLUMN_DCT8(in + i);
   }
 }

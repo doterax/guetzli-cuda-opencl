@@ -51,22 +51,32 @@ class FakeKernels final : public guetzli::GpuKernels {
  public:
   Calls calls;
 
-  void opsinDynamicsImage(float*, float*, float*, unsigned int, unsigned int) override { ++calls.opsin; }
-  void mask(float*, float*, float*, float*, float*, float*, unsigned int, unsigned int, const float*, const float*,
-            const float*, const float*, const float*, const float*) override {
+  void opsinDynamicsImage(float* /*r*/, float* /*g*/, float* /*b*/, unsigned int /*xsize*/,
+                          unsigned int /*ysize*/) override {
+    ++calls.opsin;
+  }
+  void mask(float* /*mask_r*/, float* /*mask_g*/, float* /*mask_b*/, float* /*maskdc_r*/, float* /*maskdc_g*/,
+            float* /*maskdc_b*/, unsigned int /*xsize*/, unsigned int /*ysize*/, const float* /*r*/, const float* /*g*/,
+            const float* /*b*/, const float* /*r2*/, const float* /*g2*/, const float* /*b2*/) override {
     ++calls.mask;
   }
-  std::unique_ptr<guetzli::GpuCompareSession> startCompare(const float*, const float*, const float*, int,
-                                                           int) override {
+  std::unique_ptr<guetzli::GpuCompareSession> startCompare(const float* /*r*/, const float* /*g*/, const float* /*b*/,
+                                                           int /*xsize*/, int /*ysize*/) override {
     ++calls.start_compare;
     return std::make_unique<FakeSession>(calls);
   }
-  void copyFromJpegComponent(guetzli::coeff_t*, uint8_t*, const guetzli::coeff_t*, const int*, int, int, int, int, int,
-                             int) override {}
-  void applyGlobalQuantization(guetzli::coeff_t*, uint8_t*, uint8_t*, const int*, int, int) override {}
-  void componentsToPixels(uint8_t*, int, int, int, int, const std::vector<guetzli::OutputImageComponent>&) override {}
-  void computeBlockZeroingOrder(guetzli::CoeffData*, const ChannelInfo[3], const float*, const float*, int, int,
-                                const ChannelInfo[3], int, int, float) override {}
+  void copyFromJpegComponent(guetzli::coeff_t* /*output_batch*/, uint8_t* /*output_idct*/,
+                             const guetzli::coeff_t* /*jpeg_batch*/, const int* /*quant*/, int /*jpeg_block_width*/,
+                             int /*jpeg_block_height*/, int /*output_block_width*/, int /*output_block_height*/,
+                             int /*output_width*/, int /*output_height*/) override {}
+  void applyGlobalQuantization(guetzli::coeff_t* /*output_batch*/, uint8_t* /*output_idct*/, uint8_t* /*output_bool*/,
+                               const int* /*q*/, int /*block_width*/, int /*block_height*/) override {}
+  void componentsToPixels(uint8_t* /*rgb*/, int /*xmin*/, int /*ymin*/, int /*xsize*/, int /*ysize*/,
+                          const std::vector<guetzli::OutputImageComponent>& /*components*/) override {}
+  void computeBlockZeroingOrder(guetzli::CoeffData* /*output_order_batch*/, const ChannelInfo /*orig_channel*/[3],
+                                const float* /*orig_image_batch*/, const float* /*mask_scale*/, int /*image_width*/,
+                                int /*image_height*/, const ChannelInfo /*mayout_channel*/[3], int /*factor*/,
+                                int /*comp_mask*/, float /*block_error_limit*/) override {}
 };
 
 }  // namespace
@@ -105,7 +115,8 @@ TEST_CASE("GPU backend: one device behind every part; the comparator keeps one c
   CHECK(device.use_count() > 1);  // shared by the parts
 
   // 16x16: below the device threshold, so the image operations use the reference code.
-  const int w = 16, h = 16;
+  const int w = 16;
+  const int h = 16;
   std::vector<uint8_t> rgb(static_cast<size_t>(w) * h * 3, 128);
   guetzli::ProcessStats stats;
   std::unique_ptr<guetzli::Comparator> comparator = backend.comparators->create(w, h, &rgb, 1.0f, &stats);

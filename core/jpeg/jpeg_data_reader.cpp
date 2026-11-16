@@ -17,8 +17,9 @@
 #include "core/jpeg/jpeg_data_reader.h"
 
 #include <algorithm>
-#include <stdio.h>
-#include <string.h>
+#include <utility>
+#include <cstdio>
+#include <cstring>
 
 #include "core/jpeg/jpeg_huffman_decode.h"
 
@@ -37,7 +38,7 @@ namespace {
   }
 
 #define VERIFY_INPUT(var, low, high, code)                            \
-  if (var < low || var > high) {                                      \
+  if ((var) < (low) || (var) > (high)) {                              \
     fprintf(stderr, "Invalid %s: %d\n", #var, static_cast<int>(var)); \
     jpg->error = JPEG_INVALID_##code;                                 \
     return false;                                                     \
@@ -212,8 +213,8 @@ bool processSos(const uint8_t* data, const size_t len, size_t* pos, JpegData* jp
   for (int i = 0; i < comps_in_scan; ++i) {
     bool found_dc_table = false;
     bool found_ac_table = false;
-    for (size_t j = 0; j < jpg->huffman_code.size(); ++j) {
-      int slot_id = jpg->huffman_code[j].slot_id;
+    for (auto& j : jpg->huffman_code) {
+      int slot_id = j.slot_id;
       if (slot_id == scan_info.components[i].dc_tbl_idx) {
         found_dc_table = true;
       } else if (slot_id == scan_info.components[i].ac_tbl_idx + 16) {
@@ -260,9 +261,9 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
     JpegHuffmanCode huff;
     huff.slot_id = readUint8(data, pos);
     int huffman_index = huff.slot_id;
-    int is_ac_table = (huff.slot_id & 0x10) != 0;
+    int is_ac_table = static_cast<int>((huff.slot_id & 0x10) != 0);
     HuffmanTableEntry* huff_lut;
-    if (is_ac_table) {
+    if (is_ac_table != 0) {
       huffman_index -= 0x10;
       VERIFY_INPUT(huffman_index, 0, 3, HUFFMAN_INDEX);
       huff_lut = &(*ac_huff_lut)[huffman_index * kJpegHuffmanLutSize];
@@ -283,7 +284,7 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
       total_count += count;
       space -= count * (1 << (kJpegHuffmanMaxBitLength - i));
     }
-    if (is_ac_table) {
+    if (is_ac_table != 0) {
       VERIFY_INPUT(total_count, 0, kJpegHuffmanAlphabetSize, HUFFMAN_CODE);
     } else {
       VERIFY_INPUT(total_count, 0, kJpegDcAlphabetSize, HUFFMAN_CODE);
@@ -292,7 +293,7 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
     std::vector<bool> values_seen(256, false);
     for (int i = 0; i < total_count; ++i) {
       uint8_t value = readUint8(data, pos);
-      if (!is_ac_table) {
+      if (is_ac_table == 0) {
         VERIFY_INPUT(value, 0, kJpegDcAlphabetSize - 1, HUFFMAN_CODE);
       }
       if (values_seen[value]) {
@@ -311,7 +312,8 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
       fprintf(stderr, "Invalid Huffman code lengths.\n");
       jpg->error = JPEG_INVALID_HUFFMAN_CODE;
       return false;
-    } else if (space > 0 && huff_lut[0].value != 0xffff) {
+    }
+    if (space > 0 && huff_lut[0].value != 0xffff) {
       // Re-initialize the values to an invalid symbol so that we can recognize
       // it when reading the bit stream using a Huffman code with space > 0.
       for (int i = 0; i < kJpegHuffmanLutSize; ++i) {
@@ -320,7 +322,7 @@ bool processDht(const uint8_t* data, const size_t len, JpegReadMode mode, std::v
       }
     }
     huff.is_last = (*pos == start_pos + marker_len);
-    if (mode == JPEG_READ_ALL && !buildJpegHuffmanTable(&huff.counts[0], &huff.values[0], huff_lut)) {
+    if (mode == JPEG_READ_ALL && (buildJpegHuffmanTable(huff.counts.data(), huff.values.data(), huff_lut) == 0)) {
       fprintf(stderr, "Failed to build Huffman table.\n");
       jpg->error = JPEG_INVALID_HUFFMAN_CODE;
       return false;
@@ -353,7 +355,7 @@ bool processDqt(const uint8_t* data, const size_t len, size_t* pos, JpegData* jp
     table.index = quant_table_index;
     table.precision = quant_table_precision;
     for (int i = 0; i < kDctBlockSize; ++i) {
-      int quant_val = quant_table_precision ? readUint16(data, pos) : readUint8(data, pos);
+      int quant_val = (quant_table_precision != 0) ? readUint16(data, pos) : readUint8(data, pos);
       VERIFY_INPUT(quant_val, 1, 65535, QUANT_VAL);
       table.values[kJpegNaturalOrder[i]] = quant_val;
     }
@@ -617,13 +619,13 @@ bool refineDctBlock(const HuffmanTableEntry* ac_huff, int ss, int se, int al, in
       }
       r = s >> 4;
       s &= 15;
-      if (s) {
+      if (s != 0) {
         if (s != 1) {
           fprintf(stderr, "Invalid Huffman symbol %d for AC coefficient %d\n", s, k);
           jpg->error = JPEG_INVALID_SYMBOL;
           return false;
         }
-        s = br->readBits(1) ? p1 : m1;
+        s = (br->readBits(1) != 0) ? p1 : m1;
         in_zero_run = false;
       } else {
         if (r != 15) {
@@ -643,7 +645,7 @@ bool refineDctBlock(const HuffmanTableEntry* ac_huff, int ss, int se, int al, in
       do {
         coeff_t thiscoef = coeffs[kJpegNaturalOrder[k]];
         if (thiscoef != 0) {
-          if (br->readBits(1)) {
+          if (br->readBits(1) != 0) {
             if ((thiscoef & p1) == 0) {
               if (thiscoef >= 0) {
                 thiscoef += p1;
@@ -660,7 +662,7 @@ bool refineDctBlock(const HuffmanTableEntry* ac_huff, int ss, int se, int al, in
         }
         k++;
       } while (k <= se);
-      if (s) {
+      if (s != 0) {
         if (k > se) {
           fprintf(stderr, "Out-of-band coefficient %d band was %d-%d\n", k, ss, se);
           jpg->error = JPEG_OUT_OF_BAND_COEFF;
@@ -679,7 +681,7 @@ bool refineDctBlock(const HuffmanTableEntry* ac_huff, int ss, int se, int al, in
     for (; k <= se; k++) {
       coeff_t thiscoef = coeffs[kJpegNaturalOrder[k]];
       if (thiscoef != 0) {
-        if (br->readBits(1)) {
+        if (br->readBits(1) != 0) {
           if ((thiscoef & p1) == 0) {
             if (thiscoef >= 0) {
               thiscoef += p1;
@@ -751,7 +753,7 @@ bool processScan(const uint8_t* data, const size_t len, const std::vector<Huffma
   for (size_t i = 0; i < scan_info->components.size(); ++i) {
     int comp_idx = scan_info->components[i].comp_idx;
     for (int k = ss; k <= se; ++k) {
-      if (scan_progression[comp_idx][k] & scan_bitmask) {
+      if ((scan_progression[comp_idx][k] & scan_bitmask) != 0) {
         fprintf(stderr,
                 "Overlapping scans: component=%d k=%d prev_mask=%d "
                 "cur_mask=%d\n",
@@ -759,7 +761,7 @@ bool processScan(const uint8_t* data, const size_t len, const std::vector<Huffma
         jpg->error = JPEG_OVERLAPPING_SCANS;
         return false;
       }
-      if (scan_progression[comp_idx][k] & refinement_bitmask) {
+      if ((scan_progression[comp_idx][k] & refinement_bitmask) != 0) {
         fprintf(stderr,
                 "Invalid scan order, a more refined scan was already "
                 "done: component=%d k=%d prev_mask=%d cur_mask=%d\n",
@@ -796,8 +798,8 @@ bool processScan(const uint8_t* data, const size_t len, const std::vector<Huffma
         --restarts_to_go;
       }
       // Decode one MCU.
-      for (size_t i = 0; i < scan_info->components.size(); ++i) {
-        JpegComponentScanInfo* si = &scan_info->components[i];
+      for (auto& component : scan_info->components) {
+        JpegComponentScanInfo* si = &component;
         JpegComponent* c = &jpg->components[si->comp_idx];
         const HuffmanTableEntry* dc_lut = &dc_huff_lut[si->dc_tbl_idx * kJpegHuffmanLutSize];
         const HuffmanTableEntry* ac_lut = &ac_huff_lut[si->ac_tbl_idx * kJpegHuffmanLutSize];
@@ -850,7 +852,7 @@ bool fixupIndexes(JpegData* jpg) {
     JpegComponent* c = &jpg->components[i];
     bool found_index = false;
     for (size_t j = 0; j < jpg->quant.size(); ++j) {
-      if (jpg->quant[j].index == c->quant_idx) {
+      if (std::cmp_equal(jpg->quant[j].index, c->quant_idx)) {
         c->quant_idx = j;
         found_index = true;
         break;
@@ -872,7 +874,7 @@ size_t findNextMarker(const uint8_t* data, const size_t len, size_t pos) {
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
   };
   size_t num_skipped = 0;
-  while (pos + 1 < len && (data[pos] != 0xff || data[pos + 1] < 0xc0 || !kIsValidMarker[data[pos + 1] - 0xc0])) {
+  while (pos + 1 < len && (data[pos] != 0xff || data[pos + 1] < 0xc0 || (kIsValidMarker[data[pos + 1] - 0xc0] == 0u))) {
     ++pos;
     ++num_skipped;
   }
@@ -905,7 +907,7 @@ bool readJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JpegData
     if (num_skipped > 0) {
       // Add a fake marker to indicate arbitrary in-between-markers data.
       jpg->marker_order.push_back(0xff);
-      jpg->inter_marker_data.push_back(std::string(reinterpret_cast<const char*>(&data[pos]), num_skipped));
+      jpg->inter_marker_data.emplace_back(reinterpret_cast<const char*>(&data[pos]), num_skipped);
       pos += num_skipped;
     }
     EXPECT_MARKER();
@@ -1001,7 +1003,7 @@ bool readJpeg(const uint8_t* data, const size_t len, JpegReadMode mode, JpegData
     if (!fixupIndexes(jpg)) {
       return false;
     }
-    if (jpg->huffman_code.size() == 0) {
+    if (jpg->huffman_code.empty()) {
       // Section B.2.4.2: "If a table has never been defined for a particular
       // destination, then when this destination is specified in a scan header,
       // the results are unpredictable."

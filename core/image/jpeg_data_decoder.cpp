@@ -28,7 +28,8 @@ bool hasYCbCrColorSpace(const JpegData& jpg) {
   for (const std::string& app : jpg.app_data) {
     if (static_cast<uint8_t>(app[0]) == 0xe0) {
       return true;
-    } else if (static_cast<uint8_t>(app[0]) == 0xee && app.size() >= 15) {
+    }
+    if (static_cast<uint8_t>(app[0]) == 0xee && app.size() >= 15) {
       has_adobe_marker = true;
       adobe_transform = app[14];
     }
@@ -48,7 +49,7 @@ std::vector<uint8_t> decodeJpegToRgb(const JpegData& jpg, IDctOps& dct) {
     img.copyFromJpegData(jpg);
     return img.toSrgb();
   }
-  return std::vector<uint8_t>();
+  return {};
 }
 
 }  // namespace guetzli

@@ -40,10 +40,11 @@ std::vector<uint8_t> smoothImage(int w, int h) {
 }  // namespace
 
 TEST_CASE("encode, write, read and decode an odd-sized image") {
-  const int w = 37, h = 21;
+  const int w = 37;
+  const int h = 21;
   const std::vector<uint8_t> rgb = smoothImage(w, h);
   int quant[3 * guetzli::kDctBlockSize];
-  for (int i = 0; i < 3 * guetzli::kDctBlockSize; ++i) quant[i] = 1;
+  for (int& i : quant) i = 1;
 
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(rgb, w, h, quant, &jpg));
@@ -64,7 +65,8 @@ TEST_CASE("encode, write, read and decode an odd-sized image") {
 }
 
 TEST_CASE("write(read(write(x))) is byte-stable") {
-  const int w = 24, h = 16;
+  const int w = 24;
+  const int h = 16;
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(smoothImage(w, h), w, h, &jpg));
   const std::string first = serialize(jpg);
@@ -75,7 +77,8 @@ TEST_CASE("write(read(write(x))) is byte-stable") {
 }
 
 TEST_CASE("truncated input is rejected") {
-  const int w = 16, h = 16;
+  const int w = 16;
+  const int h = 16;
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(smoothImage(w, h), w, h, &jpg));
   const std::string bytes = serialize(jpg);
