@@ -65,9 +65,17 @@ guetzli --auto   input.png output.jpg   # Auto-detect best backend (default)
 
 | Platform | CUDA | OpenCL | Tested |
 |----------|------|--------|--------|
-| Windows x64 (MinGW-w64 / MSYS2) | ✅ | ✅ | CI |
+| Windows x64 (MinGW-w64 UCRT / MSYS2) | ✅ | ✅ | CI |
 | Linux x64 (GCC) | ✅ | ✅ | CI |
 | macOS arm64 (Apple Silicon) | — | ✅ | CI |
+
+### Windows runtime
+
+The Windows binary is self-contained except for the **Universal C Runtime (UCRT)**, which it links
+dynamically. The UCRT is part of Windows 10 and 11 (and Windows Server 2016 and later), so nothing needs to
+be installed there. On Windows 7 SP1, 8.1 and Server 2012 (R2) install the
+[Update for Universal C Runtime in Windows (KB2999226)](https://support.microsoft.com/en-us/topic/update-for-universal-c-runtime-in-windows-c0514201-7fe6-95a3-b0a5-287930f3560c)
+or let Windows Update install it. Background: [Universal CRT deployment](https://learn.microsoft.com/en-us/cpp/windows/universal-crt-deployment).
 
 ## Building
 
@@ -84,7 +92,7 @@ Full details (prerequisites, GitHub Actions setup, troubleshooting) are in
 
 ## GitHub Actions CI/CD
 
-Every pull request is built and tested on Linux, Windows (MSYS2), and macOS.
+Every pull request is built and tested on Linux, Windows (MSYS2 UCRT64), and macOS.
 Pushing a `v*` tag (e.g. `v1.3.0`) creates a GitHub Release with pre-built
 binaries for all platforms.
 

@@ -46,13 +46,14 @@ ctest --preset release            # unit tests + smoke test
 
 ### Windows
 
-Install **MSYS2** (<https://www.msys2.org/>) and from the MINGW64 shell run:
+Install **MSYS2** (<https://www.msys2.org/>) and from the **UCRT64** shell run:
 
 ```bash
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-pkg-config
+pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkg-config
 ```
 
-Add `C:\msys64\mingw64\bin` to your `PATH`. A standalone MinGW-w64 GCC with CMake and Ninja works
+Add `C:\msys64\ucrt64\bin` to your `PATH`. The release binary is built this way (UCRT64: MinGW-w64 GCC
+linking the Universal C Runtime, see [README](README.md#windows-runtime)). A standalone MinGW-w64 GCC with CMake and Ninja works
 as well. Pass `-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++` when configuring if CMake would
 otherwise pick another compiler (see [Troubleshooting](#troubleshooting)).
 
@@ -209,7 +210,7 @@ The CI pipeline lives in `.github/workflows/ci.yml` and runs automatically.
 | `linux-opencl` | `ubuntu-24.04` | `ci-linux` | OpenCL + Full JPEG |
 | `linux-full` | `ubuntu-24.04` | `ci-linux` | CUDA (compile only) + OpenCL + Full JPEG |
 | `linux-asan` | `ubuntu-24.04` | `ci-linux-asan` | AddressSanitizer/LeakSanitizer on the CPU path; no artefact |
-| `win-full` | `windows-2022` (MSYS2) | `ci-windows-mingw` | CUDA (compile only) + OpenCL + Full JPEG |
+| `win-full` | `windows-2022` (MSYS2 UCRT64) | `ci-windows-mingw` | CUDA (compile only) + OpenCL + Full JPEG |
 | `macos-opencl` | `macos-15` (Apple Silicon) | `ci-macos` | OpenCL + Full JPEG |
 
 > **Note:** GitHub-hosted runners have no GPU. The CUDA and OpenCL code is compiled and linked
@@ -219,7 +220,7 @@ The CI pipeline lives in `.github/workflows/ci.yml` and runs automatically.
 ### Pipeline Steps (per build job)
 
 1. **Checkout** source code.
-2. **MSYS2** setup (Windows only — MinGW-w64 GCC, CMake, Ninja).
+2. **MSYS2** setup (Windows only — UCRT64: MinGW-w64 GCC, CMake, Ninja).
 3. **Cache** `external/install/` keyed on `external/CMakeLists.txt` hash.
 4. **Install system packages** (apt / brew).
 5. **Install CUDA Toolkit** (conditional, via `Jimver/cuda-toolkit`) — only for the `cuda.h`
@@ -278,7 +279,7 @@ When you push a tag like `v1.3.0`:
 
 ### "cmake: command not found" / "ninja: command not found"
 
-- **Windows**: `pacman -S mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja` (MSYS2), or install
+- **Windows**: `pacman -S mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja` (MSYS2 UCRT64), or install
   from <https://cmake.org/download/> and <https://ninja-build.org/>.
 - **Linux**: `sudo apt-get install cmake ninja-build`
 

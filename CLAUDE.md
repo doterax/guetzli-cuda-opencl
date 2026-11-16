@@ -18,7 +18,7 @@ cmake --build --preset release --target check-kernel-headers             # verif
 cmake --build --preset release --target kernel-headers                   # regenerate embedded kernel headers -- explicit only, CUDA 11.8 (see below)
 ```
 
-On this Windows machine use `/c/mingw64/bin` first in PATH (CMake 4.1, Ninja, GCC 15); for `kernel-headers` configure with `-DGUETZLI_NVCC_CCBIN="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64" -DGUETZLI_NVCC_EXTRA_FLAGS=-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`.
+On this Windows machine use `/c/mingw64/bin` first in PATH (CMake 4.1, Ninja, GCC 15, msvcrt; deps in `external/install`); CI and the release use MSYS2 UCRT64, available locally as `/c/msys64/ucrt64/bin` with deps in `external/install-ucrt` (`-DGUETZLI_EXTERNAL_PREFIX=...`, build dir `build/ucrt`). Both give byte-identical output (verified 2026-11-16, regress 7 modes + CPU traces); for `kernel-headers` configure with `-DGUETZLI_NVCC_CCBIN="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.29.30133/bin/Hostx64/x64" -DGUETZLI_NVCC_EXTRA_FLAGS=-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH`.
 
 To exercise a specific backend directly:
 

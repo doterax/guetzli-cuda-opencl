@@ -220,6 +220,11 @@ release notes:
   by a few bytes either way. (`925d84d`)
 - JPEG inputs decoded through libjpeg-turbo (unsupported subsampling, CMYK, ...): a decoding error is reported and the
   run fails with exit code 3; before, the process exited with code 1 (or libjpeg terminated it). (phase 5)
+- Windows binary: built with MSYS2 UCRT64 and linked against the Universal C Runtime instead of msvcrt.dll (MINGW64 is
+  deprecated). Windows 10/11 include the UCRT; Windows 7 SP1 / 8.1 need KB2999226 (README, "Windows runtime"). Output
+  unchanged (regress, 7 modes, and CPU traces identical to the msvcrt build). (phase 6)
+- The process no longer calls std::terminate for an exception escaping main; the message and exit code are the same.
+  (phase 6)
 
 Phase 1 notes:
 - CMake (`CMakeLists.txt`, `CMakePresets.json`, `cmake/`) builds `guetzli` and `guetzli_tests` from one OBJECT library

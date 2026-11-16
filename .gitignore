@@ -10,6 +10,8 @@ BUILD
 # External dependency build artifacts
 external/build/
 external/install/
+external/build-*/
+external/install-*/
 external/_deps/
 
 # Visual Studio
