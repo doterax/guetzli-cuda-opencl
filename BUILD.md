@@ -215,7 +215,7 @@ The CI pipeline lives in `.github/workflows/ci.yml` and runs automatically.
 | `linux-full` | `ubuntu-24.04` | `ci-linux` | CUDA (compile only) + OpenCL + Full JPEG |
 | `linux-asan` | `ubuntu-24.04` | `ci-linux-asan` | AddressSanitizer/LeakSanitizer on the CPU path; no artefact |
 | `win-full` | `windows-2022` (MSYS2 UCRT64) | `ci-windows-mingw` | CUDA (compile only) + OpenCL + Full JPEG |
-| `macos-opencl` | `macos-26` (Apple Silicon) | `ci-macos` | OpenCL + Full JPEG |
+| `macos-opencl` | `macos-15` (Apple Silicon) | `ci-macos` | OpenCL + Full JPEG |
 
 > **Note:** GitHub-hosted runners have no GPU. The CUDA and OpenCL code is compiled and linked
 > but cannot execute GPU kernels (Linux runs the smoke test on pocl, a CPU OpenCL). GPU changes
