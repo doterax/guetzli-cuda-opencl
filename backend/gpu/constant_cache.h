@@ -33,13 +33,17 @@ class ConstantCache {
   template <class Make>
   Handle maskLut(int i, Make make) {
     std::optional<Memory>& slot = mask_luts_.at(i);
-    if (!slot) slot.emplace(make());
+    if (!slot) {
+      slot.emplace(make());
+    }
     return slot->get();
   }
 
   template <class Make>
   Handle srgbToLinear(Make make) {
-    if (!srgb_to_linear_) srgb_to_linear_.emplace(make());
+    if (!srgb_to_linear_) {
+      srgb_to_linear_.emplace(make());
+    }
     return srgb_to_linear_->get();
   }
 
@@ -51,7 +55,9 @@ class ConstantCache {
   // Releases every table.
   void clear() noexcept {
     blur_weights_.clear();
-    for (std::optional<Memory>& lut : mask_luts_) lut.reset();
+    for (std::optional<Memory>& lut : mask_luts_) {
+      lut.reset();
+    }
     srgb_to_linear_.reset();
     convolution_scales_.clear();
   }
@@ -60,7 +66,9 @@ class ConstantCache {
   template <class Map, class Key, class Make>
   static Handle lookup(Map& map, const Key& key, Make& make) {
     auto it = map.find(key);
-    if (it == map.end()) it = map.emplace(key, make()).first;
+    if (it == map.end()) {
+      it = map.emplace(key, make()).first;
+    }
     return it->second.get();
   }
 

@@ -63,7 +63,9 @@ struct CuChannels {
   CuBuffer ch[3];
   [[nodiscard]] OcuChannels view() const {
     OcuChannels v;
-    for (int i = 0; i < 3; i++) v.ch[i] = ch[i].get();
+    for (int i = 0; i < 3; i++) {
+      v.ch[i] = ch[i].get();
+    }
     return v;
   }
 };
@@ -77,7 +79,9 @@ class CuMemory {
   CuMemory(const CuMemory&) = delete;
   CuMemory& operator=(const CuMemory&) = delete;
   ~CuMemory() {
-    if (mem_ != 0u) driver_->mem_free(mem_);
+    if (mem_ != 0u) {
+      driver_->mem_free(mem_);
+    }
   }
 
   [[nodiscard]] cu_mem get() const { return mem_; }

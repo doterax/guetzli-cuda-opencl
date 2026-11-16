@@ -68,7 +68,9 @@ struct ClChannels {
   ClBuffer ch[3];
   [[nodiscard]] OclChannels view() const {
     OclChannels v;
-    for (int i = 0; i < 3; i++) v.ch[i] = ch[i].get();
+    for (int i = 0; i < 3; i++) {
+      v.ch[i] = ch[i].get();
+    }
     return v;
   }
 };

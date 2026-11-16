@@ -37,7 +37,9 @@ constexpr unsigned int blockCount(unsigned int size, unsigned int block) {
 void calcBlock(int width, int height, int& x, int& y) {
   (void)width;
   y = 8;
-  while (y > 1 && y / 2 >= height) y /= 2;
+  while (y > 1 && y / 2 >= height) {
+    y /= 2;
+  }
   x = 256 / y;
 }
 
@@ -92,16 +94,22 @@ CudaContext& CudaKernels::context() {
   if (!context_) {
     maybeInjectGpuFailure("CUDA");
     const std::optional<CudaDriver> driver = CudaDriver::load(logger_);
-    if (!driver) throw GpuError("failed to load CUDA driver library");
+    if (!driver) {
+      throw GpuError("failed to load CUDA driver library");
+    }
     createContext(*driver);
   }
   return *context_;
 }
 
 bool CudaKernels::probe() {
-  if (context_) return true;
+  if (context_) {
+    return true;
+  }
   const std::optional<CudaDriver> driver = CudaDriver::load(logger_);
-  if (!driver) return false;
+  if (!driver) {
+    return false;
+  }
   try {
     maybeInjectGpuFailure("CUDA");
     createContext(*driver);
@@ -818,7 +826,9 @@ void CudaKernels::compare(const OcuChannels& ref, const int xsize, const int ysi
     const cu_mem lut = ocu.constants().srgbToLinear([&] {
       const double* table = srgb8ToLinearTable();
       float lut_f[256];
-      for (int i = 0; i < 256; i++) lut_f[i] = static_cast<float>(table[i]);
+      for (int i = 0; i < 256; i++) {
+        lut_f[i] = static_cast<float>(table[i]);
+      }
       return ocu.uploadMemory(sizeof(lut_f), lut_f);
     });
     CUfunction kernel = ocu.kernel(KERNEL_SRGBTOLINEAR);

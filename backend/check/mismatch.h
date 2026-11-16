@@ -20,10 +20,14 @@ size_t reportMismatches(ILogger& logger, const char* what, const char* part, con
     const double diff = std::fabs(static_cast<double>(reference[i]) - static_cast<double>(tested[i]));
     if (diff > tolerance) {
       ++count;
-      if (diff > max_diff) max_diff = diff;
+      if (diff > max_diff) {
+        max_diff = diff;
+      }
     }
   }
-  if (count > 0) logger.log(LogLevel::Error, "CHK %s %s %zu:%zu (max diff %g)\n", what, part, count, size, max_diff);
+  if (count > 0) {
+    logger.log(LogLevel::Error, "CHK %s %s %zu:%zu (max diff %g)\n", what, part, count, size, max_diff);
+  }
   return count;
 }
 

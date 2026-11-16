@@ -50,7 +50,9 @@ void OutputImageComponent::reset(int factor_x, int factor_y) {
 bool OutputImageComponent::isAllZero() const {
   int numcoeffs = num_blocks_ * kDctBlockSize;
   for (int i = 0; i < numcoeffs; ++i) {
-    if (coeffs_[i] != 0) return false;
+    if (coeffs_[i] != 0) {
+      return false;
+    }
   }
   return true;
 }
@@ -109,7 +111,9 @@ void OutputImageComponent::toFloatPixels(float* out, int stride) const {
         for (int ix = 0; ix < 8; ++ix) {
           int y = block_y * 8 + iy;
           int x = block_x * 8 + ix;
-          if (y >= height_ || x >= width_) continue;
+          if (y >= height_ || x >= width_) {
+            continue;
+          }
           out[(y * width_ + x) * stride] = static_cast<float>(blockd[8 * iy + ix] + 128.0);
         }
       }
@@ -136,7 +140,9 @@ void OutputImageComponent::updatePixelsForBlock(int block_x, int block_y, const 
       for (int ix = 0; ix < 8; ++ix) {
         int x = 8 * block_x + ix;
         int y = 8 * block_y + iy;
-        if (x >= width_ || y >= height_) continue;
+        if (x >= width_ || y >= height_) {
+          continue;
+        }
         int p = y * width_ + x;
         pixels_[p] = idct[8 * iy + ix] << 4;
       }

@@ -35,25 +35,35 @@ double contrastSensitivity(int k) {
 }  // namespace
 
 bool compareQuantData(const QuantData& a, const QuantData& b) {
-  if (a.dist_ok && !b.dist_ok) return true;
-  if (!a.dist_ok && b.dist_ok) return false;
+  if (a.dist_ok && !b.dist_ok) {
+    return true;
+  }
+  if (!a.dist_ok && b.dist_ok) {
+    return false;
+  }
   return a.jpg_size < b.jpg_size;
 }
 
 int compareQuantMatrices(const int* a, const int* b) {
   int i = 0;
-  while (i < kQuantMatrixSize && a[i] == b[i]) ++i;
+  while (i < kQuantMatrixSize && a[i] == b[i]) {
+    ++i;
+  }
   if (i == kQuantMatrixSize) {
     return 0;
   }
   if (a[i] < b[i]) {
     for (++i; i < kQuantMatrixSize; ++i) {
-      if (a[i] > b[i]) return 2;
+      if (a[i] > b[i]) {
+        return 2;
+      }
     }
     return -1;
   }
   for (++i; i < kQuantMatrixSize; ++i) {
-    if (a[i] < b[i]) return 2;
+    if (a[i] < b[i]) {
+      return 2;
+    }
   }
   return 1;
 }
@@ -105,7 +115,9 @@ bool QuantMatrixGenerator::getNext(int q[3][kDctBlockSize]) {
       constexpr double kEps = 0.05;
       getQuantMatrixWithHeuristicScore((1 - kEps) * hscore_a_ + kEps * 0.5 * (hscore_a_ + hscore_b_), lower_q);
       getQuantMatrixWithHeuristicScore((1 - kEps) * hscore_b_ + kEps * 0.5 * (hscore_a_ + hscore_b_), upper_q);
-      if (compareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0) return false;
+      if (compareQuantMatrices(&lower_q[0][0], &upper_q[0][0]) == 0) {
+        return false;
+      }
       hscore = (hscore_a_ + hscore_b_) * 0.5;
     }
     getQuantMatrixWithHeuristicScore(hscore, q);
@@ -121,7 +133,9 @@ bool QuantMatrixGenerator::getNext(int q[3][kDctBlockSize]) {
         break;
       }
     }
-    if (!retry) return true;
+    if (!retry) {
+      return true;
+    }
   }
   return false;
 }

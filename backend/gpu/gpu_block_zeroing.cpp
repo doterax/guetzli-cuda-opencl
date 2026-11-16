@@ -9,7 +9,9 @@ namespace guetzli {
 
 std::vector<CoeffData> GpuBlockZeroingSearch::run(const BlockZeroingInput& in) {
   const std::optional<BlockReferenceData> reference = in.comparator.blockReferenceData();
-  if (!reference) throw std::logic_error("GPU block zeroing needs a GPU comparator");
+  if (!reference) {
+    throw std::logic_error("GPU block zeroing needs a GPU comparator");
+  }
 
   const OutputImage& img = in.img;
   const int width = img.width();

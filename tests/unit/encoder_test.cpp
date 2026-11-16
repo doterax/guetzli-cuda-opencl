@@ -30,7 +30,7 @@ namespace {
 std::vector<uint8_t> noisyImage(int w, int h, unsigned seed) {
   std::mt19937 rng(seed);
   std::vector<uint8_t> rgb(3 * w * h);
-  for (int y = 0; y < h; ++y)
+  for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
       uint8_t* p = &rgb[3 * (y * w + x)];
       const int noise = static_cast<int>(rng() % 48);
@@ -38,12 +38,16 @@ std::vector<uint8_t> noisyImage(int w, int h, unsigned seed) {
       p[1] = static_cast<uint8_t>((y * 180 / h + 2 * noise) % 256);
       p[2] = static_cast<uint8_t>((128 + (x - y) + noise) % 256);
     }
+  }
   return rgb;
 }
 
 void fillQuant(int q[3][kDctBlockSize], int value) {
-  for (int c = 0; c < 3; ++c)
-    for (int k = 0; k < kDctBlockSize; ++k) q[c][k] = value;
+  for (int c = 0; c < 3; ++c) {
+    for (int k = 0; k < kDctBlockSize; ++k) {
+      q[c][k] = value;
+    }
+  }
 }
 
 // Scores an output by a configurable value (default: its size); every distance is OK, block errors up
@@ -92,7 +96,9 @@ TEST_CASE("JpegSizeEstimator: incremental updates match a full recomputation") {
   const int h = 45;
   const std::vector<uint8_t> rgb = noisyImage(w, h, 1);
   int quant[3 * kDctBlockSize];
-  for (int i = 0; i < 3 * kDctBlockSize; ++i) quant[i] = 2 + i % 5;
+  for (int i = 0; i < 3 * kDctBlockSize; ++i) {
+    quant[i] = 2 + i % 5;
+  }
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(rgb, w, h, quant, &jpg));
 
@@ -200,8 +206,11 @@ TEST_CASE("QuantMatrixGenerator: binary search between the coarsest good and fin
   SUBCASE("4:2:0 starts at the identity matrix") {
     guetzli::QuantMatrixGenerator gen(true);
     REQUIRE(gen.getNext(q));
-    for (auto& c : q)
-      for (int k = 0; k < kDctBlockSize; ++k) CHECK(c[k] == 1);
+    for (auto& c : q) {
+      for (int k = 0; k < kDctBlockSize; ++k) {
+        CHECK(c[k] == 1);
+      }
+    }
   }
   SUBCASE("terminates and never proposes a matrix twice") {
     guetzli::QuantMatrixGenerator gen(false);
@@ -262,7 +271,9 @@ TEST_CASE("FrequencyMasking zeroes the candidate in its own block of a 4:2:0 chr
   coeff_t target[kDctBlockSize];
   cb.getCoeffBlock(bx, by, target);
   int k = 1;
-  while (k < kDctBlockSize && target[k] == 0) ++k;
+  while (k < kDctBlockSize && target[k] == 0) {
+    ++k;
+  }
   REQUIRE(k < kDctBlockSize);
   std::vector<guetzli::CoeffData> orders(12 * guetzli::kBlockZeroingBlockSize,
                                          guetzli::CoeffData{.idx = 0, .block_err = 0.0f});

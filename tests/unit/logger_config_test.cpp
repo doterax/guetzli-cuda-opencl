@@ -35,7 +35,9 @@ TEST_CASE("ConsoleLogger: info to out, everything else to err, filtered by thres
   auto contents = [](std::FILE* f) {
     std::rewind(f);
     std::string s;
-    for (int c; (c = std::fgetc(f)) != EOF;) s.push_back(static_cast<char>(c));
+    for (int c; (c = std::fgetc(f)) != EOF;) {
+      s.push_back(static_cast<char>(c));
+    }
     return s;
   };
   CHECK(contents(out) == "info;");

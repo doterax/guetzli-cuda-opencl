@@ -25,7 +25,9 @@ CuBuffer::CuBuffer(CuBuffer&& other) noexcept : pool_(other.pool_), mem_(other.m
 
 CuBuffer& CuBuffer::operator=(CuBuffer&& other) noexcept {
   if (this != &other) {
-    if (pool_ != nullptr) pool_->release(mem_);
+    if (pool_ != nullptr) {
+      pool_->release(mem_);
+    }
     pool_ = std::exchange(other.pool_, nullptr);
     mem_ = std::exchange(other.mem_, 0);
   }
@@ -33,7 +35,9 @@ CuBuffer& CuBuffer::operator=(CuBuffer&& other) noexcept {
 }
 
 CuBuffer::~CuBuffer() {
-  if (pool_ != nullptr) pool_->release(mem_);
+  if (pool_ != nullptr) {
+    pool_->release(mem_);
+  }
 }
 
 CudaContext::CudaContext(const CudaDriver& driver, const GpuOptions& options, ILogger& logger)
@@ -116,9 +120,15 @@ void CudaContext::destroy() noexcept {
   // Teardown order: free device memory, unload module, destroy stream, then context.
   constants_.clear();
   pool_.drain();
-  if (module_ != nullptr) driver_.module_unload(module_);
-  if (stream_ != nullptr) driver_.stream_destroy(stream_);
-  if (context_ != nullptr) driver_.ctx_destroy(context_);
+  if (module_ != nullptr) {
+    driver_.module_unload(module_);
+  }
+  if (stream_ != nullptr) {
+    driver_.stream_destroy(stream_);
+  }
+  if (context_ != nullptr) {
+    driver_.ctx_destroy(context_);
+  }
   module_ = nullptr;
   stream_ = nullptr;
   context_ = nullptr;
@@ -147,13 +157,17 @@ CuBuffer CudaContext::upload(size_t bytes, const void* data) {
 
 CuChannels CudaContext::zeroedChannels(size_t bytes) {
   CuChannels c;
-  for (CuBuffer& b : c.ch) b = zeroed(bytes);
+  for (CuBuffer& b : c.ch) {
+    b = zeroed(bytes);
+  }
   return c;
 }
 
 CuChannels CudaContext::uninitializedChannels(size_t bytes) {
   CuChannels c;
-  for (CuBuffer& b : c.ch) b = uninitialized(bytes);
+  for (CuBuffer& b : c.ch) {
+    b = uninitialized(bytes);
+  }
   return c;
 }
 
@@ -209,7 +223,9 @@ void enumCudaDevices() {
   for (int i = 0; i < device_count; i++) {
     CUdevice dev;
     err = driver->device_get(&dev, i);
-    if (err != CUDA_SUCCESS) continue;
+    if (err != CUDA_SUCCESS) {
+      continue;
+    }
 
     char name[256] = {0};
     driver->device_get_name(name, sizeof(name), dev);

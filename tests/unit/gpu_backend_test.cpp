@@ -40,7 +40,9 @@ class FakeSession final : public guetzli::GpuCompareSession {
   void compare(const guetzli::OutputImage& img, int /*step*/, float* distmap) override {
     ++calls_.compare;
     const size_t n = static_cast<size_t>(img.width()) * img.height();
-    for (size_t i = 0; i < n; ++i) distmap[i] = (i == 5) ? 0.75f : 0.25f;
+    for (size_t i = 0; i < n; ++i) {
+      distmap[i] = (i == 5) ? 0.75f : 0.25f;
+    }
   }
 
  private:

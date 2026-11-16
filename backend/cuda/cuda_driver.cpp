@@ -48,8 +48,12 @@ void* symbol(LibraryHandle lib, const char* name) {
 template <typename Fn>
 bool resolve(LibraryHandle lib, Fn& fn, const char* name, bool exact, ILogger& logger) {
   void* p = nullptr;
-  if (!exact) p = symbol(lib, (std::string(name) + "_v2").c_str());
-  if (!p) p = symbol(lib, name);
+  if (!exact) {
+    p = symbol(lib, (std::string(name) + "_v2").c_str());
+  }
+  if (!p) {
+    p = symbol(lib, name);
+  }
   if (!p) {
     logger.log(LogLevel::Error, "CUDA dynload: failed to resolve %s\n", name);
     return false;
@@ -62,7 +66,9 @@ bool resolve(LibraryHandle lib, Fn& fn, const char* name, bool exact, ILogger& l
 
 std::optional<CudaDriver> CudaDriver::load(ILogger& logger) {
   LibraryHandle lib = openLibrary();
-  if (lib == nullptr) return std::nullopt;
+  if (lib == nullptr) {
+    return std::nullopt;
+  }
 
   CudaDriver d;
   const bool ok =
@@ -87,7 +93,9 @@ std::optional<CudaDriver> CudaDriver::load(ILogger& logger) {
       resolve(lib, d.stream_synchronize, "cuStreamSynchronize", true, logger) &&
       resolve(lib, d.stream_destroy, "cuStreamDestroy", false, logger) &&
       resolve(lib, d.launch_kernel, "cuLaunchKernel", true, logger);
-  if (!ok) return std::nullopt;
+  if (!ok) {
+    return std::nullopt;
+  }
   return d;
 }
 

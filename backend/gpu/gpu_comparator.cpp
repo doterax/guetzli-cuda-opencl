@@ -64,7 +64,9 @@ void GpuButteraugliComparator::compare(const OutputImage& img) {
 
 void GpuButteraugliComparator::startBlockComparisons() {
   ButteraugliComparator::startBlockComparisons();
-  if (block_lists_ready_) return;
+  if (block_lists_ready_) {
+    return;
+  }
 
   const int block_width = (width_ + 7) / 8;
   const int block_height = (height_ + 7) / 8;
@@ -106,7 +108,9 @@ void GpuButteraugliComparator::startBlockComparisons() {
 }
 
 std::optional<BlockReferenceData> GpuButteraugliComparator::blockReferenceData() const {
-  if (!block_lists_ready_) return std::nullopt;
+  if (!block_lists_ready_) {
+    return std::nullopt;
+  }
   return BlockReferenceData{.opsin = opsin_blocks_, .mask_scale = mask_scale_blocks_};
 }
 

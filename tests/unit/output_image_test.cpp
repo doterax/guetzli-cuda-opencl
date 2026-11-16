@@ -17,19 +17,22 @@ namespace {
 std::vector<uint8_t> colorImage(int w, int h) {
   std::mt19937 rng(11);
   std::vector<uint8_t> rgb(3 * w * h);
-  for (int y = 0; y < h; ++y)
+  for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
       uint8_t* p = &rgb[3 * (y * w + x)];
       p[0] = static_cast<uint8_t>(x * 255 / w);
       p[1] = static_cast<uint8_t>(y * 255 / h);
       p[2] = static_cast<uint8_t>(rng() % 256);
     }
+  }
   return rgb;
 }
 
 guetzli::JpegData encodeWithQuant(const std::vector<uint8_t>& rgb, int w, int h, int quant_value) {
   int quant[3 * kDctBlockSize];
-  for (int& q : quant) q = quant_value;
+  for (int& q : quant) {
+    q = quant_value;
+  }
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(rgb, w, h, quant, &jpg));
   return jpg;
@@ -50,9 +53,13 @@ TEST_CASE("OutputImageComponent: a coefficient block round-trips and updates its
 
   uint8_t pixels[4];
   comp.toPixels(16, 8, 4, 1, pixels, 1);  // inside block (2, 1)
-  for (uint8_t p : pixels) CHECK(p == 168);
+  for (uint8_t p : pixels) {
+    CHECK(p == 168);
+  }
   comp.toPixels(0, 0, 4, 1, pixels, 1);  // untouched block
-  for (uint8_t p : pixels) CHECK(p == 128);
+  for (uint8_t p : pixels) {
+    CHECK(p == 128);
+  }
   CHECK_FALSE(comp.isAllZero());
 }
 
@@ -64,7 +71,9 @@ TEST_CASE("OutputImage: JPEG coefficients round-trip through CopyFromJpegData / 
   guetzli::OutputImage img(w, h, dct);
   img.copyFromJpegData(jpg);
   CHECK(img.frameTypeStr() == "f111111");
-  for (int c = 0; c < 3; ++c) CHECK(img.component(c).quant()[5] == 3);
+  for (int c = 0; c < 3; ++c) {
+    CHECK(img.component(c).quant()[5] == 3);
+  }
 
   guetzli::JpegData out;
   img.saveToJpegData(&out);
@@ -83,8 +92,11 @@ TEST_CASE("OutputImage: global quantization") {
   guetzli::OutputImage img(w, h, dct);
   img.copyFromJpegData(encodeWithQuant(colorImage(w, h), w, h, 1));
   int q[3][kDctBlockSize];
-  for (int c = 0; c < 3; ++c)
-    for (int k = 0; k < kDctBlockSize; ++k) q[c][k] = 2 + (k + c) % 7;
+  for (int c = 0; c < 3; ++c) {
+    for (int k = 0; k < kDctBlockSize; ++k) {
+      q[c][k] = 2 + (k + c) % 7;
+    }
+  }
   img.applyGlobalQuantization(q);
   for (int c = 0; c < 3; ++c) {
     const guetzli::OutputImageComponent& comp = img.component(c);
@@ -120,7 +132,9 @@ TEST_CASE("OutputImage: an image without chroma is saved as grayscale") {
   const int w = 16;
   const int h = 16;
   std::vector<uint8_t> gray(3 * w * h);
-  for (int i = 0; i < w * h; ++i) gray[3 * i] = gray[3 * i + 1] = gray[3 * i + 2] = static_cast<uint8_t>(i);
+  for (int i = 0; i < w * h; ++i) {
+    gray[3 * i] = gray[3 * i + 1] = gray[3 * i + 2] = static_cast<uint8_t>(i);
+  }
   guetzli::CpuDctOps dct;
   guetzli::OutputImage img(w, h, dct);
   img.copyFromJpegData(encodeWithQuant(gray, w, h, 1));

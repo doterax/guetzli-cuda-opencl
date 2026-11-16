@@ -50,8 +50,11 @@ void removeOriginalQuantization(JpegData* jpg, int q_in[3][kDctBlockSize]) {
     }
   }
   int q[3][kDctBlockSize];
-  for (auto& i : q)
-    for (int j = 0; j < kDctBlockSize; ++j) i[j] = 1;
+  for (auto& i : q) {
+    for (int j = 0; j < kDctBlockSize; ++j) {
+      i[j] = 1;
+    }
+  }
   saveQuantTables(q, jpg);
 }
 
@@ -75,7 +78,9 @@ bool isGrayscale(const JpegData& jpg) {
   for (int c = 1; c < 3; ++c) {
     const JpegComponent& comp = jpg.components[c];
     for (short coeff : comp.coeffs) {
-      if (coeff != 0) return false;
+      if (coeff != 0) {
+        return false;
+      }
     }
   }
   return true;
@@ -196,7 +201,9 @@ std::optional<std::string> Encoder::encodeJpeg(const std::string& data) {
   if (rgb.empty()) {
     // Not something the encoder can take as coefficients: decode to pixels and encode those.
     std::optional<RgbImage> image = decodeJpegPixels(data, *logger_);
-    if (!image) return std::nullopt;
+    if (!image) {
+      return std::nullopt;
+    }
     return encodeRgb(image->rgb, image->width, image->height);
   }
   return encodeWithComparator(jpg, rgb);

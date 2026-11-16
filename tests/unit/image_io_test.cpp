@@ -89,7 +89,9 @@ TEST_CASE("decodeTiff of an opaque image ignores the background") {
   REQUIRE(white);
   // alpha = (x * 4 + y) % 256 == 255 at x = 63, y = 3.
   const size_t i = 3 * (3 * 64 + 63);
-  for (int c = 0; c < 3; ++c) CHECK(black->rgb[i + c] == white->rgb[i + c]);
+  for (int c = 0; c < 3; ++c) {
+    CHECK(black->rgb[i + c] == white->rgb[i + c]);
+  }
 }
 
 TEST_CASE("decodePng rejects truncated data") {

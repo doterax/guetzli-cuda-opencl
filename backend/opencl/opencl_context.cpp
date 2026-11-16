@@ -28,7 +28,9 @@ ClBuffer::ClBuffer(ClBuffer&& other) noexcept : owner_(other.owner_), mem_(other
 
 ClBuffer& ClBuffer::operator=(ClBuffer&& other) noexcept {
   if (this != &other) {
-    if (owner_ != nullptr) owner_->release(mem_);
+    if (owner_ != nullptr) {
+      owner_->release(mem_);
+    }
     owner_ = std::exchange(other.owner_, nullptr);
     mem_ = std::exchange(other.mem_, nullptr);
   }
@@ -36,11 +38,15 @@ ClBuffer& ClBuffer::operator=(ClBuffer&& other) noexcept {
 }
 
 ClBuffer::~ClBuffer() {
-  if (owner_ != nullptr) owner_->release(mem_);
+  if (owner_ != nullptr) {
+    owner_->release(mem_);
+  }
 }
 
 ClMemory::~ClMemory() {
-  if (mem_ != nullptr) clReleaseMemObject(mem_);
+  if (mem_ != nullptr) {
+    clReleaseMemObject(mem_);
+  }
 }
 
 OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logger_(logger) {
@@ -81,26 +87,36 @@ OpenClContext::OpenClContext(const GpuOptions& options, ILogger& logger) : logge
 
   print_info("OpenCL created\n");
 
-  if (logger_.enabled(LogLevel::Debug)) printDeviceCapabilities();
+  if (logger_.enabled(LogLevel::Debug)) {
+    printDeviceCapabilities();
+  }
 }
 
 OpenClContext::~OpenClContext() {
   for (cl_kernel kernel : kernels_) {
-    if (kernel != nullptr) clReleaseKernel(kernel);
+    if (kernel != nullptr) {
+      clReleaseKernel(kernel);
+    }
   }
   // Pooled buffers; constants_ and device_ (context, queue, program) are released by their destructors.
-  for (const auto& [mem, size] : buffer_sizes_) clReleaseMemObject(mem);
+  for (const auto& [mem, size] : buffer_sizes_) {
+    clReleaseMemObject(mem);
+  }
 }
 
 size_t OpenClContext::maxWorkGroupSize(cl_kernel kernel) {
   auto it = max_work_group_.find(kernel);
-  if (it != max_work_group_.end()) return it->second;
+  if (it != max_work_group_.end()) {
+    return it->second;
+  }
 
   cl_device_id dev = nullptr;
   CL_CHECK(clGetCommandQueueInfo(queue_, CL_QUEUE_DEVICE, sizeof(dev), &dev, nullptr));
   size_t wg = 0;
   CL_CHECK(clGetKernelWorkGroupInfo(kernel, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(wg), &wg, nullptr));
-  if (wg == 0) wg = 1;
+  if (wg == 0) {
+    wg = 1;
+  }
   max_work_group_[kernel] = wg;
   return wg;
 }
@@ -146,13 +162,17 @@ ClBuffer OpenClContext::upload(size_t bytes, const void* data) {
 
 ClChannels OpenClContext::zeroedChannels(size_t bytes) {
   ClChannels c;
-  for (ClBuffer& b : c.ch) b = zeroed(bytes);
+  for (ClBuffer& b : c.ch) {
+    b = zeroed(bytes);
+  }
   return c;
 }
 
 ClChannels OpenClContext::uninitializedChannels(size_t bytes) {
   ClChannels c;
-  for (ClBuffer& b : c.ch) b = uninitialized(bytes);
+  for (ClBuffer& b : c.ch) {
+    b = uninitialized(bytes);
+  }
   return c;
 }
 
@@ -166,7 +186,9 @@ ClChannels OpenClContext::uploadChannels(size_t bytes, const void* c0, const voi
 
 void OpenClContext::release(cl_mem mem) noexcept {
   auto it = buffer_sizes_.find(mem);
-  if (it != buffer_sizes_.end()) free_buffers_[it->second].push_back(mem);
+  if (it != buffer_sizes_.end()) {
+    free_buffers_[it->second].push_back(mem);
+  }
 }
 
 void OpenClContext::drainPool() noexcept {
@@ -426,7 +448,9 @@ void enumOpenClDevices() {
       // trim whitespace
       size_t start = name.find_first_not_of(" \t\r\n");
       size_t end = name.find_last_not_of(" \t\r\n");
-      if (start != std::string::npos) name = name.substr(start, end - start + 1);
+      if (start != std::string::npos) {
+        name = name.substr(start, end - start + 1);
+      }
       fprintf(stdout, "  %u: %s\n", id, name.c_str());
       id++;
     }

@@ -192,7 +192,9 @@ inline float interpolateOpt(const float* array, int size, float sx) {
     int nextix = baseix + 1;
     res = array[baseix] + mix * (array[nextix] - array[baseix]);
   }
-  if (sx < 0) res = -res;
+  if (sx < 0) {
+    res = -res;
+  }
   return res;
 }
 
@@ -769,7 +771,9 @@ struct RationalPolynomialOpt {
 
     const float yp = evaluatePolynomial(xc, p);
     const float yq = evaluatePolynomial(xc, q);
-    if (yq == 0.0) return 0.0;
+    if (yq == 0.0) {
+      return 0.0;
+    }
     return static_cast<float>(yp / yq);
   }
 
@@ -989,7 +993,9 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
       float min = values[x + minh * xsize];
       for (size_t j = minh + 1; j < maxh; ++j) {
         float tmpf = values[x + j * xsize];
-        if (tmpf < min) min = tmpf;
+        if (tmpf < min) {
+          min = tmpf;
+        }
       }
       tmp[x + y * xsize] = min;
     }
@@ -1001,7 +1007,9 @@ void minSquareValOpt(size_t square_size, size_t offset, size_t xsize, size_t ysi
       float min = tmp[minw + y * xsize];
       for (size_t j = minw + 1; j < maxw; ++j) {
         float tmpf = tmp[j + y * xsize];
-        if (tmpf < min) min = tmpf;
+        if (tmpf < min) {
+          min = tmpf;
+        }
       }
       values[x + y * xsize] = min;
     }
@@ -1117,7 +1125,9 @@ OptimizedButteraugliComparator::OptimizedButteraugliComparator(size_t xsize, siz
 void OptimizedButteraugliComparator::diffmapOpsinDynamicsImageOpt(std::vector<std::vector<float>>& xyb0,
                                                                   std::vector<std::vector<float>>& xyb1,
                                                                   std::vector<float>& result) {
-  if (xsize_ < 8 || ysize_ < 8) return;
+  if (xsize_ < 8 || ysize_ < 8) {
+    return;
+  }
   {
     auto xyb0_c = xyb0;
     auto xyb1_c = xyb1;

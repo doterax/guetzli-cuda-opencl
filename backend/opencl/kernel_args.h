@@ -32,7 +32,9 @@ inline cl_int set(cl_kernel k, int idx, const size_t* t) {
 template <typename T>
 inline void setChecked(cl_kernel k, int idx, const T* t) {
   const cl_int err = set(k, idx, t);
-  if (err != CL_SUCCESS) throwOpenClError(err, ("clSetKernelArg(" + std::to_string(idx) + ")").c_str());
+  if (err != CL_SUCCESS) {
+    throwOpenClError(err, ("clSetKernelArg(" + std::to_string(idx) + ")").c_str());
+  }
 }
 
 }  // namespace kernel_args

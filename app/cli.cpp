@@ -70,11 +70,17 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
 
   // Backend selection. Canonical: --backend/--check; the legacy flags remain as aliases.
   std::map<std::string, BackendKind> backends = {{"auto", BackendKind::Auto}, {"cpu", BackendKind::Cpu}};
-  if (features.opencl) backends["opencl"] = BackendKind::OpenCl;
-  if (features.cuda) backends["cuda"] = BackendKind::Cuda;
+  if (features.opencl) {
+    backends["opencl"] = BackendKind::OpenCl;
+  }
+  if (features.cuda) {
+    backends["cuda"] = BackendKind::Cuda;
+  }
   std::vector<std::string> backend_names;
   backend_names.reserve(backends.size());
-  for (const auto& [name, kind] : backends) backend_names.push_back(name);
+  for (const auto& [name, kind] : backends) {
+    backend_names.push_back(name);
+  }
   std::string backend_value;
   CLI::Option* backend_opt =
       app.add_option("--backend", backend_value, "Backend; auto tries CUDA, then OpenCL, then the CPU (default: auto)")
@@ -96,7 +102,9 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
     mode_flags[app.add_flag("--cuda", "Same as --backend cuda")] = {BackendKind::Cuda, false};
     mode_flags[app.add_flag("--checkcuda", "Same as --backend cuda --check")] = {BackendKind::Cuda, true};
   }
-  for (auto& [opt, mode] : mode_flags) opt->group("Legacy aliases");
+  for (auto& [opt, mode] : mode_flags) {
+    opt->group("Legacy aliases");
+  }
 
   try {
     app.parse(argc, argv);
@@ -141,14 +149,18 @@ CliResult parseCommandLine(int argc, const char* const* argv, std::ostream& out,
     }
   }
   // A negative device index always meant "default device selection".
-  if (device_opt->count() > 0 && device >= 0) config.backend.device = device;
+  if (device_opt->count() > 0 && device >= 0) {
+    config.backend.device = device;
+  }
   config.io.input = input;
   config.io.output = output;
   config.log.level = verbose ? LogLevel::Debug : LogLevel::Info;
 
   const std::vector<std::string> problems = config.validate();
   if (!problems.empty()) {
-    for (const std::string& p : problems) err << "Error: " << p << "\n";
+    for (const std::string& p : problems) {
+      err << "Error: " << p << "\n";
+    }
     err << "\n" << app.help();
     result.exit_code = kExitUsageOrIoError;
     return result;

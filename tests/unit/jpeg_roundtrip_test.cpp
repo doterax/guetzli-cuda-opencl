@@ -27,13 +27,14 @@ std::string serialize(const guetzli::JpegData& jpg) {
 
 std::vector<uint8_t> smoothImage(int w, int h) {
   std::vector<uint8_t> rgb(3 * w * h);
-  for (int y = 0; y < h; ++y)
+  for (int y = 0; y < h; ++y) {
     for (int x = 0; x < w; ++x) {
       uint8_t* p = &rgb[3 * (y * w + x)];
       p[0] = static_cast<uint8_t>(x * 255 / (w - 1));
       p[1] = static_cast<uint8_t>(y * 255 / (h - 1));
       p[2] = static_cast<uint8_t>(128 + (x - y) / 4);
     }
+  }
   return rgb;
 }
 
@@ -44,7 +45,9 @@ TEST_CASE("encode, write, read and decode an odd-sized image") {
   const int h = 21;
   const std::vector<uint8_t> rgb = smoothImage(w, h);
   int quant[3 * guetzli::kDctBlockSize];
-  for (int& i : quant) i = 1;
+  for (int& i : quant) {
+    i = 1;
+  }
 
   guetzli::JpegData jpg;
   REQUIRE(guetzli::encodeRgbToJpeg(rgb, w, h, quant, &jpg));
@@ -60,7 +63,9 @@ TEST_CASE("encode, write, read and decode an odd-sized image") {
   const std::vector<uint8_t> decoded = guetzli::decodeJpegToRgb(read, dct);
   REQUIRE(decoded.size() == rgb.size());
   int max_err = 0;
-  for (size_t i = 0; i < rgb.size(); ++i) max_err = std::max(max_err, std::abs(decoded[i] - rgb[i]));
+  for (size_t i = 0; i < rgb.size(); ++i) {
+    max_err = std::max(max_err, std::abs(decoded[i] - rgb[i]));
+  }
   CHECK(max_err <= 4);  // quantizer 1: only color-transform and IDCT rounding
 }
 

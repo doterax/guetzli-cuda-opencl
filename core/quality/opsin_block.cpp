@@ -102,7 +102,9 @@ float gamma(float v) {
 
   const float yp = evaluatePolynomial(xc, g_gamma_p, 6);
   const float yq = evaluatePolynomial(xc, g_gamma_q, 6);
-  if (yq == 0.0f) return 0.0f;
+  if (yq == 0.0f) {
+    return 0.0f;
+  }
   return (float)(yp / yq);
 }
 

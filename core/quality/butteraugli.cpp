@@ -235,7 +235,9 @@ inline double interpolate(const double* array, int size, double sx) {
     int nextix = baseix + 1;
     res = array[baseix] + mix * (array[nextix] - array[baseix]);
   }
-  if (sx < 0) res = -res;
+  if (sx < 0) {
+    res = -res;
+  }
   return res;
 }
 
@@ -860,7 +862,9 @@ struct RationalPolynomial {
 
     const double yp = evaluatePolynomial(xc, p);
     const double yq = evaluatePolynomial(xc, q);
-    if (yq == 0.0) return 0.0;
+    if (yq == 0.0) {
+      return 0.0;
+    }
     return static_cast<float>(yp / yq);
   }
 
@@ -1001,7 +1005,9 @@ void calculateDiffmap(const size_t xsize, const size_t ysize, const size_t step,
 void ButteraugliComparator::diffmapOpsinDynamicsImage(std::vector<std::vector<float>>& xyb0,
                                                       std::vector<std::vector<float>>& xyb1,
                                                       std::vector<float>& result) {
-  if (xsize_ < 8 || ysize_ < 8) return;
+  if (xsize_ < 8 || ysize_ < 8) {
+    return;
+  }
   {
     auto xyb0_c = xyb0;
     auto xyb1_c = xyb1;

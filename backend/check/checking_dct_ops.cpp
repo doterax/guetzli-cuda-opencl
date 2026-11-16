@@ -32,7 +32,9 @@ void CheckingDctOps::applyGlobalQuantization(OutputImageComponent& c, const int 
 void CheckingDctOps::toSrgb(const OutputImage& img, int xmin, int ymin, int xsize, int ysize,
                             std::vector<uint8_t>& rgb) {
   reference_->toSrgb(img, xmin, ymin, xsize, ysize, rgb);
-  if (xsize * ysize <= kDctBlockSize) return;
+  if (xsize * ysize <= kDctBlockSize) {
+    return;
+  }
   std::vector<uint8_t> tested(rgb.size());
   tested_->toSrgb(img, xmin, ymin, xsize, ysize, tested);
   reportMismatches(logger_, "ToSRGB", "rgb", rgb.data(), tested.data(), rgb.size());

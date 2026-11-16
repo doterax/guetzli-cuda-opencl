@@ -150,10 +150,14 @@ void buildHuffmanCodeTable(const int* counts, const int* values, HuffmanCodeTabl
   int p = 0;
   for (int l = 1; l <= kJpegHuffmanMaxBitLength; ++l) {
     int i = counts[l];
-    while ((i--) != 0) huffsize[p++] = l;
+    while ((i--) != 0) {
+      huffsize[p++] = l;
+    }
   }
 
-  if (p == 0) return;
+  if (p == 0) {
+    return;
+  }
 
   huffsize[p - 1] = 0;
   int lastp = p - 1;
@@ -384,20 +388,30 @@ bool buildAndEncodeHuffmanCodes(const JpegData& jpg, JpegOutput out, std::vector
     int values[JpegHistogram::kSize] = {0};
     buildHuffmanCode(&depths[i * JpegHistogram::kSize], counts, values);
     HuffmanCodeTable table;
-    for (unsigned char& j : table.depth) j = 255;
+    for (unsigned char& j : table.depth) {
+      j = 255;
+    }
     buildHuffmanCodeTable(counts, values, &table);
     for (int c = 0; c < ncomps; ++c) {
       if (is_dc) {
-        if (dc_histo_indexes[c] == idx) (*dc_huff_tables)[c] = table;
+        if (dc_histo_indexes[c] == idx) {
+          (*dc_huff_tables)[c] = table;
+        }
       } else {
-        if (ac_histo_indexes[c] == idx) (*ac_huff_tables)[c] = table;
+        if (ac_histo_indexes[c] == idx) {
+          (*ac_huff_tables)[c] = table;
+        }
       }
     }
     int max_length = kJpegHuffmanMaxBitLength;
-    while (max_length > 0 && counts[max_length] == 0) --max_length;
+    while (max_length > 0 && counts[max_length] == 0) {
+      --max_length;
+    }
     --counts[max_length];
     int total_count = 0;
-    for (int j = 0; j <= max_length; ++j) total_count += counts[j];
+    for (int j = 0; j <= max_length; ++j) {
+      total_count += counts[j];
+    }
     data[pos++] = is_dc ? i : static_cast<uint8_t>(i - num_dc_histo + 0x10);
     for (size_t j = 1; j <= kJpegHuffmanMaxBitLength; ++j) {
       data[pos++] = counts[j];

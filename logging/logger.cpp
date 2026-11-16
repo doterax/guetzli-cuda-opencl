@@ -6,7 +6,9 @@
 namespace guetzli {
 
 void ILogger::log(LogLevel level, const char* format, ...) {
-  if (!enabled(level)) return;
+  if (!enabled(level)) {
+    return;
+  }
   va_list args;
   va_start(args, format);
   va_list copy;
@@ -22,7 +24,9 @@ void ILogger::log(LogLevel level, const char* format, ...) {
 }
 
 void ConsoleLogger::write(LogLevel level, std::string_view message) {
-  if (!enabled(level)) return;
+  if (!enabled(level)) {
+    return;
+  }
   std::FILE* stream = level == LogLevel::Info ? out_ : err_;
   std::fwrite(message.data(), 1, message.size(), stream);
 }

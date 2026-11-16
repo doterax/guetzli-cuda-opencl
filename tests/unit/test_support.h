@@ -31,8 +31,11 @@ class RecordingLogger final : public guetzli::ILogger {
   // All messages of `level`, concatenated.
   [[nodiscard]] std::string text(guetzli::LogLevel level) const {
     std::string all;
-    for (const auto& [l, m] : lines)
-      if (l == level) all += m;
+    for (const auto& [l, m] : lines) {
+      if (l == level) {
+        all += m;
+      }
+    }
     return all;
   }
 

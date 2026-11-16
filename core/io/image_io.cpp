@@ -29,7 +29,9 @@ bool isStdStream(const std::filesystem::path& path) {
 std::string readFile(const std::filesystem::path& path) {
   const bool from_stdin = isStdStream(path);
   std::FILE* f = from_stdin ? stdin : std::fopen(path.string().c_str(), "rb");
-  if (f == nullptr) throw IoError(errnoMessage("Can't open input file"));
+  if (f == nullptr) {
+    throw IoError(errnoMessage("Can't open input file"));
+  }
   std::unique_ptr<std::FILE, int (*)(std::FILE*)> closer(from_stdin ? nullptr : f, &std::fclose);
 
   std::string result;
@@ -37,7 +39,9 @@ std::string readFile(const std::filesystem::path& path) {
   if (std::fseek(f, 0, SEEK_END) == 0) {
     const long size = std::ftell(f);
     buffer_size = size > 0 ? size : 1;
-    if (std::fseek(f, 0, SEEK_SET) != 0) throw IoError(errnoMessage("fseek"));
+    if (std::fseek(f, 0, SEEK_SET) != 0) {
+      throw IoError(errnoMessage("fseek"));
+    }
   } else if (std::ferror(f) != 0) {
     throw IoError(errnoMessage("fseek"));
   }
@@ -45,7 +49,9 @@ std::string readFile(const std::filesystem::path& path) {
   std::unique_ptr<char[]> buf(new char[buffer_size]);
   while (std::feof(f) == 0) {
     const size_t read_bytes = std::fread(buf.get(), 1, static_cast<size_t>(buffer_size), f);
-    if (std::ferror(f) != 0) throw IoError(errnoMessage("fread"));
+    if (std::ferror(f) != 0) {
+      throw IoError(errnoMessage("fread"));
+    }
     result.append(buf.get(), read_bytes);
   }
   return result;
@@ -54,7 +60,9 @@ std::string readFile(const std::filesystem::path& path) {
 void writeFile(const std::filesystem::path& path, std::string_view contents) {
   const bool to_stdout = isStdStream(path);
   std::FILE* f = to_stdout ? stdout : std::fopen(path.string().c_str(), "wb");
-  if (f == nullptr) throw IoError(errnoMessage("Can't open output file for writing"));
+  if (f == nullptr) {
+    throw IoError(errnoMessage("Can't open output file for writing"));
+  }
   const bool written = std::fwrite(contents.data(), 1, contents.size(), f) == contents.size();
   const int saved_errno = errno;
   const bool closed = std::fclose(f) == 0;
@@ -62,7 +70,9 @@ void writeFile(const std::filesystem::path& path, std::string_view contents) {
     errno = saved_errno;
     throw IoError(errnoMessage("fwrite"));
   }
-  if (!closed) throw IoError(errnoMessage("fclose"));
+  if (!closed) {
+    throw IoError(errnoMessage("fclose"));
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -95,7 +105,9 @@ bool isPng(std::string_view data) {
 
 std::optional<RgbImage> decodePng(const std::string& data, AlphaBackground background) {
   png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  if (png_ptr == nullptr) return std::nullopt;
+  if (png_ptr == nullptr) {
+    return std::nullopt;
+  }
 
   png_infop info_ptr = png_create_info_struct(png_ptr);
   if (info_ptr == nullptr) {
@@ -118,8 +130,12 @@ std::optional<RgbImage> decodePng(const std::string& data, AlphaBackground backg
 
                     memstream.read(reinterpret_cast<char*>(out_bytes), byte_count_to_read);
 
-                    if (memstream.eof()) png_error(png_ptr, "unexpected end of data");
-                    if (memstream.fail()) png_error(png_ptr, "read from memory error");
+                    if (memstream.eof()) {
+                      png_error(png_ptr, "unexpected end of data");
+                    }
+                    if (memstream.fail()) {
+                      png_error(png_ptr, "read from memory error");
+                    }
                   });
 
   // packing == convert 1,2,4 bit images, strip == 16 -> 8 bits / channel,
@@ -210,7 +226,9 @@ struct TiffIo {
 tsize_t tiffRead(thandle_t fd, tdata_t buf, tsize_t size) {
   auto* data = static_cast<TiffIo*>(fd);
   const tsize_t bytes_to_eof = (data->data + data->size) - data->fp;
-  if (size > bytes_to_eof) size = bytes_to_eof;
+  if (size > bytes_to_eof) {
+    size = bytes_to_eof;
+  }
   std::memcpy(buf, data->fp, size);
   data->fp += size;
   return size;
@@ -265,7 +283,9 @@ bool isTiff(std::string_view data) {
 std::optional<RgbImage> decodeTiff(const std::string& data, AlphaBackground background, ILogger& logger) {
   TiffIo input = {.data = data.data(), .size = data.size(), .fp = const_cast<char*>(data.data())};
 
-  if (!logger.enabled(LogLevel::Debug)) TIFFSetWarningHandler(tiffEmptyWarningHandler);
+  if (!logger.enabled(LogLevel::Debug)) {
+    TIFFSetWarningHandler(tiffEmptyWarningHandler);
+  }
 
   TIFF* tif = TIFFClientOpen("Memory", "rm", static_cast<thandle_t>(&input), tiffRead, tiffDummyWrite, tiffSeek,
                              tiffDummyClose, tiffSize, tiffDummyMap, tiffDummyUnmap);

@@ -37,8 +37,11 @@ TEST_CASE("opsin dynamics of a flat block is flat") {
 TEST_CASE("opsin dynamics: neutral gray has a small X channel") {
   const float* lut = guetzli::srgb8ToLinearTableF();
   float rgb[3][guetzli::kOpsinBlockSize];
-  for (auto& c : rgb)
-    for (int i = 0; i < guetzli::kOpsinBlockSize; ++i) c[i] = lut[128];
+  for (auto& c : rgb) {
+    for (int i = 0; i < guetzli::kOpsinBlockSize; ++i) {
+      c[i] = lut[128];
+    }
+  }
   guetzli::opsinDynamicsBlock8x8(rgb);
   CHECK(rgb[1][0] > 0.0f);
   CHECK(std::fabs(rgb[0][0]) < 0.1f * std::fabs(rgb[1][0]));

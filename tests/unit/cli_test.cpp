@@ -25,7 +25,9 @@ Parsed parse(std::vector<std::string> args, BuildFeatures features = kAll) {
   args.insert(args.begin(), "guetzli");
   std::vector<const char*> argv;
   argv.reserve(args.size());
-  for (const std::string& a : args) argv.push_back(a.c_str());
+  for (const std::string& a : args) {
+    argv.push_back(a.c_str());
+  }
   std::ostringstream out;
   std::ostringstream err;
   Parsed p{.result = guetzli::parseCommandLine(static_cast<int>(argv.size()), argv.data(), out, err, features),

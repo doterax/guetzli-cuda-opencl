@@ -11,7 +11,9 @@ namespace guetzli {
 
 CudaMemoryPool::~CudaMemoryPool() {
   // Busy blocks cannot exist here (every buffer returns its block when destroyed); free everything regardless.
-  for (const Block& block : blocks_) driver_.mem_free(block.mem);
+  for (const Block& block : blocks_) {
+    driver_.mem_free(block.mem);
+  }
 }
 
 CUdeviceptr CudaMemoryPool::allocate(size_t s, const void* init, bool zero) {

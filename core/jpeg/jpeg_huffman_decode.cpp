@@ -32,7 +32,9 @@ static inline int nextTableBitSize(const int* count, int len) {
   int left = 1 << (len - kJpegHuffmanRootTableBits);
   while (len < kJpegHuffmanMaxBitLength) {
     left -= count[len];
-    if (left <= 0) break;
+    if (left <= 0) {
+      break;
+    }
     ++len;
     left <<= 1;
   }

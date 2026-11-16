@@ -63,7 +63,9 @@ OpenClKernels::~OpenClKernels() = default;
 
 OpenClContext& OpenClKernels::context() {
   // A failed initialization throws and leaves context_ empty.
-  if (!context_) context_ = std::make_unique<OpenClContext>(options_, logger_);
+  if (!context_) {
+    context_ = std::make_unique<OpenClContext>(options_, logger_);
+  }
   return *context_;
 }
 
@@ -82,11 +84,17 @@ bool OpenClKernels::probe() {
 // size, which lets drivers pick tiny groups for odd sizes -- a prime width gives
 // groups of one -- or an AMD-only divisor search.)
 void OpenClKernels::enqueueRange2D(cl_kernel kernel, size_t w, size_t h, size_t lx, size_t ly) {
-  if (w == 0 || h == 0) return;
+  if (w == 0 || h == 0) {
+    return;
+  }
   OpenClContext& ocl = context();
   const size_t max_wg = ocl.maxWorkGroupSize(kernel);
-  while (lx * ly > max_wg && ly > 1) ly /= 2;
-  while (lx * ly > max_wg && lx > 1) lx /= 2;
+  while (lx * ly > max_wg && ly > 1) {
+    ly /= 2;
+  }
+  while (lx * ly > max_wg && lx > 1) {
+    lx /= 2;
+  }
   // Short ranges (e.g. a few rows): trade group height for width.
   while (ly > 1 && ly / 2 >= h) {
     ly /= 2;
@@ -98,10 +106,14 @@ void OpenClKernels::enqueueRange2D(cl_kernel kernel, size_t w, size_t h, size_t 
 }
 
 void OpenClKernels::enqueueRange1D(cl_kernel kernel, size_t n, size_t l) {
-  if (n == 0) return;
+  if (n == 0) {
+    return;
+  }
   OpenClContext& ocl = context();
   const size_t max_wg = ocl.maxWorkGroupSize(kernel);
-  while (l > max_wg && l > 1) l /= 2;
+  while (l > max_wg && l > 1) {
+    l /= 2;
+  }
   size_t global[1] = {roundUp(n, l)};
   size_t local[1] = {l};
   CL_CHECK(clEnqueueNDRangeKernel(ocl.queue(), kernel, 1, nullptr, global, local, 0, nullptr, nullptr));
@@ -795,7 +807,9 @@ void OpenClKernels::compare(const OclChannels& ref, const int xsize, const int y
     cl_mem lut = ocl.constants().srgbToLinear([&] {
       const double* table = srgb8ToLinearTable();
       float lut_f[256];
-      for (int i = 0; i < 256; i++) lut_f[i] = static_cast<float>(table[i]);
+      for (int i = 0; i < 256; i++) {
+        lut_f[i] = static_cast<float>(table[i]);
+      }
       return ocl.uploadMemory(sizeof(lut_f), lut_f);
     });
     cl_kernel kernel = ocl.kernel(KERNEL_SRGBTOLINEAR);

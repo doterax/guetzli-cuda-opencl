@@ -46,7 +46,9 @@ void computeBlockZeroingOrder(const coeff_t block[kBlockSize], const coeff_t ori
 #include "core/encoder/order.inc"
   std::vector<std::pair<int, float>> input_order;
   for (int c = 0; c < 3; ++c) {
-    if ((comp_mask & (1 << c)) == 0) continue;
+    if ((comp_mask & (1 << c)) == 0) {
+      continue;
+    }
     for (int k = 1; k < kDctBlockSize; ++k) {
       int idx = c * kDctBlockSize + k;
       if (block[idx] != 0) {

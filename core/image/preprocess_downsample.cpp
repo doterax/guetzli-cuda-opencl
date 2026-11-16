@@ -56,7 +56,9 @@ std::vector<float> convolve2X(const std::vector<float>& image, int w, int h, con
     int x = i % w;
     int y = i / w;
     // Avoid non-normalized results at boundary by skipping edges.
-    if (x < size2 || x + size - size2 - 1 >= w) continue;
+    if (x < size2 || x + size - size2 - 1 >= w) {
+      continue;
+    }
     float v = 0;
     for (int j = 0; j < size; j++) {
       int x2 = x + j - size2;
@@ -69,7 +71,9 @@ std::vector<float> convolve2X(const std::vector<float>& image, int w, int h, con
     int x = i % w;
     int y = i / w;
     // Avoid non-normalized results at boundary by skipping edges.
-    if (y < size2 || y + size - size2 - 1 >= h) continue;
+    if (y < size2 || y + size - size2 - 1 >= h) {
+      continue;
+    }
     float v = 0;
     for (int j = 0; j < size; j++) {
       int y2 = y + j - size2;
@@ -93,7 +97,9 @@ std::vector<float> sharpen(const std::vector<float>& image, int w, int h, float 
   }
 
   double sum = 0;
-  for (double i : kernel) sum += i;
+  for (double i : kernel) {
+    sum += i;
+  }
   const double mul = 1.0 / sum;
 
   std::vector<float> result = convolve2X(image, w, h, kernel.data(), kernel.size(), mul);
@@ -136,7 +142,9 @@ std::vector<float> blur(const std::vector<float>& image, int w, int h) {
   }
 
   double sum = 0;
-  for (double i : kernel) sum += i;
+  for (double i : kernel) {
+    sum += i;
+  }
   const double mul = 1.0 / sum;
 
   return convolve2X(image, w, h, kernel.data(), kernel.size(), mul);
@@ -150,7 +158,9 @@ namespace guetzli {
 // channel should be 2 for v sharpening, or 1 for less effective u sharpening
 std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, float sigma, float amount, bool do_blur,
                                                   bool do_sharpen, const std::vector<std::vector<float>>& image) {
-  if (!do_blur && !do_sharpen) return image;
+  if (!do_blur && !do_sharpen) {
+    return image;
+  }
 
   // Bring in range 0.0-1.0 for Y, -0.5 - 0.5 for U and V
   auto yuv = image;
@@ -232,8 +242,12 @@ std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, flo
       size_t index = y * w + x;
       float u = yuv[1][index];
       float v = yuv[2][index];
-      if (sharpenmap[index]) continue;
-      if (!darkmap[index]) continue;
+      if (sharpenmap[index]) {
+        continue;
+      }
+      if (!darkmap[index]) {
+        continue;
+      }
       if (fabs(edge[index]) < threshold && v < -0.162 * u) {
         blurmap[index] = true;
       }
@@ -250,9 +264,13 @@ std::vector<std::vector<float>> preProcessChannel(int w, int h, int channel, flo
       size_t index = y * w + x;
 
       if (sharpenmap[index]) {
-        if (do_sharpen) yuv[channel][index] = sharpened[index];
+        if (do_sharpen) {
+          yuv[channel][index] = sharpened[index];
+        }
       } else if (blurmap[index]) {
-        if (do_blur) yuv[channel][index] = blurred[index];
+        if (do_blur) {
+          yuv[channel][index] = blurred[index];
+        }
       }
     }
   }

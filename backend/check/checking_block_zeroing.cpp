@@ -18,7 +18,9 @@ std::vector<CoeffData> CheckingBlockZeroingSearch::run(const BlockZeroingInput& 
       ++count;
     }
   }
-  if (count > 0) logger_.log(LogLevel::Error, "CHK BlockZeroing order %zu:%zu\n", count, reference.size());
+  if (count > 0) {
+    logger_.log(LogLevel::Error, "CHK BlockZeroing order %zu:%zu\n", count, reference.size());
+  }
   return reference;
 }
 

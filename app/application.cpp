@@ -35,7 +35,9 @@ void Application::logMemoryLimitExceeded() {
 }
 
 bool Application::withinMemoryLimit(double pixels) const {
-  if (!config_.io.memlimit_mb) return true;
+  if (!config_.io.memlimit_mb) {
+    return true;
+  }
   const auto limit = static_cast<double>(*config_.io.memlimit_mb);
   return pixels * kBytesPerPixel / (1 << 20) <= limit && limit >= kLowestMemusageMb;
 }
@@ -75,7 +77,9 @@ Application::Result Application::encode(Backend& backend, const std::string& in_
     return Result::Success;
   }
 
-  if (!isJpeg(in_data)) return Result::NotSupported;
+  if (!isJpeg(in_data)) {
+    return Result::NotSupported;
+  }
   JpegData jpg_header;
   if (!readJpeg(in_data, JPEG_READ_HEADER, &jpg_header)) {
     logger_.log(LogLevel::Error, "Error reading JPEG data from input file\n");
@@ -117,7 +121,9 @@ int Application::run() {
     } catch (const std::bad_alloc&) {
       throw;  // host OOM: retrying on the CPU would not help (main's terminate handler reports it)
     } catch (const std::exception& e) {
-      if (kind == BackendKind::Cpu) throw;
+      if (kind == BackendKind::Cpu) {
+        throw;
+      }
       // GPU backend failure (no device, kernel build/load error, device OOM, ...):
       // redo the whole job on the CPU.
       logger_.log(LogLevel::Error, "GPU processing failed (%s); falling back to CPU (--c).\n", e.what());

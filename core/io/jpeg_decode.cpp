@@ -86,7 +86,9 @@ bool decompressWithTurbo(const std::string& data, tjhandle handle, int width, in
     const int pitch = tjPixelSize[TJPF_CMYK] * width;
     std::vector<uint8_t> cmyk(static_cast<size_t>(pitch) * height);
     result = tjDecompress2(handle, src, src_size, cmyk.data(), width, pitch, height, TJPF_CMYK, 0);
-    if (result == 0) cmykToRgb(cmyk.data(), image.rgb.data(), cmyk.size());
+    if (result == 0) {
+      cmykToRgb(cmyk.data(), image.rgb.data(), cmyk.size());
+    }
   } else {
     const int pitch = tjPixelSize[TJPF_RGB] * width;
     result = tjDecompress2(handle, src, src_size, image.rgb.data(), width, pitch, height, TJPF_RGB, 0);
@@ -120,7 +122,9 @@ std::optional<RgbImage> decodeJpegPixels(const std::string& data, ILogger& logge
     ok = decompressWithTurbo(data, handle, width, height, colorspace, image, logger);
   }
   tjDestroy(handle);
-  if (!ok) return std::nullopt;
+  if (!ok) {
+    return std::nullopt;
+  }
   return image;
 }
 

@@ -79,7 +79,9 @@ Backend GpuDevices::makeBackend(BackendKind kind) {
 }
 
 BackendKind resolveBackendKind(BackendKind requested, const BackendProbes& probes, ILogger& logger) {
-  if (requested != BackendKind::Auto) return requested;
+  if (requested != BackendKind::Auto) {
+    return requested;
+  }
 
   logger.log(LogLevel::Info, "Autodetect:\n");
   if (probes.cuda) {
@@ -119,10 +121,16 @@ Backend checkedAgainst(Backend tested, Backend reference, ILogger& logger) {
 }  // namespace
 
 Backend makeBackend(BackendKind kind, bool check_against_cpu, GpuDevices& devices, ILogger& logger) {
-  if (kind == BackendKind::Auto) throw std::logic_error("makeBackend: resolve Auto first");
-  if (kind == BackendKind::Cpu) return makeCpuBackend();
+  if (kind == BackendKind::Auto) {
+    throw std::logic_error("makeBackend: resolve Auto first");
+  }
+  if (kind == BackendKind::Cpu) {
+    return makeCpuBackend();
+  }
   Backend gpu = devices.makeBackend(kind);
-  if (!check_against_cpu) return gpu;
+  if (!check_against_cpu) {
+    return gpu;
+  }
   return checkedAgainst(std::move(gpu), makeCpuBackend(), logger);
 }
 

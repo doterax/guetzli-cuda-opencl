@@ -32,15 +32,21 @@ bool setDepth(int p0, HuffmanTree* pool, uint8_t* depth, int max_depth) {
   while (true) {
     if (pool[p].index_left >= 0) {
       level++;
-      if (level > max_depth) return false;
+      if (level > max_depth) {
+        return false;
+      }
       stack[level] = pool[p].index_right_or_value;
       p = pool[p].index_left;
       continue;
     }
     depth[pool[p].index_right_or_value] = static_cast<uint8_t>(level);
 
-    while (level >= 0 && stack[level] == -1) level--;
-    if (level < 0) return true;
+    while (level >= 0 && stack[level] == -1) {
+      level--;
+    }
+    if (level < 0) {
+      return true;
+    }
     p = stack[level];
     stack[level] = -1;
   }

@@ -28,16 +28,18 @@ struct ProbeLog {
 
 guetzli::BackendProbes fakeProbes(ProbeLog& log, std::optional<bool> cuda, std::optional<bool> opencl) {
   guetzli::BackendProbes probes;
-  if (cuda)
+  if (cuda) {
     probes.cuda = [&log, v = *cuda] {
       ++log.cuda_calls;
       return v;
     };
-  if (opencl)
+  }
+  if (opencl) {
     probes.opencl = [&log, v = *opencl] {
       ++log.opencl_calls;
       return v;
     };
+  }
   return probes;
 }
 
@@ -83,7 +85,9 @@ TEST_CASE("auto tries CUDA, then OpenCL, then falls back to the CPU") {
     CHECK(log.opencl_calls == c.opencl_calls);
     const std::string info = logger.text(LogLevel::Info);
     CHECK(info.rfind("Autodetect:\n", 0) == 0);
-    if (c.expected == BackendKind::Cpu) CHECK(info.find("Using optimized CPU implementation") != std::string::npos);
+    if (c.expected == BackendKind::Cpu) {
+      CHECK(info.find("Using optimized CPU implementation") != std::string::npos);
+    }
   }
 }
 
@@ -130,7 +134,9 @@ class FakeComparator final : public guetzli::Comparator {
                                           int /*factor_x*/, int /*factor_y*/, const std::vector<float>& /*distmap*/,
                                           std::vector<float>* /*block_weight*/) override {}
   [[nodiscard]] std::optional<guetzli::BlockReferenceData> blockReferenceData() const override {
-    if (!provides_block_data) return std::nullopt;
+    if (!provides_block_data) {
+      return std::nullopt;
+    }
     return guetzli::BlockReferenceData{.opsin = distmap_, .mask_scale = distmap_};
   }
 
@@ -148,7 +154,9 @@ class FakeComparator final : public guetzli::Comparator {
 int countChk(const RecordingLogger& logger) {
   int n = 0;
   for (const auto& [level, message] : logger.lines) {
-    if (level == LogLevel::Error && message.starts_with("CHK ")) ++n;
+    if (level == LogLevel::Error && message.starts_with("CHK ")) {
+      ++n;
+    }
   }
   return n;
 }
@@ -288,7 +296,9 @@ guetzli::JpegComponent flatComponent(int blocks_x, int blocks_y) {
   comp.width_in_blocks = blocks_x;
   comp.height_in_blocks = blocks_y;
   comp.coeffs.assign(static_cast<size_t>(blocks_x) * blocks_y * guetzli::kDctBlockSize, 0);
-  for (size_t i = 0; i < comp.coeffs.size(); i += guetzli::kDctBlockSize) comp.coeffs[i] = 3;  // DC only
+  for (size_t i = 0; i < comp.coeffs.size(); i += guetzli::kDctBlockSize) {
+    comp.coeffs[i] = 3;  // DC only
+  }
   return comp;
 }
 

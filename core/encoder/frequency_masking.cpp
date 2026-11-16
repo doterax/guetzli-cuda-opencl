@@ -75,7 +75,9 @@ ZeroingCandidates collectZeroingCandidates(std::span<const CoeffData> orders, in
 void FrequencyMasking::run(const JpegData& jpg, OutputImage& img, const uint8_t comp_mask, const double target_mul,
                            bool stop_early) {
   const int last_c = log2FloorNonZero(comp_mask);
-  if (static_cast<size_t>(last_c) >= jpg.components.size()) return;
+  if (static_cast<size_t>(last_c) >= jpg.components.size()) {
+    return;
+  }
   const BlockGrid grid = blockGrid(img, last_c);
 
   comparator_->startBlockComparisons();
@@ -90,7 +92,9 @@ void FrequencyMasking::run(const JpegData& jpg, OutputImage& img, const uint8_t 
       collectZeroingCandidates(orders, grid.num_blocks, comparator_->blockErrorLimit());
   comparator_->finishBlockComparisons();
 
-  if (candidates.coeffs.empty()) return;  // nothing to do
+  if (candidates.coeffs.empty()) {
+    return;  // nothing to do
+  }
   adjust(jpg, img, comp_mask, target_mul, stop_early, candidates);
 }
 

@@ -16,7 +16,9 @@ namespace {
 void terminateHandler() {
   try {
     std::exception_ptr e = std::current_exception();
-    if (e) std::rethrow_exception(e);
+    if (e) {
+      std::rethrow_exception(e);
+    }
   } catch (const std::bad_alloc&) {
     // fall through to the out-of-memory message below
   } catch (const std::exception& e) {
